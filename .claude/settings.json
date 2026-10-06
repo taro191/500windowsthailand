@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./design/index.html)",
+      "Read(./server/data/**)"
+    ]
+  }
+}

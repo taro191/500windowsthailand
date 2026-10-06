@@ -1,0 +1,12 @@
+# Keep LF everywhere (stops Git's "LF will be replaced by CRLF" warnings on Windows).
+* text=auto eol=lf
+
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.sqlite binary
