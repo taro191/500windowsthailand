@@ -1,7 +1,7 @@
 import { Heart, Lock, Plus, ShoppingBag, Tag, Users } from 'lucide-react'
-import type { User, WindowItem, ZoomLevel } from '@/types'
-import { REGIONS_BY_ID } from '@/data/regions'
-import { followerCount, highlightClass, highlightLabel, todaysNote } from '@/lib/windowBadges'
+import type { User, WindowItem, ZoomLevel } from '@shared/types'
+import { REGIONS_BY_ID } from '@shared/regions'
+import { followerCount, highlightClass, highlightLabel, todaysNote } from '@shared/windowBadges'
 import { adForSlot, isPromoSlot, safeHttpUrl, safeImageUrl, type PromoAd } from '@/lib/promo'
 import { HighlightPill, HotSparks, StarBadge } from './WindowBadges'
 

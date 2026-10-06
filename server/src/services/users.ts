@@ -1,0 +1,279 @@
+// Accounts: sign-up, login, sessions, profile, KYC (citizen ID + phone OTP).
+import type { PayoutAccount, User } from '@shared/types'
+import { formatCitizenId, isValidCitizenId, isValidThaiMobile, maskCitizenId } from '@shared/identity'
+import type { UserRow } from '../db/schema'
+import { hashPassword, newId, newToken, sha256, verifyPassword } from '../lib/crypto'
+import { ApiError, badRequest, conflict, forbidden } from '../lib/errors'
+import { nowIso, type AppContext } from '../context'
+
+export const DEFAULT_AVATAR_URL =
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
+export const MIN_PASSWORD_LENGTH = 8
+
+const digits = (value: string) => value.replace(/[^0-9]/g, '')
+const formatPhone = (d: string) => (d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : d)
+const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+
+export function citizenIdOf(ctx: AppContext, row: Pick<UserRow, 'citizen_enc'>): string {
+  return row.citizen_enc ? ctx.secrets.decrypt(row.citizen_enc) || '' : ''
+}
+
+/** The signed-in user's own account (full details, no password). */
+export function selfDto(ctx: AppContext, row: UserRow): User {
+  return {
+    id: row.id,
+    name: row.name,
+    citizenId: formatCitizenId(citizenIdOf(ctx, row)),
+    phone: row.phone ? formatPhone(row.phone) : '',
+    email: row.email,
+    balance: row.balance,
+    avatarUrl: row.avatar_url,
+    bio: row.bio ?? undefined,
+    isVerified: !!row.is_verified,
+    verifiedAt: row.verified_at ?? undefined,
+    createdAt: row.created_at,
+    payoutAccount: row.payout_json ? (JSON.parse(row.payout_json) as PayoutAccount) : undefined,
+    role: row.role === 'admin' ? 'admin' : undefined,
+    suspended: !!row.suspended || undefined,
+  }
+}
+
+/** What an admin sees in the user list: contact details, citizen ID masked. */
+export function adminUserDto(ctx: AppContext, row: UserRow): User {
+  const self = selfDto(ctx, row)
+  return { ...self, citizenId: maskCitizenId(self.citizenId) }
+}
+
+export async function findUser(ctx: AppContext, id: string) {
+  return ctx.db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst()
+}
+
+export async function requireUserRow(ctx: AppContext, id: string) {
+  const row = await findUser(ctx, id)
+  if (!row) throw new ApiError(401, 'ไม่พบบัญชีผู้ใช้ กรุณาเข้าสู่ระบบใหม่')
+  return row
+}
+
+// ---------------------------------------------------------------- sign-up & login
+
+export interface SignupInput {
+  name: string
+  citizenId: string
+  phone: string
+  email: string
+  password: string
+}
+
+export async function signup(ctx: AppContext, input: SignupInput): Promise<UserRow> {
+  const name = String(input.name ?? '').trim()
+  const email = String(input.email ?? '').trim().toLowerCase()
+  const phone = digits(String(input.phone ?? ''))
+  const citizen = digits(String(input.citizenId ?? ''))
+  const password = String(input.password ?? '')
+
+  if (!name) throw badRequest('กรุณากรอกชื่อ-นามสกุล')
+  if (name.length > 120) throw badRequest('ชื่อยาวเกินไป')
+  if (!isEmail(email)) throw badRequest('อีเมลไม่ถูกต้อง')
+  if (!isValidThaiMobile(phone)) throw badRequest('เบอร์โทรศัพท์ต้องมี 10 หลักและขึ้นต้นด้วย 06, 08 หรือ 09')
+  if (!isValidCitizenId(citizen)) throw badRequest('เลขประจำตัวประชาชนไม่ถูกต้องตามสูตรคำนวณของกรมการปกครอง')
+  if (password.length < MIN_PASSWORD_LENGTH) throw badRequest(`รหัสผ่านต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`)
+
+  const citizenHash = ctx.secrets.citizenHash(citizen)
+  const taken = await ctx.db
+    .selectFrom('users')
+    .select(['email', 'phone', 'citizen_hash'])
+    .where((eb) => eb.or([eb('email', '=', email), eb('phone', '=', phone), eb('citizen_hash', '=', citizenHash)]))
+    .execute()
+  if (taken.some((u) => u.citizen_hash === citizenHash)) throw conflict('เลขบัตรประชาชนนี้ถูกลงทะเบียนไว้ในระบบแล้ว')
+  if (taken.some((u) => u.phone === phone)) throw conflict('เบอร์โทรศัพท์นี้ถูกใช้งานในระบบแล้ว')
+  if (taken.some((u) => u.email === email)) throw conflict('อีเมลนี้ถูกใช้งานในระบบแล้ว')
+
+  const now = nowIso()
+  const row: UserRow = {
+    id: newId('u'),
+    name,
+    email,
+    phone,
+    citizen_hash: citizenHash,
+    citizen_enc: ctx.secrets.encrypt(citizen),
+    password_hash: await hashPassword(password),
+    balance: ctx.config.signupBonus,
+    avatar_url: DEFAULT_AVATAR_URL,
+    bio: null,
+    is_verified: 0,
+    verified_at: null,
+    role: 'user',
+    suspended: 0,
+    payout_json: null,
+    created_at: now,
+    updated_at: now,
+  }
+  await ctx.db.insertInto('users').values(row).execute()
+  return row
+}
+
+/** Login by email, phone or citizen ID. Same message for unknown account and wrong password. */
+export async function login(ctx: AppContext, identifier: string, password: string): Promise<UserRow> {
+  const query = String(identifier ?? '').trim().toLowerCase()
+  const d = digits(query)
+  const row = await ctx.db
+    .selectFrom('users')
+    .selectAll()
+    .where((eb) => {
+      const options = [eb('email', '=', query)]
+      if (d.length === 10) options.push(eb('phone', '=', d))
+      if (d.length === 13) options.push(eb('citizen_hash', '=', ctx.secrets.citizenHash(d)))
+      return eb.or(options)
+    })
+    .executeTakeFirst()
+  const ok = row ? await verifyPassword(String(password ?? ''), row.password_hash) : false
+  if (!row || !ok) throw new ApiError(401, 'อีเมล/เบอร์โทร/เลขบัตร หรือรหัสผ่านไม่ถูกต้อง')
+  return row
+}
+
+export async function changePassword(ctx: AppContext, user: UserRow, current: string, next: string) {
+  if (!(await verifyPassword(String(current ?? ''), user.password_hash))) throw badRequest('รหัสผ่านปัจจุบันไม่ถูกต้อง')
+  if (String(next ?? '').length < MIN_PASSWORD_LENGTH) throw badRequest(`รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`)
+  await ctx.db
+    .updateTable('users')
+    .set({ password_hash: await hashPassword(next), updated_at: nowIso() })
+    .where('id', '=', user.id)
+    .execute()
+}
+
+// ---------------------------------------------------------------- sessions
+
+export async function createSession(ctx: AppContext, userId: string): Promise<{ token: string; expiresAt: Date }> {
+  const token = newToken()
+  const expiresAt = new Date(Date.now() + ctx.config.sessionDays * 86_400_000)
+  await ctx.db
+    .insertInto('sessions')
+    .values({ id: sha256(token), user_id: userId, created_at: nowIso(), expires_at: expiresAt.toISOString() })
+    .execute()
+  return { token, expiresAt }
+}
+
+export async function userForSession(ctx: AppContext, token: string): Promise<UserRow | null> {
+  const row = await ctx.db
+    .selectFrom('sessions')
+    .innerJoin('users', 'users.id', 'sessions.user_id')
+    .selectAll('users')
+    .where('sessions.id', '=', sha256(token))
+    .where('sessions.expires_at', '>', nowIso())
+    .executeTakeFirst()
+  return row ?? null
+}
+
+export async function deleteSession(ctx: AppContext, token: string) {
+  await ctx.db.deleteFrom('sessions').where('id', '=', sha256(token)).execute()
+}
+
+// ---------------------------------------------------------------- profile
+
+export interface ProfileInput {
+  name?: string
+  bio?: string
+  payoutAccount?: PayoutAccount
+}
+
+export async function updateProfile(ctx: AppContext, user: UserRow, input: ProfileInput): Promise<UserRow> {
+  const changes: Partial<UserRow> = { updated_at: nowIso() }
+  if (input.name !== undefined) {
+    const name = String(input.name).trim()
+    if (!name || name.length > 120) throw badRequest('ชื่อต้องไม่ว่างและยาวไม่เกิน 120 ตัวอักษร')
+    changes.name = name
+  }
+  if (input.bio !== undefined) changes.bio = String(input.bio).slice(0, 500)
+  if (input.payoutAccount !== undefined) changes.payout_json = JSON.stringify(cleanPayoutAccount(input.payoutAccount))
+  await ctx.db.updateTable('users').set(changes).where('id', '=', user.id).execute()
+  return { ...user, ...changes }
+}
+
+function cleanPayoutAccount(account: PayoutAccount): PayoutAccount {
+  const type = account?.type === 'bank' ? 'bank' : 'promptpay'
+  const accountNumber = String(account?.accountNumber ?? '').trim().slice(0, 40)
+  const accountName = String(account?.accountName ?? '').trim().slice(0, 120)
+  if (!accountNumber || !accountName) throw badRequest('กรุณากรอกเลขบัญชีและชื่อบัญชีให้ครบ')
+  return {
+    type,
+    promptpayType: type === 'promptpay' ? (account.promptpayType === 'citizenId' ? 'citizenId' : 'phone') : undefined,
+    bankCode: type === 'bank' ? String(account.bankCode ?? '').slice(0, 20) : undefined,
+    bankName: type === 'bank' ? String(account.bankName ?? '').slice(0, 80) : undefined,
+    accountNumber,
+    accountName,
+    autoPayout: !!account.autoPayout,
+    // Verified by an admin when the first payout goes through, never by the client.
+    isVerified: false,
+    updatedAt: nowIso(),
+  }
+}
+
+// ---------------------------------------------------------------- KYC
+
+const OTP_TTL_MS = 5 * 60_000
+const OTP_MAX_ATTEMPTS = 5
+const otpHash = (userId: string, code: string) => sha256(`${userId}:${code}`)
+
+/** Sends (or in dev mode, returns) a 6-digit OTP for the phone number. */
+export async function requestOtp(ctx: AppContext, user: UserRow, phoneInput: string): Promise<{ devCode?: string }> {
+  const phone = digits(String(phoneInput ?? ''))
+  if (!isValidThaiMobile(phone)) throw badRequest('เบอร์โทรศัพท์ต้องมี 10 หลักและขึ้นต้นด้วย 06, 08 หรือ 09')
+  const other = await ctx.db.selectFrom('users').select('id').where('phone', '=', phone).where('id', '!=', user.id).executeTakeFirst()
+  if (other) throw conflict('เบอร์โทรศัพท์นี้ผูกกับบัญชีอื่นแล้ว')
+
+  const code = String(Math.floor(100000 + Math.random() * 900000))
+  const values = { phone, code_hash: otpHash(user.id, code), expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(), attempts: 0 }
+  await ctx.db.deleteFrom('otp_codes').where('user_id', '=', user.id).execute()
+  await ctx.db.insertInto('otp_codes').values({ user_id: user.id, ...values }).execute()
+  // No SMS provider yet: OTP_MODE=dev returns the code so the app can show it.
+  return ctx.config.otpMode === 'dev' ? { devCode: code } : {}
+}
+
+export async function verifyKyc(ctx: AppContext, user: UserRow, input: { citizenId: string; phone: string; otp: string }) {
+  const citizen = digits(String(input.citizenId ?? ''))
+  const phone = digits(String(input.phone ?? ''))
+  if (citizen.length !== 13) throw badRequest('เลขบัตรประชาชนต้องมี 13 หลัก')
+  if (!isValidCitizenId(citizen)) throw badRequest('เลขประจำตัวประชาชนไม่ถูกต้องตามสูตรคำนวณของกรมการปกครอง')
+  if (!isValidThaiMobile(phone)) throw badRequest('เบอร์โทรศัพท์ต้องมี 10 หลักและขึ้นต้นด้วย 06, 08 หรือ 09')
+
+  const otp = await ctx.db.selectFrom('otp_codes').selectAll().where('user_id', '=', user.id).executeTakeFirst()
+  if (!otp || otp.phone !== phone) throw badRequest('กรุณากดขอรหัส OTP สำหรับเบอร์นี้ก่อน')
+  if (otp.expires_at < nowIso()) throw badRequest('รหัส OTP หมดอายุ กรุณาขอรหัสใหม่')
+  if (otp.attempts >= OTP_MAX_ATTEMPTS) throw new ApiError(429, 'กรอกรหัส OTP ผิดหลายครั้ง กรุณาขอรหัสใหม่')
+  if (otp.code_hash !== otpHash(user.id, String(input.otp ?? '').trim())) {
+    await ctx.db.updateTable('otp_codes').set({ attempts: otp.attempts + 1 }).where('user_id', '=', user.id).execute()
+    throw badRequest('รหัส OTP ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง')
+  }
+
+  const citizenHash = ctx.secrets.citizenHash(citizen)
+  const other = await ctx.db
+    .selectFrom('users')
+    .select('id')
+    .where('id', '!=', user.id)
+    .where((eb) => eb.or([eb('citizen_hash', '=', citizenHash), eb('phone', '=', phone)]))
+    .executeTakeFirst()
+  if (other) throw conflict('เลขบัตรประชาชนหรือเบอร์โทรนี้ผูกกับบัญชีอื่นแล้วในระบบ')
+
+  const changes = {
+    citizen_hash: citizenHash,
+    citizen_enc: ctx.secrets.encrypt(citizen),
+    phone,
+    is_verified: 1,
+    verified_at: nowIso(),
+    updated_at: nowIso(),
+  }
+  await ctx.db.updateTable('users').set(changes).where('id', '=', user.id).execute()
+  await ctx.db.deleteFrom('otp_codes').where('user_id', '=', user.id).execute()
+  return { ...user, ...changes }
+}
+
+/** Throws unless the user may buy, sell or claim (not suspended, KYC done). */
+export function assertCanTrade(user: UserRow) {
+  if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
+  if (!user.is_verified) {
+    throw forbidden(
+      'ตามข้อบังคับระบบ: หากจะทำการซื้อหรือขายต่อ ต้องยืนยันตัวตนด้วยเลขบัตรประชาชน 13 หลักและเบอร์โทรศัพท์เท่านั้น',
+      { requiresKYC: true },
+    )
+  }
+}

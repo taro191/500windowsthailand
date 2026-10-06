@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Check, CircleAlert, Wallet, X } from 'lucide-react'
-import type { PaymentChannel, PaymentSlip, User } from '@/types'
-import { DEMO_MODE } from '@/lib/store'
-import { enabledChannels, useSettings } from '@/lib/settings'
+import { ArrowRight, Check, CircleAlert, Clock, Loader2, Wallet, X } from 'lucide-react'
+import type { PaymentChannel, PaymentSlip, User } from '@shared/types'
+import { isDemo, paymentChannels } from '@/lib/store'
+import { useSettings } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { ChannelPicker } from './ChannelPicker'
 import { ExternalPaymentFlow } from './ExternalPaymentFlow'
@@ -13,20 +13,22 @@ interface TopUpModalProps {
   isOpen: boolean
   onClose: () => void
   currentUser: User | null
-  /** Credits the wallet once the external payment is approved. */
-  onTopUp: (amount: number, channel: PaymentChannel, slip: PaymentSlip) => { success: true } | { success: false; error: string }
+  /** Card: credited at once. Transfer: the slip waits for an admin (`pending`). */
+  onTopUp: (amount: number, channel: PaymentChannel, slip: PaymentSlip) => Promise<{ success: true; pending: boolean } | { success: false; error: string }>
 }
 
 /** Add money to the wallet through one of the platform's receiving channels. */
 export function TopUpModal({ isOpen, onClose, currentUser, onTopUp }: TopUpModalProps) {
   const settings = useSettings()
   const { min, max, presets } = settings.topUp
-  const channels = enabledChannels(settings)
+  const channels = paymentChannels(settings)
   const [step, setStep] = useState<Step>('amount')
   const [amountInput, setAmountInput] = useState(String(presets[1] ?? presets[0] ?? min))
   const [channelId, setChannelId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [credited, setCredited] = useState(0)
+  const [pending, setPending] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -49,11 +51,14 @@ export function TopUpModal({ isOpen, onClose, currentUser, onTopUp }: TopUpModal
     setStep('pay')
   }
 
-  const approved = (slip: PaymentSlip) => {
+  const approved = async (slip: PaymentSlip) => {
     if (!channel) return
-    const result = onTopUp(amount, channel, slip)
+    setBusy(true)
+    const result = await onTopUp(amount, channel, slip)
+    setBusy(false)
     if (result.success) {
       setCredited(amount)
+      setPending(result.pending)
       setStep('done')
     } else {
       setError(result.error)
@@ -81,11 +86,11 @@ export function TopUpModal({ isOpen, onClose, currentUser, onTopUp }: TopUpModal
         </div>
 
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 text-xs">
-          {DEMO_MODE && step !== 'done' && (
+          {isDemo() && step !== 'done' && (
             <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-[11px] text-amber-200 flex items-start gap-2">
               <span>🧪</span>
               <span>
-                <strong>โหมดสาธิต:</strong> การชำระเงินเป็นการจำลอง กรุณาอย่าโอนเงินจริง
+                <strong>ระบบทดสอบ:</strong> QR และการชำระด้วยบัตรเป็นการจำลอง กรุณาอย่าโอนเงินจริง
               </span>
             </div>
           )}
@@ -147,7 +152,14 @@ export function TopUpModal({ isOpen, onClose, currentUser, onTopUp }: TopUpModal
             </div>
           )}
 
-          {step === 'pay' && channel && (
+          {busy && (
+            <div className="py-10 flex flex-col items-center gap-3 text-stone-300">
+              <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+              <span>กำลังบันทึกรายการ…</span>
+            </div>
+          )}
+
+          {step === 'pay' && channel && !busy && (
             <ExternalPaymentFlow
               channel={channel}
               amount={amount}
@@ -160,11 +172,23 @@ export function TopUpModal({ isOpen, onClose, currentUser, onTopUp }: TopUpModal
 
           {step === 'done' && (
             <div className="py-4 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto">
-                <Check className="w-9 h-9 stroke-[3]" />
-              </div>
-              <h3 className="text-lg font-bold text-stone-100">เติมเงินสำเร็จ +฿{credited.toLocaleString()}</h3>
-              <p className="text-stone-300">ยอดคงเหลือใหม่ ฿{currentUser.balance.toLocaleString()}</p>
+              {pending ? (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-400 text-amber-300 flex items-center justify-center mx-auto">
+                    <Clock className="w-9 h-9" />
+                  </div>
+                  <h3 className="text-lg font-bold text-stone-100">ส่งสลิปเติมเงิน ฿{credited.toLocaleString()} แล้ว</h3>
+                  <p className="text-stone-300 leading-relaxed">ยอดจะเข้ากระเป๋าเมื่อผู้ดูแลตรวจสอบสลิปเรียบร้อย (ดูสถานะได้ในแท็บกระเป๋าเงิน)</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto">
+                    <Check className="w-9 h-9 stroke-[3]" />
+                  </div>
+                  <h3 className="text-lg font-bold text-stone-100">เติมเงินสำเร็จ +฿{credited.toLocaleString()}</h3>
+                  <p className="text-stone-300">ยอดคงเหลือใหม่ ฿{currentUser.balance.toLocaleString()}</p>
+                </>
+              )}
               <button
                 type="button"
                 onClick={onClose}

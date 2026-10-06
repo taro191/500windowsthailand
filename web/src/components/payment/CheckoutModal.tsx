@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Check, Sparkles, X } from 'lucide-react'
-import type { PaymentBreakdown, User, WindowItem } from '@/types'
-import { REGIONS_BY_ID } from '@/data/regions'
+import { Check, Clock, Sparkles, X } from 'lucide-react'
+import type { PaymentBreakdown, User, WindowItem } from '@shared/types'
+import { REGIONS_BY_ID } from '@shared/regions'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { PaymentPanel, type ConfirmResult } from './PaymentPanel'
 
@@ -13,13 +13,13 @@ interface CheckoutModalProps {
   currentUser: User | null
   amount: number
   /** Performs the purchase; the modal shows the result. */
-  onConfirm: (payment: PaymentBreakdown) => ConfirmResult
+  onConfirm: (payment: PaymentBreakdown) => Promise<ConfirmResult>
   onOpenTopUp: () => void
 }
 
 /** Paying for a window claim or resale (wallet first, rest through a channel). */
 export function CheckoutModal({ isOpen, onClose, mode, windowItem, currentUser, amount, onConfirm, onOpenTopUp }: CheckoutModalProps) {
-  const [result, setResult] = useState<PaymentBreakdown | null>(null)
+  const [result, setResult] = useState<{ payment: PaymentBreakdown; pending: boolean } | null>(null)
   useEffect(() => {
     if (isOpen) setResult(null)
   }, [isOpen, windowItem?.id])
@@ -40,7 +40,7 @@ export function CheckoutModal({ isOpen, onClose, mode, windowItem, currentUser, 
             <KapsulepLogo size={26} showGlow />
             <div>
               <span className="font-bold text-stone-100 text-sm sm:text-base font-['Outfit',sans-serif] block leading-tight">
-                {result ? 'ชำระเงินสำเร็จ พร้อมใช้งาน!' : 'ชำระเงิน'}
+                {!result ? 'ชำระเงิน' : result.pending ? 'ส่งสลิปแล้ว รอตรวจสอบ' : 'ชำระเงินสำเร็จ พร้อมใช้งาน!'}
               </span>
               <span className="text-[11px] text-stone-400 font-light">
                 {mode === 'claim' ? 'จับจองบานใหม่' : 'ซื้อต่อบานหน้าต่าง'} {code} ({region?.name}) · ฿{amount.toLocaleString()}
@@ -60,9 +60,30 @@ export function CheckoutModal({ isOpen, onClose, mode, windowItem, currentUser, 
               itemLabel={`หน้าต่างบานที่ ${code}`}
               reference={code}
               onConfirm={onConfirm}
-              onPaid={setResult}
+              onPaid={(payment, pending) => setResult({ payment, pending })}
               onOpenTopUp={onOpenTopUp}
             />
+          ) : result.pending ? (
+            <div className="py-4 text-center space-y-5 animate-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-400 text-amber-300 flex items-center justify-center mx-auto">
+                <Clock className="w-9 h-9" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-stone-100 font-['Outfit',sans-serif]">ส่งสลิปเรียบร้อย รอผู้ดูแลตรวจสอบ</h3>
+                <p className="text-xs text-stone-300 mt-1 leading-relaxed">
+                  บานที่ <strong className="text-rose-300 font-mono">{code}</strong> ถูกจองไว้ให้คุณแล้ว เมื่อผู้ดูแลยืนยันยอดโอน
+                  ระบบจะโอนสิทธิ์ให้ทันที · ถ้าสลิปไม่ผ่าน ยอดที่ตัดจากกระเป๋าจะคืนเข้ากระเป๋าอัตโนมัติ
+                </p>
+              </div>
+              <PaymentSummary payment={result.payment} total={amount} />
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 hover:opacity-95 cursor-pointer"
+              >
+                ตกลง
+              </button>
+            </div>
           ) : (
             <div className="py-4 text-center space-y-5 animate-in zoom-in-95 duration-200">
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto">
@@ -74,7 +95,7 @@ export function CheckoutModal({ isOpen, onClose, mode, windowItem, currentUser, 
                   หน้าต่างบานที่ <strong className="text-rose-300 font-mono">{code}</strong> โอนกรรมสิทธิ์เข้าสู่บัญชีของคุณเรียบร้อยแล้ว
                 </p>
               </div>
-              <PaymentSummary payment={result} total={amount} />
+              <PaymentSummary payment={result.payment} total={amount} />
               <button
                 type="button"
                 onClick={onClose}
@@ -103,7 +124,7 @@ export function PaymentSummary({ payment, total }: { payment: PaymentBreakdown; 
     <div className="p-3.5 rounded-xl bg-[#09080e] border border-emerald-500/30 text-left space-y-1.5 font-mono text-xs">
       {row('ตัดจากกระเป๋าเงิน:', `฿${payment.walletAmount.toLocaleString()}`)}
       {payment.externalAmount > 0 && row(`ชำระผ่าน ${payment.channelName}:`, `฿${payment.externalAmount.toLocaleString()}`)}
-      {payment.slip?.slipRef && row('รหัสอ้างอิง:', payment.slip.slipRef)}
+      {payment.slip?.slipRef && row('เลขที่รายการ:', payment.slip.slipRef)}
       {row('รวมที่ชำระ:', `฿${total.toLocaleString()}.00`, true)}
     </div>
   )

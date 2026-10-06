@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { PROMO_LAYOUT_LABELS, previewPromoLayout } from '@/lib/promo'
-import { sixHourBlock } from '@/lib/thaiTime'
+import { sixHourBlock } from '@shared/thaiTime'
 
 interface PromoLayoutPreviewProps {
   size: number

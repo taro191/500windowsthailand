@@ -1,6 +1,6 @@
 import { Building2, ChartNoAxesColumn, Layers, Lock, Tag } from 'lucide-react'
-import type { Region, Transaction } from '@/types'
-import { REGIONS } from '@/data/regions'
+import type { Region, Transaction } from '@shared/types'
+import { REGIONS } from '@shared/regions'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 import { SectionHeading } from './SectionHeading'
 import type { BoardCounts } from './SearchFilterTab'

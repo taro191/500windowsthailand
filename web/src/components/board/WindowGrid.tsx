@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ArrowUp, LayoutGrid, Search, X } from 'lucide-react'
-import type { RegionId, StatusCounts, StatusFilter, User, WindowItem, ZoomLevel } from '@/types'
-import { REGIONS_BY_ID } from '@/data/regions'
+import type { RegionId, StatusCounts, StatusFilter, User, WindowItem, ZoomLevel } from '@shared/types'
+import { REGIONS_BY_ID } from '@shared/regions'
 import { isPromoSlot, promoGridPositions } from '@/lib/promo'
-import { likesToday } from '@/lib/windowBadges'
+import { likesToday } from '@shared/windowBadges'
 import { WindowTile } from './WindowTile'
 
 interface WindowGridProps {

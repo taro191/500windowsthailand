@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CreditCard,
   ExternalLink,
+  FileCheck2,
   Gauge,
   HandCoins,
   History,
@@ -21,7 +22,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
-import type { User } from '@/types'
+import type { User } from '@shared/types'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 export type AdminPage =
@@ -30,6 +31,7 @@ export type AdminPage =
   | 'moderation'
   | 'promo'
   | 'users'
+  | 'payments'
   | 'transactions'
   | 'topups'
   | 'payouts'
@@ -58,6 +60,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   moderation: 'ตรวจสอบเนื้อหา',
   promo: 'พื้นที่โปรโมท',
   users: 'ผู้ใช้งาน & KYC',
+  payments: 'ตรวจสลิปชำระเงิน',
   transactions: 'ธุรกรรมทั้งหมด',
   topups: 'การเติมเงิน',
   payouts: 'จ่ายเงินผู้ขาย',
@@ -99,6 +102,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
     {
       header: 'การเงิน',
       items: [
+        { id: 'payments', label: PAGE_TITLES.payments, icon: FileCheck2, badge: badges.payments },
         { id: 'transactions', label: PAGE_TITLES.transactions, icon: Receipt },
         { id: 'topups', label: PAGE_TITLES.topups, icon: Wallet },
         { id: 'payouts', label: PAGE_TITLES.payouts, icon: HandCoins },

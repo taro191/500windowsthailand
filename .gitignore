@@ -4,3 +4,5 @@ dist/
 .env*
 *.log
 .vite/
+!.env.example
+server/data/

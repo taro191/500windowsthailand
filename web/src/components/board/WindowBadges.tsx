@@ -1,6 +1,6 @@
 // Visual effects layered on a window tile: star (popular), sparks (very hot) and the highlight pill.
-import type { WindowItem } from '@/types'
-import { freshKind, highlightKind, hotLevel, likesToday, starLevel, todaysNote } from '@/lib/windowBadges'
+import type { WindowItem } from '@shared/types'
+import { freshKind, highlightKind, hotLevel, likesToday, starLevel, todaysNote } from '@shared/windowBadges'
 
 const STAR_PATH = 'M12 2.2l2.9 6.1 6.7.8-4.9 4.6 1.3 6.6L12 17l-6 3.3 1.3-6.6L2.4 9.1l6.7-.8L12 2.2z'
 

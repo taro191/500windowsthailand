@@ -1,5 +1,5 @@
 import { ShieldCheck } from 'lucide-react'
-import type { Quota, User } from '@/types'
+import type { Quota, User } from '@shared/types'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface WelcomeBannerProps {

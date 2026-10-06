@@ -1,5 +1,5 @@
-import type { CategoryId, StatusFilter, User, WindowItem } from '@/types'
-import { matchesEffectFilter } from './windowBadges'
+import type { CategoryId, StatusFilter, User, WindowItem } from '@shared/types'
+import { matchesEffectFilter } from '@shared/windowBadges'
 
 /** Applies the status/effect filter, category and free-text search used by the board. */
 export function filterWindows(

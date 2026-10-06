@@ -1,6 +1,6 @@
 import { ArrowRight, Award, Check, X } from 'lucide-react'
-import type { RegionId } from '@/types'
-import { REGIONS } from '@/data/regions'
+import type { RegionId } from '@shared/types'
+import { REGIONS } from '@shared/regions'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface RegionMenuModalProps {

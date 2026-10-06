@@ -1,5 +1,5 @@
 import { Building2, CreditCard, QrCode, Smartphone } from 'lucide-react'
-import type { PaymentChannel, PaymentChannelType } from '@/types'
+import type { PaymentChannel, PaymentChannelType } from '@shared/types'
 import { CHANNEL_TYPE_LABELS } from '@/lib/settings'
 
 const ICONS: Record<PaymentChannelType, typeof QrCode> = {

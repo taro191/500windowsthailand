@@ -1,10 +1,12 @@
-// Paying an amount through one external channel: instructions → proof → (simulated)
-// verification. Used by checkout (for the part the wallet doesn't cover) and top-up.
+// Paying an amount through one external channel: instructions → transfer slip (checked
+// later by an admin) or card (simulated gateway until one is chosen). Used by checkout
+// (for the part the wallet doesn't cover) and top-up.
 import { useEffect, useState } from 'react'
 import { ArrowRight, Check, CircleCheck, Clock, Copy, CreditCard, Receipt, Sparkles, Upload } from 'lucide-react'
-import type { PaymentChannel, PaymentSlip } from '@/types'
-import { BANKS } from '@/data/banks'
-import { DEMO_MODE } from '@/lib/store'
+import type { PaymentChannel, PaymentSlip } from '@shared/types'
+import { BANKS } from '@shared/banks'
+import { isDemo } from '@/lib/store'
+import { resizeImageFile } from '@/lib/promo'
 import { drawDemoSlip, makeSlipReference } from '@/lib/demoSlip'
 import { SLIP_CHANNEL_TYPES } from '@/lib/settings'
 
@@ -17,6 +19,7 @@ interface ExternalPaymentFlowProps {
   /** Shown on the demo slip, e.g. a window code or "เติมเงิน". */
   reference: string
   onBack: () => void
+  /** Slip attached (sent for review) or card payment approved by the gateway. */
   onApproved: (slip: PaymentSlip) => void
 }
 
@@ -26,42 +29,37 @@ export function ExternalPaymentFlow({ channel, amount, payerName, reference, onB
   const [slipRef, setSlipRef] = useState('')
   const [progress, setProgress] = useState(0)
   const [progressText, setProgressText] = useState('')
+  const [fileError, setFileError] = useState('')
   const usesSlip = SLIP_CHANNEL_TYPES.includes(channel.type)
 
+  // Card only: the gateway is simulated until a provider is chosen.
   useEffect(() => {
     if (step !== 'verifying') return
-    const demo = DEMO_MODE ? '(จำลอง) ' : ''
-    const steps: [number, number, string][] = usesSlip
-      ? [
-          [0, 25, `🔍 ${demo}ตรวจสอบภาพสลิปและรหัสอ้างอิง...`],
-          [900, 60, `💰 ${demo}ตรวจสอบยอดเงิน (฿${amount.toLocaleString()})...`],
-          [1800, 100, `✅ อนุมัติการชำระเงินสำเร็จ${DEMO_MODE ? ' (จำลอง)' : ''}`],
-        ]
-      : [
-          [0, 30, `🔐 ${demo}เชื่อมต่อ Payment Gateway...`],
-          [900, 70, `💳 ${demo}อนุมัติรายการบัตร (฿${amount.toLocaleString()})...`],
-          [1800, 100, `✅ ชำระผ่านบัตรสำเร็จ${DEMO_MODE ? ' (จำลอง)' : ''}`],
-        ]
+    const steps: [number, number, string][] = [
+      [0, 30, '🔐 (จำลอง) เชื่อมต่อ Payment Gateway...'],
+      [900, 70, `💳 (จำลอง) อนุมัติรายการบัตร (฿${amount.toLocaleString()})...`],
+      [1800, 100, '✅ ชำระผ่านบัตรสำเร็จ (จำลอง)'],
+    ]
     const timers = steps.map(([delay, percent, text]) =>
       setTimeout(() => {
         setProgress(percent)
         setProgressText(text)
       }, delay),
     )
-    const reference = slipRef || makeSlipReference(usesSlip ? 'SLIP' : 'CARD')
-    timers.push(setTimeout(() => onApproved({ slipUrl: slipUrl || '', slipRef: reference }), 2300))
+    timers.push(setTimeout(() => onApproved({ slipUrl: '', slipRef: '' }), 2300))
     return () => timers.forEach(clearTimeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
-  const handleFile = (file?: File) => {
+  /** Slips are downscaled to a JPEG before upload (still readable, much smaller). */
+  const handleFile = async (file?: File) => {
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setSlipUrl(e.target?.result as string)
-      if (!slipRef) setSlipRef(makeSlipReference())
+    setFileError('')
+    try {
+      setSlipUrl(await resizeImageFile(file, 1600))
+    } catch {
+      setFileError('อ่านไฟล์รูปไม่ได้ กรุณาเลือกไฟล์ภาพสลิปใหม่')
     }
-    reader.readAsDataURL(file)
   }
 
   const createDemoSlip = () => {
@@ -82,7 +80,7 @@ export function ExternalPaymentFlow({ channel, amount, payerName, reference, onB
           </div>
         </div>
         <div>
-          <h3 className="text-base font-bold text-stone-100 font-['Outfit',sans-serif]">กำลังตรวจสอบการชำระเงิน...</h3>
+          <h3 className="text-base font-bold text-stone-100 font-['Outfit',sans-serif]">กำลังชำระผ่านบัตร...</h3>
           <p className="text-xs text-rose-300 mt-1 font-mono font-medium">{progressText}</p>
         </div>
         <div className="max-w-xs mx-auto space-y-1.5">
@@ -110,7 +108,8 @@ export function ExternalPaymentFlow({ channel, amount, payerName, reference, onB
             <span>แนบสลิปเพื่อยืนยันการชำระผ่าน {channel.name}</span>
           </div>
           <p className="text-[11px] text-stone-300 font-light leading-relaxed">
-            แนบภาพสลิปการโอนเงินจำนวน <strong className="font-mono text-rose-300 font-bold">฿{amount.toLocaleString()}</strong>
+            แนบภาพสลิปการโอนเงินจำนวน <strong className="font-mono text-rose-300 font-bold">฿{amount.toLocaleString()}</strong> ·
+            ผู้ดูแลจะตรวจสอบสลิปและยืนยันรายการให้ (ระหว่างนี้ระบบจองรายการไว้ให้คุณ)
           </p>
         </div>
 
@@ -128,10 +127,15 @@ export function ExternalPaymentFlow({ channel, amount, payerName, reference, onB
             <div className="max-h-56 overflow-hidden rounded-xl border border-stone-800 bg-black flex items-center justify-center">
               <img src={slipUrl} alt="Payment Slip" className="max-h-56 object-contain" />
             </div>
-            <div className="flex items-center justify-between text-[11px] text-stone-400 font-mono pt-1 border-t border-purple-900/20">
-              <span>รหัสอ้างอิงสลิป:</span>
-              <span className="text-stone-200 font-bold">{slipRef}</span>
-            </div>
+            <label className="flex items-center justify-between gap-2 text-[11px] text-stone-400 pt-1 border-t border-purple-900/20">
+              <span className="shrink-0">เลขที่รายการบนสลิป (ถ้ามี):</span>
+              <input
+                value={slipRef}
+                onChange={(e) => setSlipRef(e.target.value.slice(0, 60))}
+                placeholder="เช่น 0161234567890"
+                className="min-w-0 flex-1 bg-stone-950 border border-stone-700 rounded-lg px-2 py-1 font-mono text-stone-200 focus:outline-none focus:border-rose-400"
+              />
+            </label>
           </div>
         ) : (
           <div className="space-y-3">
@@ -141,7 +145,8 @@ export function ExternalPaymentFlow({ channel, amount, payerName, reference, onB
               <span className="text-[10px] text-stone-400 block mt-1 font-light">รองรับไฟล์ภาพ JPG, PNG, WEBP</span>
               <input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0])} className="hidden" />
             </label>
-            {DEMO_MODE && (
+            {fileError && <p className="text-[11px] text-rose-300">{fileError}</p>}
+            {isDemo() && (
               <button
                 type="button"
                 onClick={createDemoSlip}
@@ -165,10 +170,10 @@ export function ExternalPaymentFlow({ channel, amount, payerName, reference, onB
           <button
             type="button"
             disabled={!slipUrl}
-            onClick={() => slipUrl && setStep('verifying')}
+            onClick={() => slipUrl && onApproved({ slipUrl, slipRef: slipRef.trim() })}
             className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${slipUrl ? 'bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 text-white shadow-lg shadow-rose-500/20 hover:opacity-95' : 'bg-stone-800 text-stone-500 cursor-not-allowed'}`}
           >
-            <span>ส่งสลิปเพื่อยืนยันการชำระเงิน</span>
+            <span>ส่งสลิปให้ผู้ดูแลตรวจสอบ</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -192,7 +197,7 @@ export function ExternalPaymentFlow({ channel, amount, payerName, reference, onB
           onClick={() => setStep(usesSlip ? 'slip' : 'verifying')}
           className="flex-1 py-3 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 hover:opacity-95 shadow-lg shadow-rose-500/20 cursor-pointer flex items-center justify-center gap-2"
         >
-          <span>{usesSlip ? 'ชำระเรียบร้อยแล้ว: แนบสลิปยืนยัน' : `ชำระด้วยบัตร ฿${amount.toLocaleString()}`}</span>
+          <span>{usesSlip ? 'โอนเรียบร้อยแล้ว: แนบสลิป' : `ชำระด้วยบัตร ฿${amount.toLocaleString()} (จำลอง)`}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>

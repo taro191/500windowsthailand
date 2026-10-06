@@ -143,6 +143,8 @@ export interface WindowItem {
   dailyNote?: DailyNote
   /** Position on the board in the current rotation cycle (1–500). */
   slotPosition: number
+  /** Held for a buyer whose transfer slip is waiting for an admin; nobody else can buy it meanwhile. */
+  reserved?: boolean
 }
 
 export type TransactionType = 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund'
@@ -172,6 +174,8 @@ export interface Transaction {
   walletAmount?: number
   externalAmount?: number
   channelName?: string
+  /** Payment order this transaction settled (see PaymentOrder). */
+  orderId?: string
 }
 
 /** Proof of an external payment (transfer slip or gateway reference). */
@@ -271,3 +275,46 @@ export interface StatusCounts {
 export type Result<T extends object = object> =
   | ({ success: true } & T)
   | { success: false; error: string; requiresKYC?: boolean }
+
+// ---------------------------------------------------------------- payments & admin (API)
+
+export type PaymentOrderKind = 'topup' | 'claim' | 'resale' | 'promo'
+export type PaymentOrderStatus = 'pending' | 'approved' | 'rejected'
+
+/**
+ * A payment that needs an external part (transfer slip or card). Slip payments stay
+ * `pending` until an admin checks the slip; the wallet part is held in the meantime.
+ */
+export interface PaymentOrder {
+  id: string
+  userId: string
+  userName: string
+  kind: PaymentOrderKind
+  /** e.g. "จับจอง KAP-TH-040" or "เติมเงินเข้ากระเป๋า". */
+  label: string
+  amount: number
+  walletAmount: number
+  externalAmount: number
+  channelId?: string
+  channelName?: string
+  slipUrl?: string
+  slipRef?: string
+  status: PaymentOrderStatus
+  createdAt: string
+  decidedAt?: string
+  decidedBy?: string
+  /** Reason given by the admin when rejecting. */
+  note?: string
+  region?: RegionId
+  windowId?: number
+  promoRequestId?: string
+}
+
+export interface AuditEntry {
+  id: string
+  at: string
+  adminId: string
+  adminName: string
+  action: string
+  detail: string
+}

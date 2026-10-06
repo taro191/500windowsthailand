@@ -1,5 +1,5 @@
 import { ImageOff, LayoutGrid, Megaphone, Receipt, ShieldCheck, Tag, Users, Wallet } from 'lucide-react'
-import { REGIONS } from '@/data/regions'
+import { REGIONS } from '@shared/regions'
 import { isPromoSlot } from '@/lib/promo'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 import type { AdminPage } from '../AdminLayout'

@@ -1,82 +1,13 @@
-// Promo area: windows 481–486 are reserved for sponsored ads. Each 6-hour round the
-// active ads are assigned to those numbers and placed on the grid as one shape.
-import { seededRandom } from './random'
-import { sixHourBlockIndex } from './thaiTime'
+// Promo area on the board (windows 481–486): ad placement per 6-hour round, the promo
+// dialog preview, and the active ads / booking data loaded from the API.
+import { seededRandom } from '@shared/random'
+import { sixHourBlockIndex } from '@shared/thaiTime'
+import { PROMO_LAYOUTS, PROMO_SLOTS, roundsLeft, safeHttpUrl, type PromoAd, type PromoLayout, type PromoRequest } from '@shared/promo'
 
-export const PROMO_SLOTS = [481, 482, 483, 484, 485, 486]
-export const PROMO_SIZES = [2, 3, 4, 6]
+export * from '@shared/promo'
+
 /** Window event that opens the promo request dialog from anywhere. */
 export const OPEN_PROMO_EVENT = 'kapsulep:open-promo'
-
-export const isPromoSlot = (id: number) => id >= 481 && id <= 486
-
-export type PromoLayout = 'horizontal' | 'vertical' | 'cluster' | 'scatter'
-export const PROMO_LAYOUTS: PromoLayout[] = ['horizontal', 'vertical', 'cluster', 'scatter']
-export const PROMO_LAYOUT_LABELS: Record<PromoLayout, string> = {
-  horizontal: 'ต่อกันแนวนอน',
-  vertical: 'ต่อกันแนวตั้ง',
-  cluster: 'รวมเป็นก้อน',
-  scatter: 'แยกกันคนละจุด',
-}
-
-export interface PromoAd {
-  brand: string
-  tagline?: string
-  link?: string
-  image?: string
-  /** Number of windows the ad occupies (1–6). */
-  size: number
-}
-
-export const PROMO_PRICE_PER_WINDOW_ROUND = 30
-export const PROMO_ROUND_OPTIONS = [1, 2, 3, 4]
-/** Each day has four 6-hour rounds that can be booked. */
-export const PROMO_ROUNDS_PER_DAY = 4
-
-export type PromoRequestStatus = 'pending' | 'approved' | 'rejected'
-
-export interface PromoRequest {
-  id: string
-  userId: string
-  brand: string
-  tagline: string
-  link: string
-  contact: string
-  images: string[]
-  /** First image, used by the ad renderer on the board. */
-  image: string
-  size: number
-  price: number
-  rounds: number
-  durationHours: number
-  scheduleMode: 'today' | 'calendar'
-  /** Local date `YYYY-MM-DD`. */
-  startDate: string
-  termsAccepted: true
-  termsAcceptedAt: string
-  createdAt: string
-  status: PromoRequestStatus
-  /** Requests saved by older versions used whole days instead of rounds. */
-  duration?: number
-  /** Paid when the request is submitted. */
-  payment?: {
-    amount: number
-    walletAmount: number
-    externalAmount: number
-    channelName?: string
-    slipRef?: string
-    paidAt: string
-    transactionId?: string
-  }
-  /** Set when an admin rejects a paid request: the full amount goes back to the wallet. */
-  refund?: {
-    amount: number
-    at: string
-    transactionId: string
-  }
-}
-
-export const promoPrice = (size: number, rounds: number) => size * rounds * PROMO_PRICE_PER_WINDOW_ROUND
 
 /** `YYYY-MM-DD` in the browser's local time zone. */
 export function localDateKey(date: Date = new Date()): string {
@@ -89,14 +20,6 @@ export function isValidPromoStartDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const date = new Date(`${value}T00:00:00`)
   return Number.isFinite(date.getTime()) && localDateKey(date) === value && value >= localDateKey()
-}
-
-/** Rounds still free on `date` (4 per day minus non-rejected requests). */
-export function promoRoundsAvailable(date: string, requests: PromoRequest[] = loadPromoRequests()): number {
-  const reserved = requests
-    .filter((r) => r.startDate === date && r.status !== 'rejected')
-    .reduce((sum, r) => sum + (Number(r.rounds) || 0), 0)
-  return Math.max(0, PROMO_ROUNDS_PER_DAY - reserved)
 }
 
 /** Settings editable in index.html without a rebuild (`window.KAPSULEP_CONFIG`). */
@@ -116,54 +39,28 @@ const getConfig = (): KapsulepConfig => window.KAPSULEP_CONFIG || {}
 export const getPromoEmail = () => (getConfig().promoEmail || '').trim()
 export const getPromoLineUrl = () => safeHttpUrl(getConfig().promoLineUrl)
 
-/** Only http(s) or inline image data; anything else becomes ''. */
-export const safeImageUrl = (url?: string) => (url && /^(https?:\/\/|data:image\/)/i.test(url) ? url : '')
-export const safeHttpUrl = (url?: string) => (url && /^https?:\/\//i.test(url) ? url : '')
+// Loaded from the API by store.ts (see setPromoData).
+let activeAds: PromoAd[] = []
+let myRequests: PromoRequest[] = []
+/** Rounds already booked per start date (YYYY-MM-DD) by non-rejected requests. */
+let reservedRounds: Record<string, number> = {}
 
-const BUILT_IN_ADS: PromoAd[] = []
-const PROMO_REQUESTS_KEY = 'kapsulep_promo_requests'
-const ACTIVE_ADS_KEY = 'kapsulep_promo_active'
-
-export function loadPromoRequests(): PromoRequest[] {
-  try {
-    return JSON.parse(localStorage.getItem(PROMO_REQUESTS_KEY) || '[]')
-  } catch {
-    return []
-  }
+export function setPromoData(data: { ads?: PromoAd[]; myRequests?: PromoRequest[]; reservedRounds?: Record<string, number> }) {
+  if (data.ads) activeAds = data.ads
+  if (data.myRequests) myRequests = data.myRequests
+  if (data.reservedRounds) reservedRounds = data.reservedRounds
 }
 
-export function savePromoRequest(request: PromoRequest): boolean {
-  try {
-    localStorage.setItem(PROMO_REQUESTS_KEY, JSON.stringify([request, ...loadPromoRequests()]))
-    return true
-  } catch {
-    return false
-  }
-}
+/** The signed-in user's promo requests, newest first. */
+export const loadPromoRequests = (): PromoRequest[] => myRequests
 
-/** Applies `change` to one stored request; returns the updated request. */
-export function updatePromoRequest(id: string, change: (request: PromoRequest) => PromoRequest): PromoRequest | null {
-  const requests = loadPromoRequests()
-  const index = requests.findIndex((r) => r.id === id)
-  if (index === -1) return null
-  requests[index] = change(requests[index])
-  try {
-    localStorage.setItem(PROMO_REQUESTS_KEY, JSON.stringify(requests))
-  } catch {
-    return null
-  }
-  return requests[index]
-}
+/** Rounds still free on `date` (4 per day minus booked rounds). */
+export const promoRoundsAvailable = (date: string) => roundsLeft(reservedRounds[date] || 0)
 
-/** Approved ads: built-in + from index.html config + approved locally. */
+/** Approved ads from the API plus any configured in index.html. */
 export function getActiveAds(): PromoAd[] {
-  try {
-    const local = JSON.parse(localStorage.getItem(ACTIVE_ADS_KEY) || '[]')
-    const configured = Array.isArray(getConfig().promoAds) ? getConfig().promoAds! : []
-    return [...BUILT_IN_ADS, ...configured, ...(Array.isArray(local) ? local : [])]
-  } catch {
-    return [...BUILT_IN_ADS]
-  }
+  const configured = Array.isArray(getConfig().promoAds) ? getConfig().promoAds! : []
+  return [...configured, ...activeAds]
 }
 
 /** Downscales an uploaded image to a JPEG data URL no larger than `maxSize` px. */

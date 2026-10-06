@@ -1,4 +1,4 @@
-import type { Region, RegionId } from '@/types'
+import type { Region, RegionId } from './types'
 
 export const REGIONS: Region[] = [
   {

@@ -1,5 +1,5 @@
 import { BookOpen, ShieldCheck, Sparkles } from 'lucide-react'
-import { getRotationCycle } from '@/lib/thaiTime'
+import { getRotationCycle } from '@shared/thaiTime'
 import { sortTiers, tierAgeLabel, useSettings } from '@/lib/settings'
 import { CLAIM_PRICE } from '@/lib/ownershipRules'
 

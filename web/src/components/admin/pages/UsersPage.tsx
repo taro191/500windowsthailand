@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Ban, Search, ShieldOff, Undo2, Users } from 'lucide-react'
-import type { User } from '@/types'
-import { revokeKyc, setUserSuspended } from '@/lib/adminStore'
-import { maskCitizenId, maskPhone } from '@/lib/identity'
+import type { User } from '@shared/types'
+import { revokeKyc, setUserSuspended } from '@/lib/adminApi'
+import { maskCitizenId, maskPhone } from '@shared/identity'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Card, DataTable, inputClass, thaiDateTime } from '../ui'
 
-export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
+export function UsersPage({ data, refresh, notify }: AdminPageProps) {
   const [query, setQuery] = useState('')
   const [kycFilter, setKycFilter] = useState<'all' | 'verified' | 'pending' | 'suspended'>('all')
 
@@ -27,16 +27,18 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
     return matchesQuery && matchesFilter
   })
 
-  const toggleSuspend = (u: User) => {
-    if (!window.confirm(u.suspended ? `ยกเลิกการระงับบัญชี ${u.name}?` : `ระงับการทำธุรกรรมของ ${u.name}?`)) return
-    setUserSuspended(admin, u.id, !u.suspended)
-    refresh()
+  const toggleSuspend = async (u: User) => {
+    if (!window.confirm(u.suspended ? `ยกเลิกการระงับบัญชี ${u.name}?` : `ระงับการทำธุรกรรมของ ${u.name}? (ผู้ใช้จะถูกออกจากระบบทุกอุปกรณ์)`)) return
+    const result = await setUserSuspended(u.id, !u.suspended)
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
     notify(u.suspended ? `ยกเลิกการระงับ ${u.name} แล้ว` : `ระงับบัญชี ${u.name} แล้ว`)
   }
-  const revoke = (u: User) => {
+  const revoke = async (u: User) => {
     if (!window.confirm(`เพิกถอนการยืนยันตัวตนของ ${u.name}? ผู้ใช้จะต้องยืนยันใหม่ก่อนซื้อขาย`)) return
-    revokeKyc(admin, u.id)
-    refresh()
+    const result = await revokeKyc(u.id)
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
     notify(`เพิกถอน KYC ของ ${u.name} แล้ว`)
   }
 

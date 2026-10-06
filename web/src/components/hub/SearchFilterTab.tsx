@@ -1,6 +1,6 @@
 import { Search, X } from 'lucide-react'
-import type { CategoryId, Region, StatusFilter, User } from '@/types'
-import { CATEGORIES, CATEGORY_IDS } from '@/data/categories'
+import type { CategoryId, Region, StatusFilter, User } from '@shared/types'
+import { CATEGORIES, CATEGORY_IDS } from '@shared/categories'
 import { LanguageToggle } from '@/i18n/LanguageToggle'
 
 export interface BoardCounts {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, Megaphone, X } from 'lucide-react'
-import { decidePromoRequest } from '@/lib/adminStore'
+import { decidePromoRequest } from '@/lib/adminApi'
 import type { PromoRequest, PromoRequestStatus } from '@/lib/promo'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Callout, Card, DataTable, thaiDateTime } from '../ui'
@@ -11,21 +11,24 @@ function PromoStatus({ status }: { status: PromoRequestStatus }) {
   return <Badge tone={status === 'approved' ? 'success' : status === 'rejected' ? 'danger' : 'warning'}>{STATUS_LABELS[status]}</Badge>
 }
 
-export function PromoPage({ admin, data, refresh, notify }: AdminPageProps) {
+export function PromoPage({ data, refresh, notify }: AdminPageProps) {
   const [filter, setFilter] = useState<PromoRequestStatus | 'all'>('pending')
   const [preview, setPreview] = useState<PromoRequest | null>(null)
   const users = new Map(data.users.map((u) => [u.id, u]))
   const requests = data.promoRequests.filter((r) => filter === 'all' || r.status === filter)
 
-  const decide = (request: PromoRequest, decision: 'approved' | 'rejected') => {
-    if (
-      decision === 'rejected' &&
-      !window.confirm(`ไม่อนุมัติ "${request.brand}"? ระบบจะคืนเงิน ${baht(request.payment?.amount || 0)} เข้ากระเป๋าของผู้ขอ`)
-    )
-      return
-    const result = decidePromoRequest(admin, request.id, decision)
-    refresh()
-    if (!result.success) return notify(result.error)
+  const decide = async (request: PromoRequest, decision: 'approved' | 'rejected') => {
+    let note = ''
+    if (decision === 'rejected') {
+      note =
+        window
+          .prompt(`ไม่อนุมัติ "${request.brand}"? ระบบจะคืนเงิน ${baht(request.payment?.amount || 0)} เข้ากระเป๋าของผู้ขอ · ระบุเหตุผล:`, 'เนื้อหาไม่เป็นไปตามเงื่อนไข')
+          ?.trim() || ''
+      if (!note) return
+    }
+    const result = await decidePromoRequest(request.id, decision, note)
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
     notify(
       decision === 'approved'
         ? `อนุมัติ "${request.brand}" แล้ว โฆษณาแสดงบนบาน 481–486`
@@ -36,8 +39,8 @@ export function PromoPage({ admin, data, refresh, notify }: AdminPageProps) {
   return (
     <>
       <Callout tone="info" title="พื้นที่โปรโมท บาน 481–486">
-        ผู้ขอชำระเงินตอนส่งคำขอ · <b>อนุมัติ</b> = โฆษณาขึ้นตารางทันทีและนับเป็นรายได้ · <b>ไม่อนุมัติ</b> = คืนเงินเต็มจำนวนเข้ากระเป๋าผู้ขอทันที
-        (การคืนเงินกลับไปยังบัตร/บัญชีธนาคารต้องมีระบบหลังบ้าน)
+        ผู้ขอชำระเงินตอนส่งคำขอ · ถ้าชำระด้วยการโอน ต้องอนุมัติสลิปในเมนู "ตรวจสลิปชำระเงิน" ก่อน · <b>อนุมัติ</b> =
+        โฆษณาขึ้นตารางทันทีและนับเป็นรายได้ · <b>ไม่อนุมัติ</b> = คืนเงินเต็มจำนวนเข้ากระเป๋าผู้ขอทันที
       </Callout>
       <Card
         title="คำขอโปรโมท"
@@ -74,7 +77,7 @@ export function PromoPage({ admin, data, refresh, notify }: AdminPageProps) {
                   <Badge tone="secondary">คืนเงินแล้ว {baht(r.refund.amount)}</Badge>
                 ) : r.payment ? (
                   <>
-                    <Badge tone="success">ชำระแล้ว</Badge>
+                    {r.payment.orderStatus === 'pending' ? <Badge tone="warning">รอตรวจสลิป</Badge> : <Badge tone="success">ชำระแล้ว</Badge>}
                     <div className="text-[0.75rem]">
                       กระเป๋า {baht(r.payment.walletAmount)}
                       {r.payment.externalAmount > 0 && ` + ${r.payment.channelName} ${baht(r.payment.externalAmount)}`}

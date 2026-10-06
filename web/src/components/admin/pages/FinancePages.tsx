@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChartColumn, Download, HandCoins, History, Receipt, Wallet } from 'lucide-react'
-import type { Transaction, TransactionType } from '@/types'
+import type { Transaction, TransactionType } from '@shared/types'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 import type { AdminPageProps } from '../adminData'
 import { TxBadge } from './DashboardPage'

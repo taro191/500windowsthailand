@@ -1,4 +1,4 @@
-import type { AuthMode, HubTab, User } from '@/types'
+import type { AuthMode, HubTab, User } from '@shared/types'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface FooterProps {

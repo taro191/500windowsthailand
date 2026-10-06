@@ -1,6 +1,6 @@
 import { Check, CircleAlert, Tag, X } from 'lucide-react'
-import type { AuthMode, Quota, User, WindowItem } from '@/types'
-import { maskCitizenId } from '@/lib/identity'
+import type { AuthMode, Quota, User, WindowItem } from '@shared/types'
+import { maskCitizenId } from '@shared/identity'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 import { KapsulepLogo } from '../KapsulepLogo'
 

@@ -1,7 +1,7 @@
 import { Check, ChevronRight, CircleAlert, Compass, Gauge, LogOut, MapPin, ShieldCheck, Sparkles, Wallet, X } from 'lucide-react'
-import type { AuthMode, HubTab, RegionId, StatusCounts, StatusFilter, User } from '@/types'
-import { REGIONS, REGIONS_BY_ID } from '@/data/regions'
-import { maskPhone } from '@/lib/identity'
+import type { AuthMode, HubTab, RegionId, StatusCounts, StatusFilter, User } from '@shared/types'
+import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
+import { maskPhone } from '@shared/identity'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface MobileDrawerProps {

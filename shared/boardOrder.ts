@@ -1,4 +1,4 @@
-import type { RegionId, WindowItem } from '@/types'
+import type { RegionId, WindowItem } from './types'
 import { shuffledIndices } from './random'
 import { isPromoSlot } from './promo'
 

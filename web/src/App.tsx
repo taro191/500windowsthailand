@@ -15,11 +15,11 @@ import type {
   WindowContentInput,
   WindowItem,
   ZoomLevel,
-} from '@/types'
-import { REGION_IDS } from '@/data/regions'
+} from '@shared/types'
+import { REGION_IDS } from '@shared/regions'
 import * as store from '@/lib/store'
 import { isPromoSlot, OPEN_PROMO_EVENT } from '@/lib/promo'
-import { hotLevel, likesToday, matchesEffectFilter } from '@/lib/windowBadges'
+import { hotLevel, likesToday, matchesEffectFilter } from '@shared/windowBadges'
 import { filterWindows } from '@/lib/boardFilter'
 import { useToast } from '@/hooks/useToast'
 import { useViewportHeight } from '@/hooks/useViewportHeight'
@@ -73,7 +73,6 @@ export default function App() {
   const [activeRegion, setActiveRegion] = useState<RegionId>(() => store.loadActiveRegion())
   const [board, setBoard] = useState<WindowItem[]>(() => store.loadBoard(store.loadActiveRegion()))
   const [currentUser, setCurrentUser] = useState<User | null>(() => store.loadCurrentUser())
-  const [users, setUsers] = useState<User[]>(() => store.loadUsers())
   const [transactions, setTransactions] = useState(() => store.loadTransactions())
   const [availableByRegion, setAvailableByRegion] = useState<Partial<Record<RegionId, number>>>(() =>
     Object.fromEntries(REGION_IDS.map((r) => [r, countAvailable(store.loadBoard(r))])),
@@ -107,7 +106,11 @@ export default function App() {
   // ------------------------------------------------------------ derived data
 
   const refreshBoard = useCallback((region: RegionId = activeRegion) => setBoard(store.loadBoard(region)), [activeRegion])
-  const refreshUsers = () => setUsers(store.loadUsers())
+  /** Re-reads the signed-in user and their transactions from the store cache. */
+  const syncAccount = () => {
+    setCurrentUser(store.loadCurrentUser())
+    setTransactions(store.loadTransactions())
+  }
 
   const selectRegion = useCallback((region: RegionId) => {
     setActiveRegion(region)
@@ -129,6 +132,17 @@ export default function App() {
     const fresh = board.find((w) => w.id === selectedWindow.id && w.region === selectedWindow.region)
     if (fresh && fresh !== selectedWindow) setSelectedWindow(fresh)
   }, [board, selectedWindow])
+
+  // Opening a window loads its full image and owner history (and counts a view).
+  const selectedKey = selectedWindow ? `${selectedWindow.region}:${selectedWindow.id}` : ''
+  useEffect(() => {
+    if (!selectedWindow) return
+    const { region, id } = selectedWindow
+    store.fetchWindow(region, id, true).then((full) => {
+      if (full && region === activeRegionRef.current) setBoard(store.loadBoard(region))
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey])
 
   /** Every window in every region that matches `predicate` (active region from state). */
   const collectAcrossRegions = useCallback(
@@ -245,69 +259,66 @@ export default function App() {
 
   // ------------------------------------------------------------ account
 
-  const handleLogin = (identifier: string, password: string) => {
-    const result = store.login(identifier, password)
+  const handleLogin = async (identifier: string, password: string) => {
+    const result = await store.login(identifier, password)
     if (result.success) {
-      setCurrentUser(result.user)
-      refreshUsers()
+      syncAccount()
+      refreshBoard()
       showToast(`เข้าสู่ระบบสำเร็จ ยินดีต้อนรับคุณ ${result.user.name}`)
     }
     return result
   }
 
-  const handleRegister = (input: store.SignupInput) => {
-    const result = store.signup(input)
+  const handleRegister = async (input: store.SignupInput) => {
+    const result = await store.signup(input)
     if (result.success) {
-      setCurrentUser(result.user)
-      refreshUsers()
-      showToast(`สมัครสมาชิกสำเร็จ! ยินดีต้อนรับคุณ ${result.user.name} (ได้รับโบนัส 10,000 ฿)`)
+      syncAccount()
+      refreshBoard()
+      const bonus = store.getAppConfig().signupBonus
+      showToast(`สมัครสมาชิกสำเร็จ! ยินดีต้อนรับคุณ ${result.user.name}${bonus > 0 ? ` (ได้รับโบนัส ${bonus.toLocaleString()} ฿)` : ''}`)
     }
     return result
   }
 
-  const handleQuickSwitch = (userId: string) => {
-    const user = store.loadUsers().find((u) => u.id === userId)
-    if (!user) return
-    store.saveCurrentUser(user)
-    setCurrentUser(user)
-    showToast(`สลับใช้งานเป็นบัญชี: ${user.name}`)
-  }
-
-  const handleLogout = () => {
-    store.saveCurrentUser(null)
-    setCurrentUser(null)
+  const handleLogout = async () => {
+    await store.logout()
+    syncAccount()
+    refreshBoard()
     showToast('ออกจากระบบเรียบร้อยแล้ว (สถานะแขกผู้เยี่ยมชม)', 'info')
   }
 
-  const handleVerify = (citizenId: string, phone: string) => {
+  const handleVerify = async (citizenId: string, phone: string, otp: string) => {
     if (!currentUser) return { success: false as const, error: 'กรุณาเข้าสู่ระบบก่อน' }
-    const result = store.verifyIdentity(currentUser.id, citizenId, phone)
+    const result = await store.verifyIdentity(citizenId, phone, otp)
     if (result.success) {
-      setCurrentUser(result.user)
-      refreshUsers()
+      syncAccount()
       showToast('ยืนยันตัวตนสำเร็จ! ปลดล็อกสิทธิ์ซื้อ-ขายต่อเรียบร้อยแล้ว')
     }
     return result
   }
 
-  const handleTopUp = (amount: number, channel: PaymentChannel, slip: PaymentSlip) => {
+  const handleTopUp = async (amount: number, channel: PaymentChannel, slip?: PaymentSlip) => {
     if (!currentUser) return { success: false as const, error: 'กรุณาเข้าสู่ระบบก่อน' }
-    const result = store.topUpWallet(currentUser, amount, channel, slip)
+    const result = await store.topUpWallet(amount, channel, slip)
     if (!result.success) return result
-    setCurrentUser(result.updatedUser)
-    refreshUsers()
-    setTransactions(store.loadTransactions())
-    showToast(`เติมเงิน +฿${amount.toLocaleString()} เข้ากระเป๋าสำเร็จ`)
-    return { success: true as const }
+    syncAccount()
+    showToast(
+      result.pending
+        ? `ส่งสลิปเติมเงิน ฿${amount.toLocaleString()} แล้ว ยอดจะเข้ากระเป๋าเมื่อผู้ดูแลตรวจสอบเรียบร้อย`
+        : `เติมเงิน +฿${amount.toLocaleString()} เข้ากระเป๋าสำเร็จ`,
+      result.pending ? 'info' : undefined,
+    )
+    return { success: true as const, pending: result.pending }
   }
 
-  const updateProfile = (changes: Partial<User>, message: string) => {
+  const updateProfile = async (changes: { name?: string; payoutAccount?: PayoutAccount }, message: string) => {
     if (!currentUser) return
-    const result = store.updateUser(currentUser.id, changes)
+    const result = await store.updateProfile(changes)
     if (result.success) {
-      setCurrentUser(result.user)
-      refreshUsers()
+      syncAccount()
       showToast(message)
+    } else {
+      showToast(result.error, 'error')
     }
   }
 
@@ -317,6 +328,8 @@ export default function App() {
     setSelectedWindow(null)
     if (isPromoSlot(window.id)) {
       showToast('หน้าต่างหมายเลข 481–486 ล็อกไว้เป็นพื้นที่โปรโมทของระบบ กดปุ่ม "โปรโมท" ใน Hub รวมข้อมูลเพื่อจองพื้นที่', 'info')
+    } else if (window.reserved) {
+      showToast('บานนี้มีผู้จองไว้และกำลังรอตรวจสอบการชำระเงิน กรุณาเลือกบานอื่น', 'info')
     } else if (!currentUser) {
       openAuth('login')
     } else if (!currentUser.isVerified) {
@@ -328,7 +341,8 @@ export default function App() {
 
   const startBuyResale = (window: WindowItem) => {
     setSelectedWindow(null)
-    if (!currentUser) openAuth('login')
+    if (window.reserved) showToast('มีผู้ซื้อรายอื่นกำลังรอตรวจสอบการชำระเงินสำหรับบานนี้', 'info')
+    else if (!currentUser) openAuth('login')
     else if (!currentUser.isVerified) openKyc('ต้องยืนยันตัวตนด้วยเลขบัตรประชาชน 13 หลักและเบอร์โทรศัพท์ก่อนทำการซื้อต่อ')
     else setResaleTarget(window)
   }
@@ -346,33 +360,37 @@ export default function App() {
   const handleConfirmBuy = (windowId: number) => {
     if (!currentUser) return openAuth('login')
     const window = board.find((w) => w.id === windowId) || resaleTarget
-    if (!window) return
-    setPayment({ mode: 'resale', window, amount: window.resalePrice || 500 })
+    if (!window || !window.resalePrice) return
+    setPayment({ mode: 'resale', window, amount: window.resalePrice })
     setResaleTarget(null)
   }
 
   /** Runs the purchase once checkout has collected the payment (wallet + optional channel). */
-  const handleCheckout = (breakdown: PaymentBreakdown) => {
+  const handleCheckout = async (breakdown: PaymentBreakdown) => {
     if (!payment || !currentUser) return { success: false as const, error: 'กรุณาเข้าสู่ระบบก่อน' }
+    const { window } = payment
     const result =
       payment.mode === 'claim'
-        ? store.claimWindow(payment.window.region, payment.window.id, currentUser, payment.claimContent!, breakdown)
-        : store.buyResaleWindow(payment.window.region, payment.window.id, currentUser, breakdown)
+        ? await store.claimWindow(window.region, window.id, payment.claimContent!, breakdown)
+        : await store.buyResaleWindow(window.region, window.id, payment.amount, breakdown)
 
     if (!result.success) {
       if (result.requiresKYC) {
         setPayment(null)
         openKyc(result.error)
       }
+      refreshBoard()
       return { success: false as const, error: result.error }
     }
     refreshBoard()
-    setCurrentUser('updatedUser' in result ? result.updatedUser : result.updatedBuyer)
-    refreshUsers()
-    setTransactions(store.loadTransactions())
-    showToast(`🎉 ชำระเงินสำเร็จ! บานที่ ${result.updatedWindow.code} พร้อมใช้งานทันที`)
-    setPendingSelection(result.updatedWindow)
-    return { success: true as const }
+    syncAccount()
+    if (result.pending) {
+      showToast(`ส่งสลิปแล้ว! บานที่ ${window.code} ถูกจองไว้ให้คุณระหว่างรอผู้ดูแลตรวจสอบการชำระเงิน`, 'info')
+    } else {
+      showToast(`🎉 ชำระเงินสำเร็จ! บานที่ ${result.updatedWindow.code} พร้อมใช้งานทันที`)
+      setPendingSelection(result.updatedWindow)
+    }
+    return { success: true as const, pending: result.pending }
   }
 
   const closeCheckout = () => {
@@ -385,9 +403,9 @@ export default function App() {
 
   // ------------------------------------------------------------ owner actions
 
-  const handleEdit = (windowId: number, input: store.WindowEditInput) => {
+  const handleEdit = async (windowId: number, input: store.WindowEditInput) => {
     if (!currentUser) return
-    const result = store.editWindow(activeRegion, windowId, currentUser, input)
+    const result = await store.editWindow(activeRegion, windowId, input)
     if (result.success) {
       refreshBoard()
       setEditTarget(null)
@@ -398,9 +416,9 @@ export default function App() {
     }
   }
 
-  const handleListForResale = (window: WindowItem, price: number) => {
+  const handleListForResale = async (window: WindowItem, price: number) => {
     if (!currentUser) return
-    const result = store.listForResale(activeRegion, window.id, currentUser, price)
+    const result = await store.listForResale(activeRegion, window.id, price)
     if (result.success) {
       refreshBoard()
       showToast(`เปิดขายต่อบานที่ ${window.code} ในราคา ฿${price.toLocaleString()} สำเร็จ!`)
@@ -411,9 +429,9 @@ export default function App() {
     }
   }
 
-  const handleCancelResale = (window: WindowItem) => {
+  const handleCancelResale = async (window: WindowItem) => {
     if (!currentUser) return
-    const result = store.cancelResale(activeRegion, window.id, currentUser)
+    const result = await store.cancelResale(activeRegion, window.id)
     if (result.success) {
       refreshBoard()
       showToast(`ยกเลิกการเปิดขายต่อบานที่ ${window.code} เรียบร้อยแล้ว`)
@@ -422,18 +440,18 @@ export default function App() {
     }
   }
 
-  const handleSkipEditCooldown = (windowId: number) => {
-    if (store.demoSkipEditCooldown(activeRegion, windowId)) {
-      refreshBoard()
-      showToast('เร่งเวลา 24 ชั่วโมงสำเร็จ! ปลดล็อกสิทธิ์แก้ไขรูปภาพและข้อความทันที')
-    }
+  const handleSkipEditCooldown = async (windowId: number) => {
+    const result = await store.demoSkipEditCooldown(activeRegion, windowId)
+    if (!result.success) return showToast(result.error, 'error')
+    refreshBoard()
+    showToast('เร่งเวลา 24 ชั่วโมงสำเร็จ! ปลดล็อกสิทธิ์แก้ไขรูปภาพและข้อความทันที')
   }
 
-  const handleSimulateHolding = (windowId: number, days: number) => {
-    const updated = store.demoBackdateOwnership(activeRegion, windowId, days)
-    if (!updated) return
+  const handleSimulateHolding = async (windowId: number, days: number) => {
+    const result = await store.demoBackdateOwnership(activeRegion, windowId, days)
+    if (!result.success) return showToast(result.error, 'error')
     refreshBoard()
-    setSelectedWindow(updated)
+    setSelectedWindow(result.updatedWindow)
     showToast(
       days >= 730
         ? 'จำลองอายุถือครอง 2.1 ปี สำเร็จ! (ปลดล็อกตั้งราคาเสรีตามกลไกตลาด)'
@@ -445,18 +463,19 @@ export default function App() {
 
   // ------------------------------------------------------------ social
 
-  const handleLike = (windowId: number) => {
+  const handleLike = async (windowId: number) => {
     const before = board.find((w) => w.id === windowId)
     const wasHot = before ? hotLevel(before) > 0 : false
-    const updated = store.likeWindow(activeRegion, windowId)
-    if (!updated) return
+    const result = await store.likeWindow(activeRegion, windowId)
+    if (!result) return
     refreshBoard()
-    if (!wasHot && hotLevel(updated) > 0) showToast(`🔥 บาน ${updated.code} กำลังฮอต! ไลค์วันนี้ครบ 10 ครั้งแล้ว`)
+    if (!result.counted) showToast('คุณกดถูกใจบานนี้ไปแล้ววันนี้ กลับมากดใหม่ได้พรุ่งนี้', 'info')
+    else if (!wasHot && hotLevel(result.window) > 0) showToast(`🔥 บาน ${result.window.code} กำลังฮอต! ไลค์วันนี้ครบ 10 ครั้งแล้ว`)
   }
 
-  const handleToggleFollow = (windowId: number) => {
+  const handleToggleFollow = async (windowId: number) => {
     if (!currentUser) return openAuth('login')
-    if (store.toggleFollow(activeRegion, windowId, currentUser)) refreshBoard()
+    if (await store.toggleFollow(activeRegion, windowId)) refreshBoard()
   }
 
   const handleRotate = (forceRandom: boolean) => {
@@ -472,17 +491,16 @@ export default function App() {
     return (
       <AdminApp
         admin={currentUser}
-        onExit={() => {
+        onExit={async () => {
           window.location.hash = ''
+          await Promise.all([store.refreshBoards(), store.refreshSession(), store.refreshPromo()])
           refreshBoard()
-          setCurrentUser(store.loadCurrentUser())
-          setUsers(store.loadUsers())
-          setTransactions(store.loadTransactions())
+          syncAccount()
           setView('main')
         }}
-        onLogout={() => {
+        onLogout={async () => {
           window.location.hash = ''
-          handleLogout()
+          await handleLogout()
           setView('main')
         }}
       />
@@ -662,10 +680,8 @@ export default function App() {
         onOpenAuth={openAuth}
         followCount={followedWindows.length}
         onUserUpdated={(user) => {
-          setCurrentUser(user)
-          refreshUsers()
-          setTransactions(store.loadTransactions())
-          showToast(`ชำระค่าโปรโมทแล้ว ยอดคงเหลือ ฿${user.balance.toLocaleString()}`)
+          syncAccount()
+          showToast(`ส่งคำขอโปรโมทแล้ว ยอดคงเหลือ ฿${user.balance.toLocaleString()}`)
         }}
       />
 
@@ -674,10 +690,8 @@ export default function App() {
         onClose={() => setAuthOpen(false)}
         initialMode={authMode}
         currentUser={currentUser}
-        registeredUsers={users}
         onLogin={handleLogin}
         onRegister={handleRegister}
-        onQuickSwitch={handleQuickSwitch}
       />
 
       {kycOpen && (

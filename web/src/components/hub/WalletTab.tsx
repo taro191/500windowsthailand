@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Building2, Check, CircleCheck, QrCode, Sparkles, Users, Wallet } from 'lucide-react'
-import type { AuthMode, PayoutAccount, Transaction, User, WindowItem } from '@/types'
-import { BANKS } from '@/data/banks'
-import { maskCitizenId, maskPhone } from '@/lib/identity'
+import type { AuthMode, PayoutAccount, Transaction, User, WindowItem } from '@shared/types'
+import { BANKS } from '@shared/banks'
+import { maskCitizenId, maskPhone } from '@shared/identity'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 
 interface WalletTabProps {

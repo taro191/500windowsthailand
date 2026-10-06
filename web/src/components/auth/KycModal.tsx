@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Check, CircleAlert, CreditCard, Phone, Send, ShieldCheck, Sparkles, X } from 'lucide-react'
-import type { Result, User } from '@/types'
-import { formatCitizenId, formatPhone, isValidCitizenId, isValidThaiMobile } from '@/lib/identity'
+import type { Result, User } from '@shared/types'
+import { requestOtp as sendOtp } from '@/lib/store'
+import { formatCitizenId, formatPhone, isValidCitizenId, isValidThaiMobile } from '@shared/identity'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface KycModalProps {
@@ -9,20 +10,23 @@ interface KycModalProps {
   currentUser: User | null
   onClose: () => void
   onSuccess: (user: User) => void
-  onVerify: (citizenId: string, phone: string) => Result<{ user: User }>
+  onVerify: (citizenId: string, phone: string, otp: string) => Promise<Result<{ user: User }>>
   /** Why KYC was requested (e.g. the action that was blocked). */
   reasonNotice?: string
 }
 
 /**
  * Identity verification with a 13-digit citizen ID and a Thai mobile number.
- * The OTP is simulated on screen (no SMS is sent in the demo).
+ * The server issues the OTP; until an SMS provider is connected (OTP_MODE=dev) it returns
+ * the code and it is shown here instead of being sent by SMS.
  */
 export function KycModal({ isOpen, currentUser, onClose, onSuccess, onVerify, reasonNotice }: KycModalProps) {
   const [citizenId, setCitizenId] = useState(currentUser?.citizenId ? formatCitizenId(currentUser.citizenId) : '')
   const [phone, setPhone] = useState(currentUser?.phone ? formatPhone(currentUser.phone) : '')
   const [otpSent, setOtpSent] = useState(false)
-  const [expectedOtp, setExpectedOtp] = useState('')
+  /** Code returned by the server in dev mode (no SMS provider yet). */
+  const [devCode, setDevCode] = useState('')
+  const [busy, setBusy] = useState(false)
   const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -32,7 +36,7 @@ export function KycModal({ isOpen, currentUser, onClose, onSuccess, onVerify, re
   const citizenIdValid = isValidCitizenId(citizenId)
   const phoneValid = isValidThaiMobile(phone)
 
-  const requestOtp = () => {
+  const requestOtp = async () => {
     if (!citizenIdValid) {
       setError('กรุณากรอกเลขบัตรประชาชน 13 หลักให้ถูกต้องตามหลักการคำนวณของกรมการปกครอง')
       return
@@ -42,20 +46,24 @@ export function KycModal({ isOpen, currentUser, onClose, onSuccess, onVerify, re
       return
     }
     setError('')
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
-    setExpectedOtp(code)
+    setBusy(true)
+    const result = await sendOtp(phone)
+    setBusy(false)
+    if (!result.success) return setError(result.error)
     setOtpSent(true)
-    setOtp(code) // Demo: auto-filled so testers don't need to retype it.
+    setDevCode(result.devCode || '')
+    setOtp(result.devCode || '')
   }
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (!citizenIdValid) return setError('เลขประจำตัวประชาชนไม่ถูกต้อง')
     if (!phoneValid) return setError('เบอร์โทรศัพท์ไม่ถูกต้อง')
     if (!otpSent) return setError('กรุณากดรับรหัส OTP ทางเบอร์โทรศัพท์ก่อน')
-    if (otp !== expectedOtp) return setError('รหัส OTP ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง')
-    const result = onVerify(citizenId, phone)
+    setBusy(true)
+    const result = await onVerify(citizenId, phone, otp)
+    setBusy(false)
     if (result.success) {
       setSuccess('ยืนยันตัวตนสำเร็จ! บัญชีของคุณได้รับการรับรองสิทธิ์ซื้อ-ขายต่อเรียบร้อย')
       setTimeout(() => {
@@ -81,7 +89,7 @@ export function KycModal({ isOpen, currentUser, onClose, onSuccess, onVerify, re
       </span>
     )
 
-  const canSubmit = otpSent && otp.length === 6
+  const canSubmit = otpSent && otp.length === 6 && !busy
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200 font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
@@ -202,6 +210,7 @@ export function KycModal({ isOpen, currentUser, onClose, onSuccess, onVerify, re
               <button
                 type="button"
                 onClick={requestOtp}
+                disabled={busy}
                 className="px-2.5 py-1.5 min-h-9 bg-stone-800 hover:bg-stone-700 text-amber-300 border border-amber-500/40 rounded-lg font-medium cursor-pointer transition-colors text-[11px] whitespace-nowrap flex items-center gap-1"
               >
                 <Send className="w-3 h-3" />
@@ -212,14 +221,20 @@ export function KycModal({ isOpen, currentUser, onClose, onSuccess, onVerify, re
 
           {otpSent && (
             <div className="p-3 bg-cyan-950/40 border border-cyan-500/50 rounded-xl space-y-2 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-cyan-300 text-xs font-semibold">📱 จำลองข้อความ SMS เข้าเบอร์ {phone}</span>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-200 font-bold">OTP: {expectedOtp}</span>
-              </div>
-              <p className="text-[11px] text-stone-300">
-                รหัสยืนยัน OTP 6 หลักของคุณคือ <strong className="text-cyan-300 font-mono tracking-widest">{expectedOtp}</strong>{' '}
-                (ระบบได้กรอกให้อัตโนมัติเพื่อความสะดวกรวดเร็วในการทดสอบ)
-              </p>
+              {devCode ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-cyan-300 text-xs font-semibold">📱 โหมดทดสอบ: ยังไม่ได้เชื่อมต่อผู้ให้บริการ SMS</span>
+                    <span className="font-mono text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-200 font-bold">OTP: {devCode}</span>
+                  </div>
+                  <p className="text-[11px] text-stone-300">
+                    รหัส OTP สำหรับเบอร์ {phone} คือ <strong className="text-cyan-300 font-mono tracking-widest">{devCode}</strong> (กรอกให้อัตโนมัติแล้ว
+                    · รหัสหมดอายุใน 5 นาที)
+                  </p>
+                </>
+              ) : (
+                <span className="text-cyan-300 text-xs font-semibold">📱 ส่งรหัส OTP ทาง SMS ไปที่เบอร์ {phone} แล้ว (หมดอายุใน 5 นาที)</span>
+              )}
               <div>
                 <label className="block text-[11px] text-stone-300 font-medium mb-1">กรอกรหัสยืนยัน OTP 6 หลัก:</label>
                 <input

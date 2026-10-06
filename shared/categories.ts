@@ -1,4 +1,4 @@
-import type { Category, CategoryId } from '@/types'
+import type { Category, CategoryId } from './types'
 
 export const CATEGORIES: Record<CategoryId, Category> = {
   street_food: { label: 'อาหาร & สตรีทฟู้ด', icon: '🍲', color: 'from-amber-600 to-orange-500' },

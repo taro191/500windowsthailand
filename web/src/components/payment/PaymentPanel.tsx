@@ -1,14 +1,15 @@
 // Shared "how do you want to pay" step: wallet first, the remainder through one of the
 // platform's channels. Used by checkout (windows) and the promo request dialog.
 import { useMemo, useState } from 'react'
-import { ArrowRight, CircleAlert, Wallet } from 'lucide-react'
-import type { PaymentBreakdown, PaymentSlip, User } from '@/types'
-import { DEMO_MODE, suggestPaymentSplit } from '@/lib/store'
-import { enabledChannels, useSettings } from '@/lib/settings'
+import { ArrowRight, CircleAlert, Loader2, Wallet } from 'lucide-react'
+import type { PaymentBreakdown, PaymentSlip, User } from '@shared/types'
+import { isDemo, paymentChannels, suggestPaymentSplit } from '@/lib/store'
+import { useSettings } from '@/lib/settings'
 import { ChannelPicker } from './ChannelPicker'
 import { ExternalPaymentFlow } from './ExternalPaymentFlow'
 
-export type ConfirmResult = { success: true } | { success: false; error: string }
+/** `pending`: a transfer slip waits for an admin; the purchase completes after approval. */
+export type ConfirmResult = { success: true; pending?: boolean } | { success: false; error: string }
 
 interface PaymentPanelProps {
   payer: User
@@ -18,27 +19,28 @@ interface PaymentPanelProps {
   /** Short reference printed on the demo slip. */
   reference: string
   /** Performs the purchase with the collected payment. */
-  onConfirm: (payment: PaymentBreakdown) => ConfirmResult
+  onConfirm: (payment: PaymentBreakdown) => Promise<ConfirmResult>
   /** Called after a successful onConfirm. */
-  onPaid: (payment: PaymentBreakdown) => void
+  onPaid: (payment: PaymentBreakdown, pending: boolean) => void
   onOpenTopUp?: () => void
   onCancel?: () => void
 }
 
 export function PaymentPanel({ payer, amount, itemLabel, reference, onConfirm, onPaid, onOpenTopUp, onCancel }: PaymentPanelProps) {
   const settings = useSettings()
-  const channels = enabledChannels(settings)
+  const channels = paymentChannels(settings)
   const [step, setStep] = useState<'method' | 'external'>('method')
   const [useWallet, setUseWallet] = useState(true)
   const [channelId, setChannelId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const balance = payer.balance
   const split = useMemo(() => suggestPaymentSplit(balance, amount, useWallet), [balance, amount, useWallet])
   const channel = channels.find((c) => c.id === channelId) || null
   const needsExternal = split.externalAmount > 0
 
-  const complete = (slip?: PaymentSlip) => {
+  const complete = async (slip?: PaymentSlip) => {
     const payment: PaymentBreakdown = {
       walletAmount: split.walletAmount,
       externalAmount: split.externalAmount,
@@ -46,9 +48,11 @@ export function PaymentPanel({ payer, amount, itemLabel, reference, onConfirm, o
       channelName: needsExternal ? channel?.name : undefined,
       slip,
     }
-    const outcome = onConfirm(payment)
+    setBusy(true)
+    const outcome = await onConfirm(payment)
+    setBusy(false)
     if (outcome.success) {
-      onPaid(payment)
+      onPaid(payment, !!outcome.pending)
     } else {
       setError(outcome.error)
       setStep('method')
@@ -60,6 +64,15 @@ export function PaymentPanel({ payer, amount, itemLabel, reference, onConfirm, o
     if (!needsExternal) return complete()
     if (!channel) return setError('กรุณาเลือกช่องทางชำระเงินสำหรับยอดที่เหลือ')
     setStep('external')
+  }
+
+  if (busy) {
+    return (
+      <div className="py-12 flex flex-col items-center gap-3 text-stone-300 text-xs">
+        <Loader2 className="w-8 h-8 animate-spin text-rose-400" />
+        <span>กำลังบันทึกรายการชำระเงิน…</span>
+      </div>
+    )
   }
 
   if (step === 'external' && channel) {
@@ -77,11 +90,11 @@ export function PaymentPanel({ payer, amount, itemLabel, reference, onConfirm, o
 
   return (
     <div className="space-y-4 text-xs text-stone-200">
-      {DEMO_MODE && (
+      {isDemo() && (
         <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-[11px] text-amber-200 leading-relaxed flex items-start gap-2">
           <span>🧪</span>
           <span>
-            <strong>โหมดสาธิต:</strong> QR, การตรวจสลิป และ Payment Gateway เป็นการจำลอง กรุณาอย่าโอนเงินจริง
+            <strong>ระบบทดสอบ:</strong> QR และ Payment Gateway (บัตร) เป็นการจำลอง กรุณาอย่าโอนเงินจริง
           </span>
         </div>
       )}

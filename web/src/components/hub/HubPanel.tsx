@@ -10,8 +10,8 @@ import type {
   Transaction,
   User,
   WindowItem,
-} from '@/types'
-import { REGIONS_BY_ID } from '@/data/regions'
+} from '@shared/types'
+import { REGIONS_BY_ID } from '@shared/regions'
 import { isPromoSlot, OPEN_PROMO_EVENT } from '@/lib/promo'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { PromoRequestModal } from '../promo/PromoRequestModal'

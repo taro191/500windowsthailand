@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { BadgeDollarSign, BookOpen, CreditCard, Pencil, Plus, RotateCcw, Save, Scale, Trash2 } from 'lucide-react'
-import type { PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from '@/types'
-import { BANKS } from '@/data/banks'
-import { updateSettings } from '@/lib/adminStore'
+import type { PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from '@shared/types'
+import { BANKS } from '@shared/banks'
+import { updateSettings } from '@/lib/adminApi'
 import {
   CHANNEL_TYPE_LABELS,
   DEFAULT_SETTINGS,
@@ -21,7 +21,7 @@ const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.ra
 
 // ---------------------------------------------------------------- price caps
 
-export function PriceCapsPage({ admin, notify }: AdminPageProps) {
+export function PriceCapsPage({ notify }: AdminPageProps) {
   const settings = useSettings()
   const [unused, setUnused] = useState<number | null>(settings.priceCaps.unusedMultiplier)
   const [tiers, setTiers] = useState<PriceCapTier[]>(sortTiers(settings.priceCaps.usedTiers))
@@ -37,7 +37,7 @@ export function PriceCapsPage({ admin, notify }: AdminPageProps) {
     setTiers(sortTiers([...tiers, { id: newId('tier'), upToYears: lastBound + 1, multiplier: 10 }]))
   }
 
-  const save = () => {
+  const save = async () => {
     const sorted = sortTiers(tiers)
     const problem = validateTiers(sorted) || (unused !== null && !(unused >= 1) ? 'ตัวคูณของบานที่ยังไม่ใช้งานต้องไม่น้อยกว่า 1 เท่า' : null)
     if (problem) return setError(problem)
@@ -47,7 +47,8 @@ export function PriceCapsPage({ admin, notify }: AdminPageProps) {
       `ยังไม่ใช้งาน: ${multiplierLabel(unused)}`,
       ...sorted.map((t, i) => `${tierAgeLabel(sorted, i)}: ${multiplierLabel(t.multiplier)}`),
     ].join(' · ')
-    updateSettings(admin, next, `เพดานราคาขายต่อ → ${summary}`)
+    const result = await updateSettings(next, `เพดานราคาขายต่อ → ${summary}`)
+    if (!result.success) return setError(result.error)
     setTiers(sorted)
     notify('บันทึกเพดานราคาขายต่อแล้ว มีผลกับการตั้งราคาขายต่อทันที')
   }
@@ -176,26 +177,33 @@ function MultiplierInput({ value, onChange }: { value: number | null; onChange: 
 
 const EMPTY_CHANNEL: PaymentChannel = { id: '', type: 'bank', name: '', enabled: true, bankCode: 'kbank', accountName: '', accountNumber: '' }
 
-export function ChannelsPage({ admin, notify }: AdminPageProps) {
+export function ChannelsPage({ notify }: AdminPageProps) {
   const settings = useSettings()
   const [editing, setEditing] = useState<PaymentChannel | null>(null)
   const [error, setError] = useState('')
 
-  const saveChannels = (channels: PaymentChannel[], what: string) => updateSettings(admin, { ...settings, paymentChannels: channels }, what)
+  /** Saves the channel list; reports errors (e.g. last enabled channel) instead of the success message. */
+  const saveChannels = async (channels: PaymentChannel[], what: string, done: string) => {
+    const result = await updateSettings({ ...settings, paymentChannels: channels }, what)
+    if (!result.success) {
+      notify(result.error, 'error')
+      return false
+    }
+    notify(done)
+    return true
+  }
 
-  const toggle = (channel: PaymentChannel) => {
+  const toggle = (channel: PaymentChannel) =>
     saveChannels(
       settings.paymentChannels.map((c) => (c.id === channel.id ? { ...c, enabled: !c.enabled } : c)),
       `${channel.enabled ? 'ปิด' : 'เปิด'}ช่องทาง ${channel.name}`,
+      `${channel.enabled ? 'ปิด' : 'เปิด'}ช่องทาง ${channel.name} แล้ว`,
     )
-    notify(`${channel.enabled ? 'ปิด' : 'เปิด'}ช่องทาง ${channel.name} แล้ว`)
-  }
   const remove = (channel: PaymentChannel) => {
     if (!window.confirm(`ลบช่องทาง ${channel.name}?`)) return
-    saveChannels(settings.paymentChannels.filter((c) => c.id !== channel.id), `ลบช่องทาง ${channel.name}`)
-    notify(`ลบช่องทาง ${channel.name} แล้ว`)
+    saveChannels(settings.paymentChannels.filter((c) => c.id !== channel.id), `ลบช่องทาง ${channel.name}`, `ลบช่องทาง ${channel.name} แล้ว`)
   }
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editing) return
     if (!editing.name.trim()) return setError('กรุณาระบุชื่อช่องทาง')
@@ -203,12 +211,12 @@ export function ChannelsPage({ admin, notify }: AdminPageProps) {
     setError('')
     const channel = { ...editing, name: editing.name.trim(), id: editing.id || newId('ch') }
     const exists = settings.paymentChannels.some((c) => c.id === channel.id)
-    saveChannels(
+    const saved = await saveChannels(
       exists ? settings.paymentChannels.map((c) => (c.id === channel.id ? channel : c)) : [...settings.paymentChannels, channel],
       `${exists ? 'แก้ไข' : 'เพิ่ม'}ช่องทาง ${channel.name}`,
+      `บันทึกช่องทาง ${channel.name} แล้ว`,
     )
-    setEditing(null)
-    notify(`บันทึกช่องทาง ${channel.name} แล้ว`)
+    if (saved) setEditing(null)
   }
 
   const enabledCount = settings.paymentChannels.filter((c) => c.enabled).length
@@ -335,14 +343,14 @@ export function ChannelsPage({ admin, notify }: AdminPageProps) {
 
 // ---------------------------------------------------------------- top-up settings
 
-export function TopUpSettingsPage({ admin, notify }: AdminPageProps) {
+export function TopUpSettingsPage({ notify }: AdminPageProps) {
   const settings = useSettings()
   const [min, setMin] = useState(String(settings.topUp.min))
   const [max, setMax] = useState(String(settings.topUp.max))
   const [presets, setPresets] = useState(settings.topUp.presets.join(', '))
   const [error, setError] = useState('')
 
-  const save = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault()
     const minValue = Number(min)
     const maxValue = Number(max)
@@ -353,11 +361,11 @@ export function TopUpSettingsPage({ admin, notify }: AdminPageProps) {
     if (!(minValue > 0) || !(maxValue >= minValue)) return setError('ยอดสูงสุดต้องมากกว่าหรือเท่ากับยอดขั้นต่ำ และต้องมากกว่า 0')
     if (presetValues.some((p) => p < minValue || p > maxValue)) return setError('ปุ่มยอดลัดต้องอยู่ระหว่างยอดขั้นต่ำและสูงสุด')
     setError('')
-    updateSettings(
-      admin,
+    const result = await updateSettings(
       { ...settings, topUp: { min: minValue, max: maxValue, presets: presetValues } },
       `การเติมเงิน → ขั้นต่ำ ${baht(minValue)}, สูงสุด ${baht(maxValue)}, ปุ่มลัด ${presetValues.join('/')}`,
     )
+    if (!result.success) return setError(result.error)
     notify('บันทึกการตั้งค่าการเติมเงินแล้ว')
   }
 

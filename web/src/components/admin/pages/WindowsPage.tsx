@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { ImageOff, LayoutGrid, RotateCcw, Search } from 'lucide-react'
-import type { RegionId, WindowItem, WindowStatus } from '@/types'
-import { REGIONS, REGIONS_BY_ID } from '@/data/regions'
-import { CATEGORIES } from '@/data/categories'
-import { releaseWindow, takeDownContent } from '@/lib/adminStore'
+import type { RegionId, WindowItem, WindowStatus } from '@shared/types'
+import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
+import { CATEGORIES } from '@shared/categories'
+import { releaseWindow, takeDownContent } from '@/lib/adminApi'
 import { isPromoSlot } from '@/lib/promo'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Card, DataTable, inputClass, thaiDateTime } from '../ui'
@@ -23,7 +23,7 @@ function confirmWithReason(question: string): string | null {
   return reason && reason.trim() ? reason.trim() : null
 }
 
-export function WindowsPage({ admin, data, refresh, notify }: AdminPageProps) {
+export function WindowsPage({ data, refresh, notify }: AdminPageProps) {
   const [region, setRegion] = useState<RegionId | 'all'>('all')
   const [status, setStatus] = useState<WindowStatus | 'all'>('all')
   const [query, setQuery] = useState('')
@@ -46,18 +46,20 @@ export function WindowsPage({ admin, data, refresh, notify }: AdminPageProps) {
   const current = Math.min(page, pages - 1)
   const rows = filtered.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE)
 
-  const takeDown = (w: WindowItem) => {
+  const takeDown = async (w: WindowItem) => {
     const reason = confirmWithReason(`ถอดรูปและข้อความของ ${w.code}? ระบุเหตุผล:`)
     if (!reason) return
-    takeDownContent(admin, w.region, w.id, reason)
-    refresh()
+    const result = await takeDownContent(w.region, w.id, reason)
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
     notify(`ถอดเนื้อหาของ ${w.code} แล้ว`)
   }
-  const release = (w: WindowItem) => {
+  const release = async (w: WindowItem) => {
     const reason = confirmWithReason(`คืน ${w.code} เป็นบานว่าง (ยกเลิกการถือครองของ ${w.ownerName})? ระบุเหตุผล:`)
     if (!reason) return
-    releaseWindow(admin, w.region, w.id, reason)
-    refresh()
+    const result = await releaseWindow(w.region, w.id, reason)
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
     notify(`คืน ${w.code} เป็นบานว่างแล้ว`)
   }
 
@@ -141,7 +143,7 @@ export function WindowsPage({ admin, data, refresh, notify }: AdminPageProps) {
 }
 
 /** Recently updated content (images, texts, daily notes) for review against rule 5. */
-export function ModerationPage({ admin, data, refresh, notify }: AdminPageProps) {
+export function ModerationPage({ data, refresh, notify }: AdminPageProps) {
   const recent = useMemo(
     () =>
       data.windows
@@ -150,11 +152,12 @@ export function ModerationPage({ admin, data, refresh, notify }: AdminPageProps)
     [data.windows],
   )
 
-  const takeDown = (w: WindowItem) => {
+  const takeDown = async (w: WindowItem) => {
     const reason = confirmWithReason(`ถอดรูปและข้อความของ ${w.code}? ระบุเหตุผล:`)
     if (!reason) return
-    takeDownContent(admin, w.region, w.id, reason)
-    refresh()
+    const result = await takeDownContent(w.region, w.id, reason)
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
     notify(`ถอดเนื้อหาของ ${w.code} แล้ว`)
   }
 

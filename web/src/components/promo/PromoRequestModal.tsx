@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, CircleCheck, ImagePlus, Megaphone, X, type LucideIcon } from 'lucide-react'
-import type { AuthMode, User } from '@/types'
+import type { AuthMode, User } from '@shared/types'
 import {
   isValidPromoStartDate,
   loadPromoRequests,
@@ -12,7 +12,7 @@ import {
   resizeImageFile,
   type PromoRequest,
 } from '@/lib/promo'
-import { payPromoRequest } from '@/lib/store'
+import { payPromoRequest, type PromoInput } from '@/lib/store'
 import { PaymentPanel } from '../payment/PaymentPanel'
 import { useDialogFocus } from '@/hooks/useDialogFocus'
 import { PromoLayoutPreview } from './PromoLayoutPreview'
@@ -55,7 +55,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
   const [error, setError] = useState('')
   const [saved, setSaved] = useState<PromoRequest | null>(null)
   /** Valid request waiting for payment; it is only stored once paid. */
-  const [pendingRequest, setPendingRequest] = useState<PromoRequest | null>(null)
+  const [pendingRequest, setPendingRequest] = useState<PromoInput | null>(null)
   const [history, setHistory] = useState<PromoRequest[]>([])
   const [uploading, setUploading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -74,8 +74,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
     setTermsAccepted(false)
     setError('')
     submitted.current = false
-    const requests = loadPromoRequests()
-    setHistory(currentUserId && Array.isArray(requests) ? requests.filter((r) => r.userId === currentUserId) : [])
+    setHistory(currentUserId ? loadPromoRequests() : [])
     return () => {
       // Ignore any image still being resized when the dialog closes.
       uploadVersion.current++
@@ -92,8 +91,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
   const maxMonthDate = new Date()
   maxMonthDate.setMonth(maxMonthDate.getMonth() + 11)
   const maximumMonth = localDateKey(maxMonthDate).slice(0, 7)
-  const requests = loadPromoRequests()
-  const availableRounds = startDate < today ? 0 : promoRoundsAvailable(startDate, requests)
+  const availableRounds = startDate < today ? 0 : promoRoundsAvailable(startDate)
 
   const [calendarYear, calendarMonthNumber] = calendarMonth.split('-').map(Number)
   const monthStart = new Date(calendarYear, calendarMonthNumber - 1, 1, 12)
@@ -110,7 +108,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
       value,
       dayNumber,
       isPast,
-      available: isPast ? 0 : promoRoundsAvailable(value, requests),
+      available: isPast ? 0 : promoRoundsAvailable(value),
     }
   })
   const calendarTitle = monthStart.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
@@ -133,7 +131,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
         `รายละเอียด: ${saved.tagline || '—'}`,
         `ลิงก์: ${saved.link || '—'}`,
         `ติดต่อกลับ: ${saved.contact || 'ไม่ได้ระบุ'}`,
-        `ชำระเงินแล้ว: ${money(saved.payment?.amount ?? saved.price)}`,
+        `ชำระเงินแล้ว: ${money(saved.payment?.amount ?? saved.price)}${saved.payment?.orderStatus === 'pending' ? ' (รอตรวจสลิป)' : ''}`,
         'สถานะ: รอตรวจสอบคำขอ (ถ้าไม่อนุมัติ คืนเงินเต็มจำนวนเข้ากระเป๋า)',
       ].join('\n')
     : ''
@@ -207,29 +205,19 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
       setError(problem)
       return
     }
-    const now = new Date().toISOString()
-    const request: PromoRequest = {
-      id: `promo_${crypto.randomUUID()}`,
-      userId: currentUser.id,
+    setError('')
+    setPendingRequest({
       brand: brand.trim(),
       tagline: tagline.trim(),
       link: link.trim(),
       contact: contact.trim(),
       images: [...images],
-      image: images[0] || '',
       size,
-      price,
       rounds,
-      durationHours: rounds * 6,
       scheduleMode,
       startDate,
       termsAccepted: true,
-      termsAcceptedAt: now,
-      createdAt: now,
-      status: 'pending',
-    }
-    setError('')
-    setPendingRequest(request)
+    })
   }
 
   /** Payment approved and request stored. */
@@ -730,11 +718,12 @@ function PromoPayment({
   onBack,
   onPaid,
 }: {
-  request: PromoRequest
+  request: PromoInput
   payer: User
   onBack: () => void
   onPaid: (request: PromoRequest, user: User) => void
 }) {
+  const price = promoPrice(request.size, request.rounds)
   return (
     <div className="space-y-3">
       <div className="promo-intro">
@@ -743,22 +732,22 @@ function PromoPayment({
         </span>
         <div>
           <strong>
-            {request.brand} · {request.size} บาน · {request.rounds} รอบ ({request.durationHours} ชม.)
+            {request.brand} · {request.size} บาน · {request.rounds} รอบ ({request.rounds * 6} ชม.)
           </strong>
           <p>เริ่ม {dateLabel(request.startDate)} · ชำระตอนนี้ ถ้าไม่อนุมัติ ระบบคืนเงินเต็มจำนวนเข้ากระเป๋าเงินของคุณ</p>
         </div>
       </div>
       <PaymentPanel
         payer={payer}
-        amount={request.price}
+        amount={price}
         itemLabel={`ค่าโปรโมท "${request.brand}"`}
         reference="PROMO"
         onCancel={onBack}
-        onConfirm={(payment) => {
-          const result = payPromoRequest(payer, request, payment)
+        onConfirm={async (payment) => {
+          const result = await payPromoRequest(request, payment)
           if (!result.success) return { success: false, error: result.error }
           onPaid(result.request, result.updatedUser)
-          return { success: true }
+          return { success: true, pending: result.request.payment?.orderStatus === 'pending' }
         }}
         onPaid={() => {}}
       />

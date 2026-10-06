@@ -1,7 +1,7 @@
-import type { CategoryId, RegionId, WindowItem } from '@/types'
+import type { CategoryId, RegionId, WindowItem } from './types'
 import { REGIONS_BY_ID } from './regions'
 import { CATEGORY_IDS } from './categories'
-import { thaiDayKey } from '@/lib/thaiTime'
+import { thaiDayKey } from './thaiTime'
 
 export const DEMO_IMAGES = [
   'https://images.unsplash.com/photo-1528181304800-259b08848526?auto=format&fit=crop&w=800&q=80',

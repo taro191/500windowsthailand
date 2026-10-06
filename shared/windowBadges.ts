@@ -1,5 +1,5 @@
 // Display effects on the board: 🔥 hot, ✨ new / 🤝 new owner, 🟢 updated today, ⭐ popular.
-import type { StatusFilter, WindowItem } from '@/types'
+import type { StatusFilter, WindowItem } from './types'
 import { thaiDayKey } from './thaiTime'
 
 export const HOT_LIKES_TODAY = 10

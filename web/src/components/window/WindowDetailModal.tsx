@@ -18,10 +18,10 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import type { Quota, User, WindowItem } from '@/types'
-import { REGIONS_BY_ID } from '@/data/regions'
-import { CATEGORIES } from '@/data/categories'
-import { followerCount, highlightKind, highlightLabel, likesToday, starLevel, todaysNote } from '@/lib/windowBadges'
+import type { Quota, User, WindowItem } from '@shared/types'
+import { REGIONS_BY_ID } from '@shared/regions'
+import { CATEGORIES } from '@shared/categories'
+import { followerCount, highlightKind, highlightLabel, likesToday, starLevel, todaysNote } from '@shared/windowBadges'
 import {
   getEditAvailability,
   getHoldingPeriod,
@@ -29,7 +29,7 @@ import {
   MIN_RESALE_PRICE,
   RESALE_COMMISSION_RATE,
 } from '@/lib/ownershipRules'
-import { maskCitizenId, maskPhone } from '@/lib/identity'
+import { maskCitizenId, maskPhone } from '@shared/identity'
 import { copyToClipboard } from '@/lib/browser'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { STAR_LABELS } from '../board/WindowBadges'

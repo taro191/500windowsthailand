@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { ChevronDown, Compass, Gauge, LayoutGrid, LogOut, Menu, Search, ShieldCheck, UserCheck, Wallet, X } from 'lucide-react'
-import type { AuthMode, HubTab, Quota, RegionId, User, ZoomLevel } from '@/types'
-import { REGIONS_BY_ID } from '@/data/regions'
-import { maskPhone } from '@/lib/identity'
+import type { AuthMode, HubTab, Quota, RegionId, User, ZoomLevel } from '@shared/types'
+import { REGIONS_BY_ID } from '@shared/regions'
+import { maskPhone } from '@shared/identity'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface HeaderProps {
