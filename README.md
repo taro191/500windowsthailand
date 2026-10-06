@@ -14,3 +14,15 @@ npm run dev
 ```
 
 สถานะ: เดโม ข้อมูลเก็บใน localStorage ยังไม่มีระบบหลังบ้าน (การชำระเงิน, ตรวจสลิป, OTP เป็นการจำลอง)
+
+## Deploy
+
+เว็บจริง: **https://500windowsthailand.yaydang.com** (Plesk @ Hostatom)
+
+```bash
+cd web
+npm run deploy   # build แล้ว push web/dist ขึ้น branch `deploy`
+```
+
+GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `deploy` เปลี่ยน แล้ว Plesk (Git › 500windowsthailand.git, โหมด Automatic)
+จะ deploy ลงโฟลเดอร์ `/500windowsthailand` ให้เอง ถ้าไม่อัปเดต กด **Pull now** / **Deploy now** ในหน้า Git ของโดเมนใน Plesk
