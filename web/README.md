@@ -5,21 +5,21 @@
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
+npm run dev        # http://localhost:5173 (ต้องรัน API ใน ../server ด้วย — Vite ส่ง /api, /uploads ไปที่ localhost:3001)
 npm run build      # type-check + production build
 ```
 
 Stack: React 19, TypeScript, Vite, Tailwind CSS 4, lucide-react
 
-## สถานะ: เดโม (ยังไม่มีระบบหลังบ้าน)
+## สถานะ
 
-ข้อมูลทั้งหมดเก็บใน `localStorage` ของเบราว์เซอร์ ส่วนต่อไปนี้เป็นการจำลอง:
+ข้อมูลทั้งหมดมาจาก API ใน `../server` ส่วนต่อไปนี้ยังเป็นการจำลอง:
 
-- QR พร้อมเพย์, การตรวจสลิป และ Payment Gateway (บัตร)
-- OTP ตอนยืนยันตัวตน (KYC)
-- การโอนเงินออกให้ผู้ขาย (ตอนนี้เงินสุทธิเข้ากระเป๋าผู้ขาย)
+- Payment Gateway (บัตร) — ยังไม่ได้เลือกผู้ให้บริการ
+- OTP ตอนยืนยันตัวตน (KYC) — แสดงรหัสบนหน้าจอ เพราะยังไม่มีผู้ให้บริการ SMS
+- การโอนเงินออกให้ผู้ขาย — เงินสุทธิเข้ากระเป๋าผู้ขาย ผู้ดูแลโอนจริงเอง
 
-จุดที่ต้องเปลี่ยนไปเรียก API จริงรวมอยู่ใน `src/lib/store.ts` (ผู้ใช้), `src/lib/adminStore.ts` (ผู้ดูแล) และ `src/lib/settings.ts` (ค่าตั้งระบบ)
+การเรียก API อยู่ที่ `src/lib/api.ts` (client กลาง), `src/lib/store.ts` (ผู้ใช้) และ `src/lib/adminApi.ts` (ผู้ดูแล)
 
 ## การชำระเงิน
 
@@ -31,7 +31,7 @@ Stack: React 19, TypeScript, Vite, Tailwind CSS 4, lucide-react
 ## ระบบผู้ดูแล (Admin) — รูปแบบ AdminLTE
 
 เข้าได้เฉพาะผู้ใช้ `role: 'admin'` ผ่านปุ่ม **Admin** ที่ Header/เมนูมือถือ หรือ URL `#admin/<page>`
-บัญชีทดสอบ: `admin@kapsulep.com` / `password123`
+บัญชีผู้ดูแลสร้างจาก `ADMIN_EMAIL` / `ADMIN_PASSWORD` ใน env ของ server · บัญชีทดสอบ `admin@kapsulep.com` / `password123` มีเฉพาะเมื่อตั้ง `DEMO_TOOLS=true`
 
 | กลุ่ม | เมนู | สถานะ |
 |---|---|---|
@@ -41,8 +41,8 @@ Stack: React 19, TypeScript, Vite, Tailwind CSS 4, lucide-react
 | | พื้นที่โปรโมท (อนุมัติ → ขึ้นบอร์ด, ไม่อนุมัติ → คืนเงินเข้ากระเป๋า) | ใช้งานได้ |
 | ผู้ใช้งาน | ผู้ใช้งาน & KYC (เพิกถอน KYC, ระงับบัญชี) | ใช้งานได้ |
 | การเงิน | ธุรกรรมทั้งหมด (+ ส่งออก CSV) | ใช้งานได้ |
-| | การเติมเงิน | ใช้งานได้ · การตรวจสลิปจริงต้องมี backend |
-| | จ่ายเงินผู้ขาย | แสดงรายการ · การโอนจริงต้องมี backend |
+| | การเติมเงิน / ตรวจสลิป | ใช้งานได้ (ผู้ดูแลตรวจสลิปเองแล้วอนุมัติ/ปฏิเสธ) |
+| | จ่ายเงินผู้ขาย | แสดงรายการ · ผู้ดูแลโอนเงินเอง |
 | | รายงานรายได้ | ใช้งานได้ |
 | ตั้งค่าระบบ | เพดานราคาขายต่อ (เพิ่ม/ลบช่วงอายุ) | ใช้งานได้ · มีผลทันที |
 | | ช่องทางรับชำระเงิน | ใช้งานได้ |
@@ -56,16 +56,11 @@ Stack: React 19, TypeScript, Vite, Tailwind CSS 4, lucide-react
 
 | โฟลเดอร์ | เนื้อหา |
 |---|---|
-| `src/types.ts` | type หลัก: WindowItem, User, Transaction, PayoutAccount ฯลฯ |
-| `src/data/` | ข้อมูลตั้งต้น: 7 ภูมิภาค, 6 หมวด, ธนาคาร, ผู้ใช้ตัวอย่าง, บานตัวอย่าง |
-| `src/lib/store.ts` | เก็บ/อ่านข้อมูล และทุก action: สมัคร, ล็อกอิน, KYC, จับจอง, ซื้อต่อ, ขายต่อ, แก้ไข, ไลค์, ติดตาม |
-| `src/lib/ownershipRules.ts` | กติกา: แก้ไขวันละครั้ง, ถือครอง 30 วันก่อนขาย, เพดานราคาขายต่อ (อ่านจาก settings), ค่าคอม 5% |
-| `src/lib/settings.ts` | ค่าตั้งระบบที่ Admin แก้ได้: เพดานราคา, ช่องทางรับชำระเงิน, การเติมเงิน |
-| `src/lib/adminStore.ts` | action ของผู้ดูแล + Audit log |
-| `src/lib/thaiTime.ts`, `boardOrder.ts` | รอบสลับตำแหน่งทุก 6 ชม. (วันที่ 1/15/25 เรียง 1–500) |
-| `src/lib/windowBadges.ts` | ป้าย 🔥 ฮอต / ✨ ใหม่ / 🟢 อัปเดตวันนี้ / ⭐ ดัง |
-| `src/lib/promo.ts` | พื้นที่โปรโมทบาน 481–486, ราคา, การจัดวางบนตาราง |
-| `src/lib/identity.ts` | ตรวจเลขบัตรประชาชน (checksum) และเบอร์มือถือ, การปิดบังข้อมูล |
+| `../shared/` | types, ข้อมูลตั้งต้น (ภูมิภาค, หมวด, ธนาคาร) และกติกาที่ใช้ร่วมกับ server: ownershipRules, boardOrder, thaiTime, windowBadges, promo, identity, settings |
+| `src/lib/api.ts` | client กลางสำหรับเรียก API (`{ success, error }`) |
+| `src/lib/store.ts` | cache ข้อมูลจาก API และทุก action ของผู้ใช้: สมัคร, ล็อกอิน, KYC, จับจอง, ซื้อต่อ, ขายต่อ, แก้ไข, ไลค์, ติดตาม |
+| `src/lib/adminApi.ts` | action ของผู้ดูแล |
+| `src/lib/settings.ts`, `ownershipRules.ts`, `promo.ts` | ห่อกติกาจาก `shared/` ให้ใช้ค่าตั้งระบบที่โหลดจาก API |
 | `src/components/` | UI แยกตามส่วน: board, window, payment, hub, auth, promo, layout, admin |
 | `src/i18n/` | ปุ่มสลับภาษาไทย/อังกฤษ (แปลข้อความบนหน้าจอจากตารางคำแปล) |
 | `index.html` | `window.KAPSULEP_CONFIG`: อีเมล/LINE รับคำขอโปรโมท และโฆษณาที่อนุมัติแล้ว |

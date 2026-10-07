@@ -52,6 +52,8 @@ npm run deploy            # build แล้ว force-push web/dist ขึ้น 
 
 ## Deploy
 
-- เว็บจริง: https://500windowsthailand.yaydang.com (Plesk @ Hostatom) — `npm run deploy` ใน `web/` push static build ขึ้น branch `deploy` แล้ว GitHub webhook ให้ Plesk ดึงไป deploy อัตโนมัติ
-- ตอนนี้ deploy ได้แค่ static files ของ `web/` ส่วน `server/` ยังไม่มีขั้นตอน deploy (`npm run build` อ้าง `scripts/build.mjs` ที่ยังไม่มี) — production ตั้งใจใช้ MySQL และให้ server เสิร์ฟ `web/dist` ผ่าน `PUBLIC_DIR`
+- เว็บจริง: https://500windowsthailand.yaydang.com (Plesk @ Hostatom, Node.js/Passenger + MySQL) — ขั้นตอนตั้งค่า Plesk อยู่ใน `README.md`
+- `npm run deploy` ใน `web/` = test server + build ทั้งสองฝั่ง แล้ว force-push ขึ้น branch `deploy` (`app.cjs`, `server.mjs` ที่ esbuild รวม dependency ไว้แล้ว, `public/`, `tmp/restart.txt`) → GitHub webhook ให้ Plesk ดึงไปเอง · `-- --dry-run` = build อย่างเดียวไม่ push
+- `server/scripts/build.mjs` สร้าง `server/dist/server.mjs` — ถ้าเพิ่ม dependency ที่ bundle ไม่ได้ (native module) ต้องแก้ขั้นตอน deploy ด้วย
+- ค่า production ทั้งหมดตั้งใน env ของ Plesk ไม่ใช้ไฟล์ `.env` · `UPLOAD_DIR` อยู่นอกโฟลเดอร์ deploy
 - ห้าม commit `.env` และ `server/data/` (ฐานข้อมูล dev, ไฟล์อัปโหลด)
