@@ -43,7 +43,11 @@ export const revokeKyc = (userId: string) => post<{ user: User }>(`/admin/users/
 /** Disabled accounts cannot log in (suspended ones only cannot trade). */
 export const setUserDisabled = (userId: string, disabled: boolean) => post<{ user: User }>(`/admin/users/${userId}/disable`, { disabled })
 
+/** Super admin only (as is createUser). */
 export const setUserRole = (userId: string, role: 'admin' | 'user') => post<{ user: User }>(`/admin/users/${userId}/role`, { role })
+
+export const createUser = (user: { name: string; email: string; password: string; role: 'admin' | 'user' }) =>
+  post<{ user: User }>('/admin/users', user)
 
 /** Approving needs the transfer slip checked first; rejecting refunds the full amount to the wallet. */
 export const decidePromoRequest = (requestId: string, decision: 'approved' | 'rejected', note = '') =>

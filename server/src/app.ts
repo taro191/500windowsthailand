@@ -286,6 +286,8 @@ export function createApp(ctx: AppContext) {
     return ok(c, { window: await admin.releaseWindow(ctx, me(c), region, num, reason) })
   })
 
+  adminApi.post('/users', async (c) => ok(c, { user: await admin.createUser(ctx, me(c), await body<admin.NewUserInput>(c)) }))
+
   adminApi.post('/users/:id/suspend', async (c) => {
     const { suspended } = await body<{ suspended: boolean }>(c)
     return ok(c, { user: await admin.setUserSuspended(ctx, me(c), c.req.param('id'), !!suspended) })

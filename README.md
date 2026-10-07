@@ -67,6 +67,7 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    UPLOAD_DIR=<โฟลเดอร์นอก /500windowsthailand เช่น /var/www/vhosts/<โดเมนหลัก>/500windows-data/uploads>
    ADMIN_EMAIL=<อีเมลผู้ดูแล>
    ADMIN_PASSWORD=<รหัสชั่วคราว>
+   SUPER_ADMIN_EMAIL=<อีเมล super admin ถ้าไม่ใส่จะใช้ ADMIN_EMAIL — บัญชีนี้ต้องเป็นแอดมินอยู่แล้ว>
    DEMO_TOOLS=false
    CARD_PAYMENTS=disabled
    ```

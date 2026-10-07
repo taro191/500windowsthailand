@@ -75,6 +75,8 @@ export interface User {
   suspended?: boolean
   /** Disabled by an admin: cannot log in at all (suspended only blocks trading). */
   disabled?: boolean
+  /** The one admin who can create users and grant or remove admin rights (SUPER_ADMIN_EMAIL). */
+  superAdmin?: boolean
 }
 
 /** Where resale and rental income is paid (net 95%). */

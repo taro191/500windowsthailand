@@ -12,7 +12,12 @@ export const MIN_PASSWORD_LENGTH = 8
 
 const digits = (value: string) => value.replace(/[^0-9]/g, '')
 const formatPhone = (d: string) => (d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : d)
-const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+export const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+
+/** An admin whose email is SUPER_ADMIN_EMAIL (being an admin is required: emails aren't verified). */
+export function isSuperAdmin(ctx: AppContext, row: Pick<UserRow, 'role' | 'email'>) {
+  return row.role === 'admin' && !!ctx.config.superAdminEmail && row.email === ctx.config.superAdminEmail
+}
 
 export function citizenIdOf(ctx: AppContext, row: Pick<UserRow, 'citizen_enc'>): string {
   return row.citizen_enc ? ctx.secrets.decrypt(row.citizen_enc) || '' : ''
@@ -36,6 +41,7 @@ export function selfDto(ctx: AppContext, row: UserRow): User {
     role: row.role === 'admin' ? 'admin' : undefined,
     suspended: !!row.suspended || undefined,
     disabled: !!row.disabled || undefined,
+    superAdmin: isSuperAdmin(ctx, row) || undefined,
   }
 }
 

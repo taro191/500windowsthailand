@@ -101,6 +101,7 @@ before(async () => {
       ...config,
       uploadDir: mkdtempSync(path.join(tmpdir(), '500w-test-')),
       admin: { email: 'admin@test.th', password: 'admin-pass-123' },
+      superAdminEmail: 'admin@test.th',
       signupBonus: 0,
       cardPayments: 'simulated',
       otpMode: 'dev',
@@ -467,5 +468,38 @@ describe('user management', () => {
     const me = (await admin.get('/session')).user
     assert.equal((await admin.post(`/admin/users/${me.id}/disable`, { disabled: true })).status, 400)
     assert.equal((await admin.post(`/admin/users/${me.id}/role`, { role: 'user' })).status, 400)
+  })
+
+  it('lets the super admin create users who can log in', async () => {
+    const admin = await adminClient()
+    assert.equal((await admin.get('/session')).user.superAdmin, true)
+    const created = await admin.post('/admin/users', { name: 'ทีมงานใหม่', email: 'Staff@Test.th', password: 'staff-pass-1', role: 'admin' })
+    assert.equal(created.success, true, created.error)
+    assert.equal(created.user.role, 'admin')
+    assert.equal(created.user.email, 'staff@test.th')
+    assert.equal(created.user.balance, 0)
+
+    const staff = client()
+    assert.equal((await staff.post('/auth/login', { identifier: 'staff@test.th', password: 'staff-pass-1' })).success, true)
+    assert.equal((await staff.get('/admin/overview')).success, true)
+    assert.equal((await admin.post('/admin/users', { name: 'ซ้ำ', email: 'staff@test.th', password: 'staff-pass-1', role: 'user' })).status, 409)
+    assert.equal((await admin.post('/admin/users', { name: 'สั้น', email: 'short@test.th', password: 'short', role: 'user' })).status, 400)
+    const overview = await admin.get('/admin/overview')
+    assert.ok(overview.auditLog.some((a: any) => a.action === 'สร้างผู้ใช้'))
+  })
+
+  it('keeps user creation and admin rights to the super admin', async () => {
+    const admin = await adminClient()
+    const { c: other, user } = await verifiedUser()
+    await admin.post(`/admin/users/${user.id}/role`, { role: 'admin' })
+    const superId = (await admin.get('/session')).user.id
+    const { user: target } = await verifiedUser()
+
+    assert.equal((await other.get('/session')).user.superAdmin, undefined)
+    assert.equal((await other.post('/admin/users', { name: 'x', email: 'x@test.th', password: 'xxxxxxxx', role: 'user' })).status, 403)
+    assert.equal((await other.post(`/admin/users/${target.id}/role`, { role: 'admin' })).status, 403)
+    assert.equal((await other.post(`/admin/users/${superId}/disable`, { disabled: true })).status, 403)
+    assert.equal((await other.post(`/admin/users/${superId}/suspend`, { suspended: true })).status, 403)
+    assert.equal((await other.post(`/admin/users/${target.id}/disable`, { disabled: true })).success, true, 'other admin tools still work')
   })
 })
