@@ -299,13 +299,6 @@ input[type='tel'] {
     --app-height: 100dvh;
   }
 }
-/* Leave room for the camera notch on portrait phones. */
-@media (max-width: 639px) and (orientation: portrait) {
-  :root {
-    --app-safe-top: max(3.5rem, env(safe-area-inset-top, 0px));
-  }
-}
-
 #root > .min-h-screen {
   min-height: var(--app-height);
 }
