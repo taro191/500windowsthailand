@@ -132,6 +132,8 @@ export interface WindowItem {
   ownerChangeKind?: 'new' | 'owner'
   lastPurchasePrice?: number
   lastImageUpdatedAt?: string
+  /** Owner edits made on the given Thai calendar day (see getEditStatus). */
+  editsToday?: { day: string; count: number }
   imageUpdateHistory: ImageUpdate[]
   previousOwnerId?: string
   previousOwnerHistory?: OwnerHistoryEntry[]
@@ -147,7 +149,7 @@ export interface WindowItem {
   reserved?: boolean
 }
 
-export type TransactionType = 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund'
+export type TransactionType = 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund' | 'edit_fee'
 
 export interface Transaction {
   id: string
@@ -232,6 +234,13 @@ export interface PlatformSettings {
     min: number
     max: number
     presets: number[]
+  }
+  /** How often owners may change their window's image/text. */
+  editPolicy: {
+    /** Free edits per window per Thai calendar day. */
+    freeEditsPerDay: number
+    /** Price of each edit after the free ones, taken from the wallet; 0 = no extra edits. */
+    paidEditPrice: number
   }
   updatedAt?: string
 }

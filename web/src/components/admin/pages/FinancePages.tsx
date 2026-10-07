@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChartColumn, Download, HandCoins, History, Receipt, Wallet } from 'lucide-react'
+import { ChartColumn, Download, HandCoins, History, ImagePlus, Receipt, Wallet } from 'lucide-react'
 import type { Transaction, TransactionType } from '@shared/types'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 import type { AdminPageProps } from '../adminData'
@@ -208,12 +208,13 @@ export function PayoutsPage({ data }: AdminPageProps) {
 
 export function RevenuePage({ data }: AdminPageProps) {
   const months = useMemo(() => {
-    const map = new Map<string, { claim: number; commission: number; topup: number }>()
+    const map = new Map<string, { claim: number; commission: number; edit: number; topup: number }>()
     data.transactions.forEach((t) => {
       const key = t.date.slice(0, 7)
-      const row = map.get(key) || { claim: 0, commission: 0, topup: 0 }
+      const row = map.get(key) || { claim: 0, commission: 0, edit: 0, topup: 0 }
       if (t.type === 'claim') row.claim += t.amount
       if (t.type === 'resale') row.commission += commissionOf(t)
+      if (t.type === 'edit_fee') row.edit += t.amount
       if (t.type === 'topup') row.topup += t.amount
       map.set(key, row)
     })
@@ -221,10 +222,11 @@ export function RevenuePage({ data }: AdminPageProps) {
   }, [data.transactions])
   const claimTotal = months.reduce((s, [, r]) => s + r.claim, 0)
   const commissionTotal = months.reduce((s, [, r]) => s + r.commission, 0)
+  const editTotal = months.reduce((s, [, r]) => s + r.edit, 0)
   const promoRevenue = data.promoRequests.filter((r) => r.status === 'approved' && r.payment).reduce((s, r) => s + r.payment!.amount, 0)
   const promoHeld = data.promoRequests.filter((r) => r.status === 'pending' && r.payment).reduce((s, r) => s + r.payment!.amount, 0)
   const promoRefunded = data.promoRequests.reduce((s, r) => s + (r.refund?.amount || 0), 0)
-  const maxBar = Math.max(1, ...months.map(([, r]) => r.claim + r.commission))
+  const maxBar = Math.max(1, ...months.map(([, r]) => r.claim + r.commission + r.edit))
 
   return (
     <>
@@ -233,18 +235,20 @@ export function RevenuePage({ data }: AdminPageProps) {
         <InfoBox tone="warning" icon={HandCoins} label="ค่าคอมมิชชั่นขายต่อ 5%" value={baht(commissionTotal)} />
         <InfoBox tone="success" icon={ChartColumn} label="ค่าโปรโมท (อนุมัติแล้ว)" value={baht(promoRevenue)} />
         <InfoBox tone="secondary" icon={History} label={`ค่าโปรโมทรอพิจารณา (คืนไปแล้ว ${baht(promoRefunded)})`} value={baht(promoHeld)} />
+        <InfoBox tone="primary" icon={ImagePlus} label="ค่าแก้ไขบานเพิ่ม" value={baht(editTotal)} />
       </div>
       <Card title="รายได้รายเดือน" icon={ChartColumn} outline="success" flush>
-        <DataTable head={['เดือน', 'ค่าจับจอง', 'ค่าคอม 5%', 'รวมรายได้', '', 'เงินเติมเข้ากระเป๋า']} empty="ยังไม่มีรายได้">
+        <DataTable head={['เดือน', 'ค่าจับจอง', 'ค่าคอม 5%', 'ค่าแก้ไขบาน', 'รวมรายได้', '', 'เงินเติมเข้ากระเป๋า']} empty="ยังไม่มีรายได้">
           {months.map(([month, r]) => (
             <tr key={month}>
               <td className="font-mono">{month}</td>
               <td className="text-right font-mono">{baht(r.claim)}</td>
               <td className="text-right font-mono">{baht(r.commission)}</td>
-              <td className="text-right font-mono font-bold">{baht(r.claim + r.commission)}</td>
+              <td className="text-right font-mono">{baht(r.edit)}</td>
+              <td className="text-right font-mono font-bold">{baht(r.claim + r.commission + r.edit)}</td>
               <td className="w-1/4">
                 <div className="h-2 rounded bg-[#e9ecef] overflow-hidden">
-                  <div className="h-full bg-[#28a745]" style={{ width: `${((r.claim + r.commission) / maxBar) * 100}%` }} />
+                  <div className="h-full bg-[#28a745]" style={{ width: `${((r.claim + r.commission + r.edit) / maxBar) * 100}%` }} />
                 </div>
               </td>
               <td className="text-right font-mono text-[#6c757d]">{baht(r.topup)}</td>
@@ -253,7 +257,7 @@ export function RevenuePage({ data }: AdminPageProps) {
         </DataTable>
       </Card>
       <p className="text-sm text-[#6c757d]">
-        * ตารางรายเดือนนับเฉพาะค่าจับจองและค่าคอม · ค่าโปรโมทนับเป็นรายได้เมื่ออนุมัติ ระหว่างรอพิจารณาเป็นเงินที่ถือไว้ (อาจต้องคืน) ·
+        * ตารางรายเดือนนับค่าจับจอง ค่าคอม และค่าแก้ไขบานเพิ่ม · ค่าโปรโมทนับเป็นรายได้เมื่ออนุมัติ ระหว่างรอพิจารณาเป็นเงินที่ถือไว้ (อาจต้องคืน) ·
         เงินเติมเข้ากระเป๋าเป็นเงินของผู้ใช้ (หนี้สินของแพลตฟอร์ม) ไม่นับเป็นรายได้
       </p>
     </>

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import {
+  ImagePlus,
   BadgeDollarSign,
   BookOpen,
   ChartColumn,
@@ -39,6 +40,7 @@ export type AdminPage =
   | 'price-caps'
   | 'channels'
   | 'topup-settings'
+  | 'edit-settings'
   | 'rules'
   | 'audit'
 
@@ -68,6 +70,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   'price-caps': 'เพดานราคาขายต่อ',
   channels: 'ช่องทางรับชำระเงิน',
   'topup-settings': 'ตั้งค่าการเติมเงิน',
+  'edit-settings': 'สิทธิ์แก้ไขบาน',
   rules: 'กติกาทั่วไป',
   audit: 'บันทึกการใช้งาน',
 }
@@ -115,6 +118,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'price-caps', label: PAGE_TITLES['price-caps'], icon: Scale },
         { id: 'channels', label: PAGE_TITLES.channels, icon: CreditCard },
         { id: 'topup-settings', label: PAGE_TITLES['topup-settings'], icon: BadgeDollarSign },
+        { id: 'edit-settings', label: PAGE_TITLES['edit-settings'], icon: ImagePlus },
         { id: 'rules', label: PAGE_TITLES.rules, icon: BookOpen },
       ],
     },

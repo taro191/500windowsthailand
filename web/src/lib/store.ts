@@ -325,11 +325,29 @@ export interface WindowEditInput extends Omit<WindowContentInput, 'imageUrl'> {
   imageUrl?: string
   caption?: string
   dailyNote?: string
+  /** Price shown to the owner for a paid edit (free edits for today are used up). */
+  editFee?: number
 }
 
-/** Owner edit (once per 24 hours). A new image is added to the image history. */
-export const editWindow = async (region: RegionId, windowId: number, input: WindowEditInput) =>
-  windowAction(await patch(`/windows/${region}/${windowId}/content`, input))
+/**
+ * Owner edit: free up to the daily allowance, then charged to the wallet (settings.editPolicy).
+ * A new image is added to the image history.
+ */
+export async function editWindow(
+  region: RegionId,
+  windowId: number,
+  input: WindowEditInput,
+): Promise<Result<{ updatedWindow: WindowItem; charged: number }>> {
+  const result = await patch<{ window: WindowItem; charged: number }>(`/windows/${region}/${windowId}/content`, input)
+  if (!result.success) {
+    // 409: the edit price changed since the owner saw it, so show the current one.
+    if (result.status === 409) await refreshConfig()
+    return result
+  }
+  putWindow(result.window)
+  if (result.charged > 0) await refreshSession()
+  return { success: true, updatedWindow: result.window, charged: result.charged }
+}
 
 /** One like per visitor per day; returns the updated window. */
 export async function likeWindow(region: RegionId, windowId: number): Promise<{ window: WindowItem; counted: boolean } | null> {
@@ -348,7 +366,7 @@ export async function toggleFollow(region: RegionId, windowId: number): Promise<
 
 // ---------------------------------------------------------------- demo helpers (DEMO_TOOLS=true on the server)
 
-/** Lets the owner edit again right away by back-dating the last edit. */
+/** Gives back today's free edits. */
 export const demoSkipEditCooldown = async (region: RegionId, windowId: number) =>
   windowAction(await post(`/demo/windows/${region}/${windowId}/skip-cooldown`))
 

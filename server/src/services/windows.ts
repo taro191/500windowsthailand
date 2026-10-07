@@ -5,7 +5,7 @@ import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORY_IDS } from '@shared/categories'
 import { createEmptyWindows, DEMO_IMAGES } from '@shared/seedWindows'
 import { thaiDayKey } from '@shared/thaiTime'
-import { getEditAvailability, getHoldingPeriod, getPriceCap, MIN_RESALE_PRICE } from '@shared/ownershipRules'
+import { getEditStatus, getHoldingPeriod, getPriceCap, MIN_RESALE_PRICE } from '@shared/ownershipRules'
 import { isPromoSlot } from '@shared/promo'
 import type { UserRow, WindowRow } from '../db/schema'
 import type { DB } from '../db'
@@ -15,6 +15,7 @@ import { isDataUrl, saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
 import { getSettings } from './settings'
 import { assertCanTrade } from './users'
+import { debitWallet, recordTransaction } from './ledger'
 
 type Tx = DB
 
@@ -49,6 +50,8 @@ export function emptyWindowRow(region: RegionId, num: number, now = nowIso()): W
     owner_change_kind: null,
     last_purchase_price: null,
     last_image_updated_at: null,
+    edit_day: null,
+    edit_count: 0,
     views_count: 0,
     likes_count: 0,
     likes_day: null,
@@ -103,6 +106,7 @@ export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem
     ownerChangeKind: row.owner_change_kind ?? undefined,
     lastPurchasePrice: row.last_purchase_price ?? undefined,
     lastImageUpdatedAt: row.last_image_updated_at ?? undefined,
+    editsToday: row.edit_day ? { day: row.edit_day, count: row.edit_count } : undefined,
     imageUpdateHistory: extras.images ?? [],
     previousOwnerId: row.previous_owner_id ?? undefined,
     previousOwnerHistory: extras.owners,
@@ -219,6 +223,8 @@ export interface WindowContentInput {
   externalLink?: string
   caption?: string
   dailyNote?: string
+  /** Price the owner agreed to for a paid edit (must match the current price). */
+  editFee?: number
 }
 
 const clean = (value: unknown, max: number) => String(value ?? '').trim().slice(0, max)
@@ -251,14 +257,31 @@ export async function insertImage(db: Tx, region: RegionId, num: number, imageUr
   await db.insertInto('window_images').values({ id: newId('wi'), region, num, date, image_url: imageUrl, caption }).execute()
 }
 
-/** Owner edit (once per 24 hours). A new image is added to the image history. */
+/**
+ * Owner edit. The first `freeEditsPerDay` edits of a Thai calendar day are free; after that each
+ * edit costs `paidEditPrice` from the wallet (see getEditStatus). A new image is added to the history.
+ */
 export async function editWindow(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: WindowContentInput) {
   if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
   const row = await loadRow(ctx.db, region, num)
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
-  const edit = getEditAvailability(toWindowItem(row))
-  if (!edit.canUpdate) {
-    throw badRequest(`แก้ไขได้วันละ 1 ครั้งเท่านั้น (แก้ไขครั้งถัดไปได้ในอีก ${edit.hoursRemaining} ชม. ${edit.minutesRemaining} นาที)`)
+  const { editPolicy } = await getSettings(ctx)
+  const edit = getEditStatus(toWindowItem(row), editPolicy)
+  if (!edit.canEdit) {
+    throw badRequest(
+      `ใช้สิทธิ์แก้ไขฟรีของวันนี้ครบ ${editPolicy.freeEditsPerDay} ครั้งแล้ว (แก้ไขได้อีกครั้งในอีก ${edit.resetsIn.hours} ชม. ${edit.resetsIn.minutes} นาที)`,
+    )
+  }
+  if (edit.paid) {
+    if (input.editFee !== edit.price) {
+      throw conflict(`ค่าแก้ไขครั้งนี้คือ ${edit.price.toLocaleString()} ฿ กรุณาตรวจสอบแล้วยืนยันอีกครั้ง`, { editFee: edit.price })
+    }
+    if (user.balance < edit.price) {
+      throw badRequest(
+        `ยอดเงินในกระเป๋าไม่เพียงพอสำหรับค่าแก้ไข (ต้องการ ${edit.price.toLocaleString()} ฿ แต่คุณมี ${user.balance.toLocaleString()} ฿)`,
+        { requiresTopUp: true },
+      )
+    }
   }
   const content = cleanContent(input, region)
   if (!content.title) throw badRequest('กรุณาระบุชื่อหน้าต่าง')
@@ -266,8 +289,9 @@ export async function editWindow(ctx: AppContext, user: UserRow, region: RegionI
   const now = nowIso()
   const imageChanged = !!input.imageUrl && input.imageUrl !== row.image_url
   const imageUrl = imageChanged ? await resolveImage(ctx, input.imageUrl!) : row.image_url
+  const today = thaiDayKey()
   await ctx.db.transaction().execute(async (trx) => {
-    await trx
+    let update = trx
       .updateTable('windows')
       .set({
         title: content.title,
@@ -278,16 +302,40 @@ export async function editWindow(ctx: AppContext, user: UserRow, region: RegionI
         external_link: content.external_link,
         image_url: imageUrl,
         last_image_updated_at: now,
+        edit_day: today,
+        edit_count: edit.usedToday + 1,
         ...(content.dailyNote ? { note_day: thaiDayKey(), note_text: content.dailyNote, note_at: now } : {}),
         updated_at: now,
       })
       .where('region', '=', region)
       .where('num', '=', num)
       .where('owner_id', '=', user.id)
-      .execute()
+      .where('edit_count', '=', row.edit_count)
+    // Only if nobody else counted an edit since we read the row (no double free edits).
+    update = row.edit_day === null ? update.where('edit_day', 'is', null) : update.where('edit_day', '=', row.edit_day)
+    const result = await update.executeTakeFirst()
+    if (Number(result.numUpdatedRows) === 0) throw conflict('บานนี้เพิ่งถูกแก้ไข กรุณาลองใหม่อีกครั้ง')
+
+    if (edit.paid) {
+      await debitWallet(trx, user.id, edit.price)
+      await recordTransaction(trx, {
+        windowId: num,
+        windowCode: row.code,
+        region,
+        windowTitle: `ค่าแก้ไขบานเพิ่ม (ครั้งที่ ${edit.usedToday + 1} ของวันนี้)`,
+        fromOwner: user.name,
+        fromOwnerId: user.id,
+        toOwner: '500 Windows',
+        toOwnerId: 'platform',
+        amount: edit.price,
+        type: 'edit_fee',
+        walletAmount: edit.price,
+        externalAmount: 0,
+      })
+    }
     if (imageChanged) await insertImage(trx, region, num, imageUrl, content.caption || 'อัปเดตรูปภาพ', now)
   })
-  return loadWindow(ctx, region, num, user.id)
+  return { window: await loadWindow(ctx, region, num, user.id), charged: edit.price }
 }
 
 // ---------------------------------------------------------------- resale listing
@@ -390,9 +438,9 @@ export async function toggleFollow(ctx: AppContext, user: UserRow, region: Regio
 
 // ---------------------------------------------------------------- demo helpers (DEMO_TOOLS=true)
 
+/** Gives back today's free edits. */
 export async function demoSkipEditCooldown(ctx: AppContext, user: UserRow, region: RegionId, num: number) {
-  const at = new Date(Date.now() - 86_400_000 - 60_000).toISOString()
-  await ctx.db.updateTable('windows').set({ last_image_updated_at: at }).where('region', '=', region).where('num', '=', num).where('owner_id', '=', user.id).execute()
+  await ctx.db.updateTable('windows').set({ edit_day: null, edit_count: 0 }).where('region', '=', region).where('num', '=', num).where('owner_id', '=', user.id).execute()
   return loadWindow(ctx, region, num, user.id)
 }
 

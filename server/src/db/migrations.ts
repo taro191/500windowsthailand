@@ -227,6 +227,14 @@ const migrations: Record<string, Migration> = {
       await db.schema.createIndex('audit_log_at').on('audit_log').column('at').execute()
     },
   },
+  '002_edit_allowance': {
+    // Daily edit allowance: edits counted per Thai calendar day instead of a 24-hour lock.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('windows').addColumn('edit_day', varchar(10)).execute()
+      await db.schema.alterTable('windows').addColumn('edit_count', 'integer', (c) => c.notNull().defaultTo(0)).execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

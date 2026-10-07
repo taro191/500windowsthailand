@@ -2,6 +2,7 @@ import { Check, CircleAlert, Tag, X } from 'lucide-react'
 import type { AuthMode, Quota, User, WindowItem } from '@shared/types'
 import { maskCitizenId } from '@shared/identity'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
+import { editPolicyLabel, useSettings } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface BuyResaleModalProps {
@@ -24,6 +25,7 @@ export function BuyResaleModal({
   onOpenAuth,
   onOpenKyc,
 }: BuyResaleModalProps) {
+  const { editPolicy } = useSettings()
   if (!windowItem.resalePrice) return null
 
   const price = windowItem.resalePrice
@@ -152,7 +154,7 @@ export function BuyResaleModal({
             <p className="text-[11px] text-stone-400 leading-relaxed font-light">
               • กรรมสิทธิ์บานหน้าต่างจะถูกโอนเป็นชื่อของคุณทันที
               <br />• คุณสามารถลงรูปภาพส่วนตัวใหม่ของคุณได้ทันที
-              <br />• สิทธิ์แก้ไขรูปภาพและข้อความ (1 ครั้ง / 24 ชม.)
+              <br />• สิทธิ์{editPolicyLabel(editPolicy)}
               <br />• สิทธิ์นำกลับมาตั้งราคาเปิดขายต่อให้ผู้อื่นได้ตลอดเวลา
             </p>
           </div>

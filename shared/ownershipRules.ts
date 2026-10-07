@@ -1,7 +1,7 @@
-// Time-based ownership rules: one edit per day, 30-day minimum holding, resale price caps
+// Time-based ownership rules: daily edit allowance (free, then paid), 30-day minimum holding, resale price caps
 // (caps are configured on the admin page, see settings.ts). Used by the web app and the API.
 import type { PlatformSettings, WindowItem } from './types'
-import { DAY_MS } from './thaiTime'
+import { DAY_MS, THAI_OFFSET_MS, thaiDayKey } from './thaiTime'
 import { multiplierLabel, sortTiers, tierAgeLabel } from './settings'
 
 export const CLAIM_PRICE = 500
@@ -9,26 +9,35 @@ export const MIN_HOLDING_DAYS = 30
 export const MIN_RESALE_PRICE = 100
 export const RESALE_COMMISSION_RATE = 0.05
 
-export interface EditAvailability {
-  canUpdate: boolean
-  hoursRemaining: number
-  minutesRemaining: number
-  nextEditAt?: string
+export interface EditStatus {
+  /** Edits already made today (Thai calendar day). */
+  usedToday: number
+  freeLeft: number
+  /** The next edit costs `price` from the wallet (free edits are used up). */
+  paid: boolean
+  price: number
+  /** False when the free edits are used up and paid edits are switched off. */
+  canEdit: boolean
+  /** Time until the free edits come back (next midnight in Thailand). */
+  resetsIn: { hours: number; minutes: number }
 }
 
-/** Owners may change their image or text once every 24 hours. */
-export function getEditAvailability(window: WindowItem): EditAvailability {
-  const open: EditAvailability = { canUpdate: true, hoursRemaining: 0, minutesRemaining: 0 }
-  if (window.status === 'available' || !window.lastImageUpdatedAt) return open
-  const nextEdit = new Date(window.lastImageUpdatedAt).getTime() + DAY_MS
-  const msLeft = nextEdit - Date.now()
-  if (msLeft <= 0) return open
-  const minutesLeft = Math.ceil(msLeft / 60000)
+/**
+ * Owners get `freeEditsPerDay` free changes of image/text per window per Thai calendar day;
+ * each further change costs `paidEditPrice` from the wallet (0 = not allowed).
+ */
+export function getEditStatus(window: WindowItem, policy: PlatformSettings['editPolicy'], now = new Date()): EditStatus {
+  const usedToday = window.editsToday?.day === thaiDayKey(now) ? window.editsToday.count : 0
+  const freeLeft = Math.max(0, policy.freeEditsPerDay - usedToday)
+  const paid = freeLeft === 0
+  const minutesLeft = Math.ceil((DAY_MS - ((now.getTime() + THAI_OFFSET_MS) % DAY_MS)) / 60000)
   return {
-    canUpdate: false,
-    hoursRemaining: Math.floor(minutesLeft / 60),
-    minutesRemaining: minutesLeft % 60,
-    nextEditAt: new Date(nextEdit).toISOString(),
+    usedToday,
+    freeLeft,
+    paid,
+    price: paid ? policy.paidEditPrice : 0,
+    canEdit: !paid || policy.paidEditPrice > 0,
+    resetsIn: { hours: Math.floor(minutesLeft / 60), minutes: minutesLeft % 60 },
   }
 }
 

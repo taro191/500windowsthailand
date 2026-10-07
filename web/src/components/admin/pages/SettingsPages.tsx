@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BadgeDollarSign, BookOpen, CreditCard, Pencil, Plus, RotateCcw, Save, Scale, Trash2 } from 'lucide-react'
+import { BadgeDollarSign, BookOpen, CreditCard, ImagePlus, Pencil, Plus, RotateCcw, Save, Scale, Trash2 } from 'lucide-react'
 import type { PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { updateSettings } from '@/lib/adminApi'
@@ -396,16 +396,74 @@ export function TopUpSettingsPage({ notify }: AdminPageProps) {
   )
 }
 
+// ---------------------------------------------------------------- owner edit allowance
+
+export function EditSettingsPage({ notify }: AdminPageProps) {
+  const settings = useSettings()
+  const [free, setFree] = useState(String(settings.editPolicy.freeEditsPerDay))
+  const [price, setPrice] = useState(String(settings.editPolicy.paidEditPrice))
+  const [error, setError] = useState('')
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const freeEditsPerDay = Number(free)
+    const paidEditPrice = Number(price)
+    if (!Number.isInteger(freeEditsPerDay) || freeEditsPerDay < 0) return setError('จำนวนครั้งที่แก้ไขฟรีต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป')
+    if (!Number.isInteger(paidEditPrice) || paidEditPrice < 0) return setError('ค่าแก้ไขเพิ่มต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป')
+    if (freeEditsPerDay === 0 && paidEditPrice === 0) return setError('ต้องให้แก้ไขฟรีอย่างน้อย 1 ครั้งต่อวัน หรือกำหนดค่าแก้ไขเพิ่ม')
+    setError('')
+    const result = await updateSettings(
+      { ...settings, editPolicy: { freeEditsPerDay, paidEditPrice } },
+      `สิทธิ์แก้ไขบาน → ฟรีวันละ ${freeEditsPerDay} ครั้ง, ครั้งต่อไป ${paidEditPrice > 0 ? baht(paidEditPrice) : 'ไม่เปิดให้แก้เพิ่ม'}`,
+    )
+    if (!result.success) return setError(result.error)
+    notify('บันทึกสิทธิ์แก้ไขบานแล้ว')
+  }
+
+  return (
+    <div className="max-w-xl">
+      <Card title="สิทธิ์แก้ไขรูปภาพ / ข้อความของเจ้าของบาน" icon={ImagePlus} outline="primary">
+        <form onSubmit={save}>
+          {error && <div className="mb-3 p-2.5 rounded bg-[#f8d7da] text-[#721c24] text-sm border border-[#f5c6cb]">{error}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <FormRow label="แก้ไขฟรีต่อวัน (ครั้ง ต่อบาน)" hint="นับใหม่ทุกเที่ยงคืนตามเวลาไทย">
+              <input type="number" min={0} max={100} value={free} onChange={(e) => setFree(e.target.value)} className={inputClass} />
+            </FormRow>
+            <FormRow label="ค่าแก้ไขครั้งต่อไป (บาท/ครั้ง)" hint="หักจากเครดิตในกระเป๋า · 0 = ไม่เปิดให้แก้เพิ่ม">
+              <input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className={inputClass} />
+            </FormRow>
+          </div>
+          <p className="mb-3 text-sm text-[#6c757d]">
+            ตัวอย่าง: ฟรี 1 ครั้ง ค่าแก้ไข 50 บาท = เจ้าของบานแก้ไขครั้งแรกของวันได้ฟรี ครั้งที่ 2 เป็นต้นไปเสียครั้งละ 50 บาท
+            การเปลี่ยนแปลงมีผลทันทีกับการแก้ไขครั้งถัดไป
+          </p>
+          <div className="flex justify-end">
+            <Button tone="primary" type="submit">
+              <Save className="w-4 h-4" /> บันทึก
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------- general rules (read-only for now)
 
 export function RulesPage() {
+  const { editPolicy } = useSettings()
   const rows: [string, string][] = [
     ['ราคาจับจองบาน', `${baht(CLAIM_PRICE)} (ตลอดชีพ)`],
     ['ค่าคอมมิชชั่นขายต่อ', `${RESALE_COMMISSION_RATE * 100}% (ผู้ขายได้รับ ${100 - RESALE_COMMISSION_RATE * 100}%)`],
     ['ระยะถือครองขั้นต่ำก่อนขายต่อ', `${MIN_HOLDING_DAYS} วัน`],
     ['ราคาขายต่อขั้นต่ำ', baht(MIN_RESALE_PRICE)],
     ['โควตาต่อผู้ใช้', 'บานประเทศไทย 1 + บานภูมิภาค 1 (รวม 2)'],
-    ['สิทธิ์แก้ไขรูป/ข้อความ', 'วันละ 1 ครั้ง (24 ชม.)'],
+    [
+      'สิทธิ์แก้ไขรูป/ข้อความ',
+      `ฟรีวันละ ${editPolicy.freeEditsPerDay} ครั้ง` +
+        (editPolicy.paidEditPrice > 0 ? ` · ครั้งต่อไป ${baht(editPolicy.paidEditPrice)} (หักจากกระเป๋า)` : ' · ไม่เปิดให้แก้เพิ่ม') +
+        ' (ตั้งค่าที่เมนู "สิทธิ์แก้ไขบาน")',
+    ],
     ['สลับตำแหน่ง', 'ทุก 6 ชม. (00/06/12/18 น.) · วันที่ 1, 15, 25 เรียง 1–500'],
     ['พื้นที่โปรโมท', `บาน ${PROMO_SLOTS[0]}–${PROMO_SLOTS[PROMO_SLOTS.length - 1]} · ${PROMO_PRICE_PER_WINDOW_ROUND} บาท/บาน/รอบ 6 ชม.`],
   ]

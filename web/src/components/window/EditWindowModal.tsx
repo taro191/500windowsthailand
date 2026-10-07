@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Camera, Check, CircleAlert, Upload, X } from 'lucide-react'
+import { Camera, Check, CircleAlert, Upload, Wallet, X } from 'lucide-react'
 import type { CategoryId, WindowItem } from '@shared/types'
 import type { WindowEditInput } from '@/lib/store'
 import { REGIONS_BY_ID } from '@shared/regions'
@@ -7,18 +7,26 @@ import { CATEGORIES, CATEGORY_IDS } from '@shared/categories'
 import { DEMO_IMAGES } from '@shared/seedWindows'
 import { todaysNote } from '@shared/windowBadges'
 import { compressImage } from '@/lib/browser'
+import { getEditStatus } from '@/lib/ownershipRules'
+import { useSettings } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 interface EditWindowModalProps {
   windowItem: WindowItem
+  /** Owner's wallet balance, for paid edits. */
+  balance: number
   onClose: () => void
+  onTopUp: () => void
   onSubmitEdit: (windowId: number, input: WindowEditInput) => void
 }
 
-/** Owner's daily edit: image (optional), text, contact, link and today's status note. */
-export function EditWindowModal({ windowItem, onClose, onSubmitEdit }: EditWindowModalProps) {
+/** Owner's edit: image (optional), text, contact, link and today's status note. Free up to the daily allowance, then paid. */
+export function EditWindowModal({ windowItem, balance, onClose, onTopUp, onSubmitEdit }: EditWindowModalProps) {
+  const { editPolicy } = useSettings()
+  const edit = getEditStatus(windowItem, editPolicy)
+  const shortOfMoney = edit.paid && balance < edit.price
   const region = REGIONS_BY_ID[windowItem.region]
   const [imageUrl, setImageUrl] = useState(windowItem.imageUrl)
   const [caption, setCaption] = useState('')
@@ -45,6 +53,7 @@ export function EditWindowModal({ windowItem, onClose, onSubmitEdit }: EditWindo
       setError('กรุณายืนยันว่าภาพถ่ายและข้อความเป็นไปตามเงื่อนไขที่กำหนด')
       return
     }
+    if (!edit.canEdit || shortOfMoney) return
     onSubmitEdit(windowItem.id, {
       title: title.trim(),
       description: description.trim(),
@@ -55,6 +64,7 @@ export function EditWindowModal({ windowItem, onClose, onSubmitEdit }: EditWindo
       dailyNote: dailyNote.trim() || undefined,
       imageUrl: imageChanged ? imageUrl : undefined,
       caption: caption.trim() || undefined,
+      editFee: edit.paid ? edit.price : undefined,
     })
   }
 
@@ -228,10 +238,33 @@ export function EditWindowModal({ windowItem, onClose, onSubmitEdit }: EditWindo
           <div className="p-3 bg-stone-950 rounded-xl border border-purple-900/40 text-stone-300 text-xs flex items-start gap-2">
             <Check className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <p className="leading-relaxed font-light">
-              <strong>เงื่อนไขสิทธิ์:</strong> แก้ไขรูปภาพและข้อความได้ <strong>วันละ 1 ครั้งเท่านั้น</strong> (นับ 24
-              ชั่วโมงจากการกดยืนยัน) คุณสามารถแก้ไขหลายอย่างพร้อมกันได้ในครั้งเดียว
+              <strong>เงื่อนไขสิทธิ์:</strong> แก้ไขรูปภาพและข้อความได้ <strong>ฟรีวันละ {editPolicy.freeEditsPerDay} ครั้ง</strong>{' '}
+              (เริ่มนับใหม่ทุกเที่ยงคืน)
+              {editPolicy.paidEditPrice > 0 && <> หลังจากนั้นแก้ไขเพิ่มได้ครั้งละ <strong>฿{editPolicy.paidEditPrice.toLocaleString()}</strong> หักจากเครดิตในกระเป๋า</>}
+              {' '}คุณสามารถแก้ไขหลายอย่างพร้อมกันได้ในครั้งเดียว
             </p>
           </div>
+
+          {edit.paid ? (
+            <div className={`p-3 rounded-xl border text-xs space-y-2 ${shortOfMoney ? 'bg-rose-950/40 border-rose-700/50 text-rose-200' : 'bg-amber-950/40 border-amber-700/50 text-amber-200'}`}>
+              <div className="flex items-start gap-2">
+                <Wallet className="w-4 h-4 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  ใช้สิทธิ์แก้ไขฟรีของวันนี้ครบแล้ว ครั้งนี้มีค่าแก้ไข <strong className="font-mono">฿{edit.price.toLocaleString()}</strong>{' '}
+                  หักจากเครดิตในกระเป๋า (คงเหลือ <span className="font-mono">฿{balance.toLocaleString()}</span>)
+                </p>
+              </div>
+              {shortOfMoney && (
+                <button type="button" onClick={onTopUp} className="w-full py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold cursor-pointer">
+                  ยอดเงินไม่พอ · เติมเงินเข้ากระเป๋า
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-[11px] text-emerald-300 font-light">
+              ครั้งนี้ใช้สิทธิ์ฟรี (เหลือ {edit.freeLeft} จาก {editPolicy.freeEditsPerDay} ครั้งของวันนี้)
+            </p>
+          )}
 
           <div className="p-3 rounded-xl bg-stone-950 border border-stone-850">
             <label className="flex items-start gap-2 cursor-pointer">
@@ -249,11 +282,11 @@ export function EditWindowModal({ windowItem, onClose, onSubmitEdit }: EditWindo
 
           <button
             type="submit"
-            disabled={!acceptedTerms}
-            className={`w-full py-3 px-4 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 hover:opacity-95 shadow-lg shadow-rose-500/20 cursor-pointer transition-all flex items-center justify-center gap-2 ${acceptedTerms ? '' : 'opacity-40 !cursor-not-allowed'}`}
+            disabled={!acceptedTerms || !edit.canEdit || shortOfMoney}
+            className={`w-full py-3 px-4 rounded-xl text-white font-bold text-sm bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 hover:opacity-95 shadow-lg shadow-rose-500/20 cursor-pointer transition-all flex items-center justify-center gap-2 ${acceptedTerms && edit.canEdit && !shortOfMoney ? '' : 'opacity-40 !cursor-not-allowed'}`}
           >
             <Camera className="w-4 h-4" />
-            <span>ยืนยันการแก้ไข (ใช้สิทธิ์ของวันนี้)</span>
+            <span>{edit.paid ? `ยืนยันการแก้ไขและชำระ ฿${edit.price.toLocaleString()}` : 'ยืนยันการแก้ไข (ใช้สิทธิ์ฟรี)'}</span>
           </button>
         </form>
       </div>

@@ -1,6 +1,6 @@
 import { BookOpen, ShieldCheck, Sparkles } from 'lucide-react'
 import { getRotationCycle } from '@shared/thaiTime'
-import { sortTiers, tierAgeLabel, useSettings } from '@/lib/settings'
+import { editPolicyLabel, sortTiers, tierAgeLabel, useSettings } from '@/lib/settings'
 import { CLAIM_PRICE } from '@/lib/ownershipRules'
 
 /** "ตั้งราคาได้ไม่เกิน 10 เท่า (฿5,000)" or the no-cap text. */
@@ -111,7 +111,7 @@ export function RulesTab({ onRotateWindows }: RulesTabProps) {
           </p>
         </RuleCard>
 
-        <RuleCard n={2} color="bg-amber-950 text-amber-300 border-amber-700/60" title="ลงภาพของตนเอง · แก้ไขรูปภาพ/ข้อความได้วันละ 1 ครั้ง">
+        <RuleCard n={2} color="bg-amber-950 text-amber-300 border-amber-700/60" title={`ลงภาพของตนเอง · ${editPolicyLabel(settings.editPolicy)}`}>
           <p className="text-[11px] text-stone-400 pl-7 leading-relaxed">
             ภาพครอบครัว ภาพถ่ายสถานที่ท่องเที่ยว กิจการร้านค้า ศิลปะ หรือเรื่องราวชีวิต มีระบบบันทึกภาพถ่ายย้อนหลังทุกครั้งที่เปลี่ยนรูป
           </p>

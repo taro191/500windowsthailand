@@ -224,6 +224,8 @@ async function applyClaim(
       owner_change_kind: 'new',
       last_purchase_price: args.price,
       last_image_updated_at: now,
+      edit_day: null,
+      edit_count: 0,
       note_day: null,
       note_text: null,
       note_at: null,
@@ -333,6 +335,8 @@ async function applyResale(
       owner_change_kind: 'owner',
       last_purchase_price: args.price,
       last_image_updated_at: null,
+      edit_day: null,
+      edit_count: 0,
       reserved_order_id: null,
       updated_at: now,
     })

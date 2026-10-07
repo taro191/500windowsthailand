@@ -23,7 +23,7 @@ import { REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES } from '@shared/categories'
 import { followerCount, highlightKind, highlightLabel, likesToday, starLevel, todaysNote } from '@shared/windowBadges'
 import {
-  getEditAvailability,
+  getEditStatus,
   getHoldingPeriod,
   getPriceCap,
   MIN_RESALE_PRICE,
@@ -31,6 +31,8 @@ import {
 } from '@/lib/ownershipRules'
 import { maskCitizenId, maskPhone } from '@shared/identity'
 import { copyToClipboard } from '@/lib/browser'
+import { editPolicyLabel, useSettings } from '@/lib/settings'
+import { isDemo } from '@/lib/store'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { STAR_LABELS } from '../board/WindowBadges'
 
@@ -44,7 +46,7 @@ interface WindowDetailModalProps {
   onOpenEditor: (window: WindowItem) => void
   onListForResale: (window: WindowItem, price: number) => void
   onCancelResale: (window: WindowItem) => void
-  /** Demo: unlock editing now instead of waiting 24 hours. */
+  /** Demo: give back today's free edits. */
   onSimulatePass24Hours: (windowId: number) => void
   /** Demo: pretend the window has been held for `days` days. */
   onSimulateHolding: (windowId: number, days: number) => void
@@ -299,6 +301,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
 }
 
 function WindowImage({ windowItem: w }: { windowItem: WindowItem }) {
+  const { editPolicy } = useSettings()
   return (
     <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-stone-950 border-2 border-stone-800 shadow-inner flex items-center justify-center">
       {w.status === 'available' ? (
@@ -308,7 +311,7 @@ function WindowImage({ windowItem: w }: { windowItem: WindowItem }) {
           </div>
           <h3 className="text-lg font-bold text-stone-200">บานหน้าต่างนี้พร้อมให้คุณเป็นเจ้าของ</h3>
           <p className="text-xs text-stone-400 mt-1 max-w-sm mx-auto leading-relaxed font-light">
-            จับจองเพื่อลงรูปภาพส่วนตัว ธุรกิจ หรือเรื่องราวแห่งความทรงจำของคุณ แก้ไขรูปภาพและข้อความได้วันละ 1 ครั้ง
+            จับจองเพื่อลงรูปภาพส่วนตัว ธุรกิจ หรือเรื่องราวแห่งความทรงจำของคุณ {editPolicyLabel(editPolicy)}
             และขายต่อได้ทุกเวลา (โควตาผู้ใช้: ไทย 1 บาน + ภูมิภาค 1 บาน)
           </p>
         </div>
@@ -559,7 +562,8 @@ function OwnerStudio({
     setShowPhone(false)
   }, [w.id])
 
-  const edit = getEditAvailability(w)
+  const { editPolicy } = useSettings()
+  const edit = getEditStatus(w, editPolicy)
   const holding = getHoldingPeriod(w)
   const isForResale = w.status === 'for_resale'
   const citizenId = w.ownerCitizenId || currentUser?.citizenId
@@ -643,20 +647,30 @@ function OwnerStudio({
             <Calendar className="w-4 h-4 text-rose-400" />
             <span>สิทธิ์แก้ไขรูปภาพและข้อความ</span>
           </div>
-          <span className="text-[10px] text-stone-400 font-mono">(1 ครั้ง / 24 ชม.)</span>
+          <span className="text-[10px] text-stone-400 font-mono">(ฟรี {editPolicy.freeEditsPerDay} ครั้ง / วัน)</span>
         </div>
-        {edit.canUpdate ? (
+        {!edit.paid ? (
           <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-emerald-300">
             <Check className="w-4 h-4 shrink-0 text-emerald-400" />
-            <span className="text-[11px] leading-tight font-light">พร้อมให้แก้ไขรูปภาพและข้อความของวันนี้ได้แล้ว!</span>
+            <span className="text-[11px] leading-tight font-light">
+              แก้ไขฟรีได้อีก <strong className="font-mono">{edit.freeLeft}</strong> ครั้งในวันนี้
+            </span>
           </div>
         ) : (
           <div className="flex items-center gap-2 p-2 rounded-lg bg-purple-950/30 border border-purple-800/30 text-rose-300">
             <Clock className="w-4 h-4 shrink-0 text-rose-400" />
             <span className="text-[11px] leading-tight font-light">
-              แก้ไขครั้งถัดไปได้ในอีก{' '}
+              {edit.canEdit ? (
+                <>
+                  ใช้สิทธิ์ฟรีวันนี้ครบแล้ว แก้ไขเพิ่มได้ครั้งละ{' '}
+                  <strong className="font-mono text-amber-200 font-bold">฿{edit.price.toLocaleString()}</strong> (หักจากกระเป๋า) ·{' '}
+                </>
+              ) : (
+                'ใช้สิทธิ์แก้ไขของวันนี้ครบแล้ว · '
+              )}
+              สิทธิ์ฟรีกลับมาในอีก{' '}
               <strong className="font-mono text-rose-200 font-bold">
-                {edit.hoursRemaining} ชม. {edit.minutesRemaining} นาที
+                {edit.resetsIn.hours} ชม. {edit.resetsIn.minutes} นาที
               </strong>
             </span>
           </div>
@@ -664,20 +678,20 @@ function OwnerStudio({
         <div className="pt-1 flex flex-col gap-2">
           <button
             onClick={() => onOpenEditor(w)}
-            disabled={!edit.canUpdate}
-            className={`w-full py-2.5 px-3 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${edit.canUpdate ? 'bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 text-white shadow-md hover:opacity-95' : 'bg-[#140f21] text-stone-500 cursor-not-allowed border border-purple-900/30'}`}
+            disabled={!edit.canEdit}
+            className={`w-full py-2.5 px-3 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${edit.canEdit ? 'bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 text-white shadow-md hover:opacity-95' : 'bg-[#140f21] text-stone-500 cursor-not-allowed border border-purple-900/30'}`}
           >
             <Camera className="w-4 h-4" />
             <span>แก้ไขรูปภาพ / ข้อความบานของคุณ</span>
           </button>
-          {!edit.canUpdate && (
+          {edit.paid && isDemo() && (
             <button
               onClick={() => onSimulatePass24Hours(w.id)}
               className="w-full py-1.5 px-2.5 text-[10px] text-stone-400 hover:text-rose-300 bg-[#120f1e] hover:bg-[#181329] border border-dashed border-purple-900/40 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              title="เร่งเวลา 24 ชั่วโมงทันทีเพื่อทดสอบระบบแก้ไข"
+              title="คืนสิทธิ์แก้ไขฟรีของวันนี้เพื่อทดสอบระบบแก้ไข"
             >
               <FastForward className="w-3 h-3 text-rose-400" />
-              <span>ทดสอบข้ามเวลา 24 ชั่วโมง (ปลดล็อกสิทธิ์แก้ไขทันที)</span>
+              <span>ทดสอบ: คืนสิทธิ์แก้ไขฟรีของวันนี้</span>
             </button>
           )}
         </div>

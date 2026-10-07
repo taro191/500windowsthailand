@@ -364,3 +364,68 @@ describe('admin', () => {
     assert.equal(claim.status, 403)
   })
 })
+
+describe('editing a window', () => {
+  const edit = { title: 'แก้ไขแล้ว', description: 'ใหม่', category: 'street_food', province: 'กรุงเทพมหานคร' }
+
+  async function setEditPolicy(freeEditsPerDay: number, paidEditPrice: number) {
+    const admin = await adminClient()
+    const { settings } = await admin.get('/config')
+    const saved = await admin.put('/admin/settings', { settings: { ...settings, editPolicy: { freeEditsPerDay, paidEditPrice } }, what: 'สิทธิ์แก้ไขบาน' })
+    assert.equal(saved.success, true, saved.error)
+  }
+
+  it('allows one free edit a day by default and refuses more while paid edits are off', async () => {
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 500)
+    assert.equal((await c.post('/windows/west/11/claim', { content, payment: wallet(500) })).success, true)
+
+    const first = await c.patch('/windows/west/11/content', edit)
+    assert.equal(first.success, true, first.error)
+    assert.equal(first.charged, 0)
+    assert.equal(first.window.editsToday.count, 1)
+
+    const second = await c.patch('/windows/west/11/content', edit)
+    assert.equal(second.status, 400)
+    assert.match(second.error, /ครบ 1 ครั้ง/)
+  })
+
+  it('lets the admin set free edits and a price, then charges the wallet for extra edits', async () => {
+    await setEditPolicy(2, 50)
+    try {
+      const { c } = await verifiedUser()
+      await topUpByCard(c, 500)
+      assert.equal((await c.post('/windows/northeast/12/claim', { content, payment: wallet(500) })).success, true)
+
+      for (let i = 0; i < 2; i++) assert.equal((await c.patch('/windows/northeast/12/content', edit)).charged, 0)
+
+      const unconfirmed = await c.patch('/windows/northeast/12/content', edit)
+      assert.equal(unconfirmed.status, 409, 'a paid edit needs the price confirmed')
+      assert.equal(unconfirmed.editFee, 50)
+
+      const broke = await c.patch('/windows/northeast/12/content', { ...edit, editFee: 50 })
+      assert.equal(broke.status, 400)
+      assert.equal(broke.requiresTopUp, true)
+
+      await topUpByCard(c, 100)
+      const paid = await c.patch('/windows/northeast/12/content', { ...edit, editFee: 50 })
+      assert.equal(paid.success, true, paid.error)
+      assert.equal(paid.charged, 50)
+      assert.equal(paid.window.editsToday.count, 3)
+
+      const session = await c.get('/session')
+      assert.equal(session.user.balance, 50)
+      const fee = session.transactions.find((t: any) => t.type === 'edit_fee')
+      assert.equal(fee?.amount, 50)
+    } finally {
+      await setEditPolicy(1, 0)
+    }
+  })
+
+  it('refuses a policy with no free edits and no price', async () => {
+    const admin = await adminClient()
+    const { settings } = await admin.get('/config')
+    const res = await admin.put('/admin/settings', { settings: { ...settings, editPolicy: { freeEditsPerDay: 0, paidEditPrice: 0 } }, what: 'x' })
+    assert.equal(res.status, 400)
+  })
+})

@@ -409,7 +409,11 @@ export default function App() {
     if (result.success) {
       refreshBoard()
       setEditTarget(null)
-      showToast(`แก้ไขบานที่ ${result.updatedWindow.code} สำเร็จ! สิทธิ์แก้ไขถัดไปในอีก 24 ชั่วโมง`)
+      showToast(
+        result.charged > 0
+          ? `แก้ไขบานที่ ${result.updatedWindow.code} สำเร็จ! หักค่าแก้ไข ฿${result.charged.toLocaleString()} จากกระเป๋าแล้ว`
+          : `แก้ไขบานที่ ${result.updatedWindow.code} สำเร็จ!`,
+      )
       setSelectedWindow(result.updatedWindow)
     } else {
       showToast(result.error || 'ไม่สามารถแก้ไขได้', 'error')
@@ -444,7 +448,7 @@ export default function App() {
     const result = await store.demoSkipEditCooldown(activeRegion, windowId)
     if (!result.success) return showToast(result.error, 'error')
     refreshBoard()
-    showToast('เร่งเวลา 24 ชั่วโมงสำเร็จ! ปลดล็อกสิทธิ์แก้ไขรูปภาพและข้อความทันที')
+    showToast('คืนสิทธิ์แก้ไขฟรีของวันนี้แล้ว')
   }
 
   const handleSimulateHolding = async (windowId: number, days: number) => {
@@ -642,7 +646,13 @@ export default function App() {
       />
 
 
-      {editTarget && <EditWindowModal windowItem={editTarget} onClose={() => setEditTarget(null)} onSubmitEdit={handleEdit} />}
+      {editTarget && <EditWindowModal
+          windowItem={editTarget}
+          balance={currentUser?.balance ?? 0}
+          onClose={() => setEditTarget(null)}
+          onTopUp={() => setTopUpOpen(true)}
+          onSubmitEdit={handleEdit}
+        />}
 
       <RegionMenuModal
         isOpen={regionMenuOpen}

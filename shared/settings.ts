@@ -1,5 +1,5 @@
-// Platform settings edited on the admin page: resale price caps, payment channels and
-// top-up limits. Defaults and validation are shared by the web app and the API.
+// Platform settings edited on the admin page: resale price caps, payment channels, top-up
+// limits and the owner edit policy. Defaults and validation are shared by the web app and the API.
 import type { PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from './types'
 
 export const CHANNEL_TYPE_LABELS: Record<PaymentChannelType, string> = {
@@ -69,6 +69,17 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     max: 50000,
     presets: [500, 1000, 2000, 5000],
   },
+  editPolicy: {
+    freeEditsPerDay: 1,
+    paidEditPrice: 0,
+  },
+}
+
+/** e.g. "แก้ไขรูปภาพ/ข้อความได้ฟรีวันละ 1 ครั้ง (ครั้งต่อไป ฿50)". */
+export function editPolicyLabel({ freeEditsPerDay, paidEditPrice }: PlatformSettings['editPolicy']): string {
+  const free = freeEditsPerDay > 0 ? `แก้ไขรูปภาพ/ข้อความได้ฟรีวันละ ${freeEditsPerDay} ครั้ง` : 'แก้ไขรูปภาพ/ข้อความได้'
+  if (paidEditPrice <= 0) return free
+  return freeEditsPerDay > 0 ? `${free} (ครั้งต่อไป ฿${paidEditPrice.toLocaleString()})` : `${free} ครั้งละ ฿${paidEditPrice.toLocaleString()}`
 }
 
 export const enabledChannels = (settings: PlatformSettings): PaymentChannel[] =>
@@ -119,7 +130,7 @@ const isMultiplier = (value: unknown) => value === null || (typeof value === 'nu
 
 /** Checks a whole settings object (as sent by the admin page). Returns an error message or null. */
 export function validateSettings(settings: PlatformSettings): string | null {
-  const { priceCaps, paymentChannels, topUp } = settings ?? ({} as PlatformSettings)
+  const { priceCaps, paymentChannels, topUp, editPolicy } = settings ?? ({} as PlatformSettings)
   if (!priceCaps || !Array.isArray(priceCaps.usedTiers)) return 'ข้อมูลเพดานราคาไม่ครบ'
   if (!isMultiplier(priceCaps.unusedMultiplier)) return 'ตัวคูณเพดานราคาต้องไม่น้อยกว่า 1 เท่า'
   const tierError = validateTiers(priceCaps.usedTiers)
@@ -140,5 +151,13 @@ export function validateSettings(settings: PlatformSettings): string | null {
   if (topUp.min < 1 || topUp.max < topUp.min) return 'ยอดเติมสูงสุดต้องไม่น้อยกว่ายอดขั้นต่ำ (และขั้นต่ำอย่างน้อย ฿1)'
   if (!Array.isArray(topUp.presets) || topUp.presets.some((p) => !Number.isInteger(p) || p < topUp.min || p > topUp.max))
     return 'ปุ่มยอดลัดต้องอยู่ระหว่างยอดขั้นต่ำและสูงสุด'
+
+  if (!editPolicy) return 'ข้อมูลสิทธิ์แก้ไขบานไม่ครบ'
+  const { freeEditsPerDay, paidEditPrice } = editPolicy
+  if (!Number.isInteger(freeEditsPerDay) || freeEditsPerDay < 0 || freeEditsPerDay > 100)
+    return 'จำนวนครั้งที่แก้ไขฟรีต่อวันต้องเป็นจำนวนเต็ม 0–100'
+  if (!Number.isInteger(paidEditPrice) || paidEditPrice < 0 || paidEditPrice > 1_000_000)
+    return 'ค่าแก้ไขเพิ่มต้องเป็นจำนวนเต็ม 0–1,000,000 บาท'
+  if (freeEditsPerDay === 0 && paidEditPrice === 0) return 'ต้องให้แก้ไขฟรีอย่างน้อย 1 ครั้งต่อวัน หรือกำหนดค่าแก้ไขเพิ่ม'
   return null
 }

@@ -61,6 +61,8 @@ export interface WindowsTable {
   owner_change_kind: 'new' | 'owner' | null
   last_purchase_price: number | null
   last_image_updated_at: string | null
+  edit_day: string | null
+  edit_count: number
   views_count: number
   likes_count: number
   likes_day: string | null
@@ -110,7 +112,7 @@ export interface WindowLikesTable {
 export interface TransactionsTable {
   id: string
   date: string
-  type: 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund'
+  type: 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund' | 'edit_fee'
   region: string
   window_num: number
   window_code: string

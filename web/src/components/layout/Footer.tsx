@@ -1,4 +1,5 @@
 import type { AuthMode, HubTab, User } from '@shared/types'
+import { editPolicyLabel, useSettings } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface FooterProps {
@@ -9,6 +10,7 @@ interface FooterProps {
 }
 
 export function Footer({ currentUser, onBackToWelcome, onOpenHub, onOpenAuth }: FooterProps) {
+  const { editPolicy } = useSettings()
   return (
     <footer className="border-t border-purple-900/30 bg-[#09080e] px-4 py-8 text-center text-xs text-stone-400 space-y-3 font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
       <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-stone-300 font-medium">
@@ -43,7 +45,7 @@ export function Footer({ currentUser, onBackToWelcome, onOpenHub, onOpenAuth }: 
       </div>
       <p className="text-[11px] text-stone-400 max-w-2xl mx-auto leading-relaxed font-light font-['Prompt',sans-serif]">
         สวัสดีประเทศไทย ขอต้อนรับสู่หน้าต่างบานแรกของทุกคน เรามาประกาศให้โลกรู้ ว่าหน้าต่างบานนี้ มีฉันอยู่ตรงนี้ (ภายใต้เงื่อนไขที่กำหนด)
-        เป็นเจ้าของบานหน้าต่างส่วนตัว เงื่อนไขการขายต่อ (หักค่าคอมมิชชั่น 5%) และแก้ไขรูปภาพ/ข้อความได้วันละ 1 ครั้ง
+        เป็นเจ้าของบานหน้าต่างส่วนตัว เงื่อนไขการขายต่อ (หักค่าคอมมิชชั่น 5%) และ{editPolicyLabel(editPolicy)}
         ผู้ใช้งานอ้างอิงเลขบัตรประชาชน 13 หลักและเบอร์โทรศัพท์ สามารถมีหน้าต่างได้ไม่เกิน 2 บาน (ไทย 1 บาน + ภูมิภาค 1 บาน)
         และหากจะทำการซื้อหรือขายต่อ ต้องยืนยันตัวตน (KYC) เท่านั้น
       </p>

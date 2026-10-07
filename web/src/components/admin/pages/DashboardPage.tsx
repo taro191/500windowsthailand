@@ -14,6 +14,7 @@ export function DashboardPage({ data, onNavigate }: AdminPageProps & { onNavigat
   const resales = transactions.filter((t) => t.type === 'resale')
   const topups = transactions.filter((t) => t.type === 'topup')
   const claimRevenue = claims.reduce((s, t) => s + t.amount, 0)
+  const editFees = transactions.filter((t) => t.type === 'edit_fee').reduce((s, t) => s + t.amount, 0)
   const commission = resales.reduce((s, t) => s + (t.commissionAmount ?? Math.round(t.amount * RESALE_COMMISSION_RATE)), 0)
   const pendingPromo = promoRequests.filter((r) => r.status === 'pending').length
   const promoRevenue = promoRequests.filter((r) => r.status === 'approved' && r.payment).reduce((s, r) => s + r.payment!.amount, 0)
@@ -24,7 +25,7 @@ export function DashboardPage({ data, onNavigate }: AdminPageProps & { onNavigat
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
         <SmallBox tone="info" value={members.length} label="สมาชิกทั้งหมด" icon={Users} onMore={() => onNavigate('users')} />
         <SmallBox tone="success" value={`${owned.length}/3,500`} label="บานที่มีเจ้าของ" icon={LayoutGrid} onMore={() => onNavigate('windows')} />
-        <SmallBox tone="warning" value={baht(claimRevenue + commission + promoRevenue)} label="รายได้แพลตฟอร์ม" icon={Receipt} onMore={() => onNavigate('revenue')} />
+        <SmallBox tone="warning" value={baht(claimRevenue + commission + promoRevenue + editFees)} label="รายได้แพลตฟอร์ม" icon={Receipt} onMore={() => onNavigate('revenue')} />
         <SmallBox tone="danger" value={pendingPromo} label="คำขอโปรโมทรอตรวจ" icon={Megaphone} onMore={() => onNavigate('promo')} />
       </div>
 
@@ -89,5 +90,6 @@ export function TxBadge({ type }: { type: string }) {
   if (type === 'topup') return <Badge tone="success">เติมเงิน</Badge>
   if (type === 'promo') return <Badge tone="danger">ค่าโปรโมท</Badge>
   if (type === 'refund') return <Badge tone="secondary">คืนเงิน</Badge>
+  if (type === 'edit_fee') return <Badge tone="primary">ค่าแก้ไขบาน</Badge>
   return <Badge tone="secondary">{type}</Badge>
 }

@@ -552,6 +552,7 @@ const TX_TYPE_STYLES: Record<string, [string, string]> = {
   topup: ['เติมเงิน (Top-up)', 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'],
   promo: ['ค่าโปรโมท', 'bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-500/40'],
   refund: ['คืนเงินเข้ากระเป๋า', 'bg-stone-800 text-stone-200 border border-stone-500/40'],
+  edit_fee: ['ค่าแก้ไขบาน', 'bg-sky-950 text-sky-300 border border-sky-500/40'],
 }
 
 function TransactionHistory({ transactions }: { transactions: Transaction[] }) {

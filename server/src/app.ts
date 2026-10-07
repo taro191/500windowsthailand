@@ -217,7 +217,7 @@ export function createApp(ctx: AppContext) {
 
   api.patch('/windows/:region/:num/content', async (c) => {
     const { region, num } = windowRoute(c)
-    return ok(c, { window: await windows.editWindow(ctx, me(c), region, num, await body(c)) })
+    return ok(c, await windows.editWindow(ctx, me(c), region, num, await body(c)))
   })
 
   api.post('/windows/:region/:num/listing', async (c) => {
