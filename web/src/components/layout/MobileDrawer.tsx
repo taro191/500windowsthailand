@@ -164,6 +164,14 @@ export function MobileDrawer({
                   >
                     สลับบัญชี
                   </button>
+                  {onOpenAdmin && (
+                    <button
+                      onClick={then(onOpenAdmin)}
+                      className="px-2 py-1 rounded bg-[#181329] hover:bg-stone-800 text-sky-300 border border-sky-900/60 text-[10px] font-medium cursor-pointer flex items-center gap-1"
+                    >
+                      <Gauge className="w-3 h-3" /> Admin
+                    </button>
+                  )}
                   <button
                     onClick={then(onLogout)}
                     aria-label="ออกจากระบบ"

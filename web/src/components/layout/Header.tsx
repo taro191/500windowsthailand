@@ -340,16 +340,30 @@ export function Header({
                     >
                       สลับบัญชีผู้ใช้
                     </button>
-                    <button
-                      onClick={() => {
-                        setAccountMenuOpen(false)
-                        onLogout()
-                      }}
-                      className="flex items-center gap-1 text-rose-400 hover:text-rose-300 cursor-pointer font-medium"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>ออกจากระบบ</span>
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {onOpenAdmin && (
+                        <button
+                          onClick={() => {
+                            setAccountMenuOpen(false)
+                            onOpenAdmin()
+                          }}
+                          className="flex items-center gap-1 text-sky-400 hover:text-sky-300 cursor-pointer font-medium"
+                        >
+                          <Gauge className="w-3.5 h-3.5" />
+                          <span>Admin</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setAccountMenuOpen(false)
+                          onLogout()
+                        }}
+                        className="flex items-center gap-1 text-rose-400 hover:text-rose-300 cursor-pointer font-medium"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>ออกจากระบบ</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </>
