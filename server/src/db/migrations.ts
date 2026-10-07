@@ -235,6 +235,13 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('windows').addColumn('edit_count', 'integer', (c) => c.notNull().defaultTo(0)).execute()
     },
   },
+  '003_user_disabled': {
+    // Admins can disable an account (no login); `suspended` keeps meaning "no trading".
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('users').addColumn('disabled', 'integer', (c) => c.notNull().defaultTo(0)).execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

@@ -24,7 +24,7 @@ async function seedWindows(ctx: AppContext) {
 
 async function createUser(
   ctx: AppContext,
-  user: Omit<NewUser, 'password_hash' | 'created_at' | 'updated_at' | 'is_verified' | 'suspended'> & { is_verified?: number; password: string; citizen?: string },
+  user: Omit<NewUser, 'password_hash' | 'created_at' | 'updated_at' | 'is_verified' | 'suspended' | 'disabled'> & { is_verified?: number; password: string; citizen?: string },
 ) {
   const { password, citizen, ...rest } = user
   const now = nowIso()
@@ -33,6 +33,7 @@ async function createUser(
     .values({
       is_verified: 0,
       suspended: 0,
+      disabled: 0,
       ...rest,
       citizen_hash: citizen ? ctx.secrets.citizenHash(citizen) : null,
       citizen_enc: citizen ? ctx.secrets.encrypt(citizen) : null,

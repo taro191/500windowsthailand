@@ -73,6 +73,8 @@ export interface User {
   role?: 'admin'
   /** Set by an admin: the account can browse but cannot buy, sell or claim. */
   suspended?: boolean
+  /** Disabled by an admin: cannot log in at all (suspended only blocks trading). */
+  disabled?: boolean
 }
 
 /** Where resale and rental income is paid (net 95%). */

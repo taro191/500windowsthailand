@@ -35,6 +35,7 @@ export function selfDto(ctx: AppContext, row: UserRow): User {
     payoutAccount: row.payout_json ? (JSON.parse(row.payout_json) as PayoutAccount) : undefined,
     role: row.role === 'admin' ? 'admin' : undefined,
     suspended: !!row.suspended || undefined,
+    disabled: !!row.disabled || undefined,
   }
 }
 
@@ -104,6 +105,7 @@ export async function signup(ctx: AppContext, input: SignupInput): Promise<UserR
     verified_at: null,
     role: 'user',
     suspended: 0,
+    disabled: 0,
     payout_json: null,
     created_at: now,
     updated_at: now,
@@ -128,6 +130,7 @@ export async function login(ctx: AppContext, identifier: string, password: strin
     .executeTakeFirst()
   const ok = row ? await verifyPassword(String(password ?? ''), row.password_hash) : false
   if (!row || !ok) throw new ApiError(401, 'อีเมล/เบอร์โทร/เลขบัตร หรือรหัสผ่านไม่ถูกต้อง')
+  if (row.disabled) throw forbidden('บัญชีนี้ถูกปิดใช้งานโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
   return row
 }
 
@@ -160,6 +163,7 @@ export async function userForSession(ctx: AppContext, token: string): Promise<Us
     .selectAll('users')
     .where('sessions.id', '=', sha256(token))
     .where('sessions.expires_at', '>', nowIso())
+    .where('users.disabled', '=', 0)
     .executeTakeFirst()
   return row ?? null
 }

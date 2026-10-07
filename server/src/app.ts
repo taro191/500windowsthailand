@@ -291,6 +291,16 @@ export function createApp(ctx: AppContext) {
     return ok(c, { user: await admin.setUserSuspended(ctx, me(c), c.req.param('id'), !!suspended) })
   })
 
+  adminApi.post('/users/:id/disable', async (c) => {
+    const { disabled } = await body<{ disabled: boolean }>(c)
+    return ok(c, { user: await admin.setUserDisabled(ctx, me(c), c.req.param('id'), !!disabled) })
+  })
+
+  adminApi.post('/users/:id/role', async (c) => {
+    const { role } = await body<{ role: 'admin' | 'user' }>(c)
+    return ok(c, { user: await admin.setUserRole(ctx, me(c), c.req.param('id'), role) })
+  })
+
   adminApi.post('/users/:id/revoke-kyc', async (c) => ok(c, { user: await admin.revokeKyc(ctx, me(c), c.req.param('id')) }))
 
   adminApi.post('/orders/:id/decide', async (c) => {

@@ -25,15 +25,18 @@ function citizenId(seed: number) {
 let app: ReturnType<typeof createApp>
 let ctx: AppContext
 
-/** A browser-like client that keeps its cookies. */
+let clientSeq = 0
+/** A browser-like client that keeps its cookies, from its own address (separate login rate limit). */
 function client() {
   let cookies: Record<string, string> = {}
+  const address = `10.0.${Math.floor(++clientSeq / 250)}.${clientSeq % 250}`
   const call = async (method: string, url: string, body?: unknown, headers: Record<string, string> = {}) => {
     const res = await app.request(`/api${url}`, {
       method,
       headers: {
         ...(body !== undefined || method !== 'GET' ? { 'content-type': 'application/json' } : {}),
         cookie: Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; '),
+        'x-forwarded-for': address,
         ...headers,
       },
       body: body === undefined ? (method === 'GET' ? undefined : '{}') : JSON.stringify(body),
@@ -427,5 +430,42 @@ describe('editing a window', () => {
     const { settings } = await admin.get('/config')
     const res = await admin.put('/admin/settings', { settings: { ...settings, editPolicy: { freeEditsPerDay: 0, paidEditPrice: 0 } }, what: 'x' })
     assert.equal(res.status, 400)
+  })
+})
+
+describe('user management', () => {
+  it('disables an account so it cannot log in, and enables it again', async () => {
+    const admin = await adminClient()
+    const { c, user } = await verifiedUser()
+    const disabled = await admin.post(`/admin/users/${user.id}/disable`, { disabled: true })
+    assert.equal(disabled.user.disabled, true)
+    assert.equal((await c.get('/session')).user, null, 'existing sessions end')
+    const blocked = await client().post('/auth/login', { identifier: user.email, password: 'secret-pass' })
+    assert.equal(blocked.status, 403)
+
+    await admin.post(`/admin/users/${user.id}/disable`, { disabled: false })
+    const back = await client().post('/auth/login', { identifier: user.email, password: 'secret-pass' })
+    assert.equal(back.success, true, back.error)
+  })
+
+  it('changes a user to admin and back', async () => {
+    const admin = await adminClient()
+    const { c, user } = await verifiedUser()
+    assert.equal((await c.get('/admin/overview')).status, 403)
+    const promoted = await admin.post(`/admin/users/${user.id}/role`, { role: 'admin' })
+    assert.equal(promoted.user.role, 'admin')
+    assert.equal((await c.get('/admin/overview')).success, true, 'takes effect without logging in again')
+
+    await admin.post(`/admin/users/${user.id}/role`, { role: 'user' })
+    assert.equal((await c.get('/admin/overview')).status, 403)
+    const overview = await admin.get('/admin/overview')
+    assert.ok(overview.auditLog.some((a: any) => a.action === 'เปลี่ยนสิทธิ์ผู้ใช้'))
+  })
+
+  it('stops admins from disabling or demoting themselves', async () => {
+    const admin = await adminClient()
+    const me = (await admin.get('/session')).user
+    assert.equal((await admin.post(`/admin/users/${me.id}/disable`, { disabled: true })).status, 400)
+    assert.equal((await admin.post(`/admin/users/${me.id}/role`, { role: 'user' })).status, 400)
   })
 })

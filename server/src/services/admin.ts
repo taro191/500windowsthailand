@@ -113,6 +113,32 @@ export async function setUserSuspended(ctx: AppContext, admin: UserRow, userId: 
   return adminUserDto(ctx, { ...user, suspended: suspended ? 1 : 0 })
 }
 
+/** Disabled accounts cannot log in; their sessions end immediately. */
+export async function setUserDisabled(ctx: AppContext, admin: UserRow, userId: string, disabled: boolean) {
+  if (userId === admin.id) throw badRequest('ปิดใช้งานบัญชีของตัวเองไม่ได้')
+  const user = await ctx.db.selectFrom('users').selectAll().where('id', '=', userId).executeTakeFirst()
+  if (!user) throw notFound('ไม่พบบัญชีผู้ใช้')
+  await ctx.db.updateTable('users').set({ disabled: disabled ? 1 : 0, updated_at: nowIso() }).where('id', '=', userId).execute()
+  if (disabled) await ctx.db.deleteFrom('sessions').where('user_id', '=', userId).execute()
+  await audit(ctx.db, admin, disabled ? 'ปิดใช้งานบัญชี' : 'เปิดใช้งานบัญชี', user.name)
+  return adminUserDto(ctx, { ...user, disabled: disabled ? 1 : 0 })
+}
+
+/**
+ * Makes a user an admin, or an admin a regular user. Admins can't change or disable their own
+ * account, so the admin making the change always remains: there is always an active admin.
+ */
+export async function setUserRole(ctx: AppContext, admin: UserRow, userId: string, role: 'admin' | 'user') {
+  if (role !== 'admin' && role !== 'user') throw badRequest('สิทธิ์ไม่ถูกต้อง')
+  if (userId === admin.id) throw badRequest('เปลี่ยนสิทธิ์ของตัวเองไม่ได้')
+  const user = await ctx.db.selectFrom('users').selectAll().where('id', '=', userId).executeTakeFirst()
+  if (!user) throw notFound('ไม่พบบัญชีผู้ใช้')
+  if (user.role === role) return adminUserDto(ctx, user)
+  await ctx.db.updateTable('users').set({ role, updated_at: nowIso() }).where('id', '=', userId).execute()
+  await audit(ctx.db, admin, 'เปลี่ยนสิทธิ์ผู้ใช้', `${user.name} → ${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}`)
+  return adminUserDto(ctx, { ...user, role })
+}
+
 export async function revokeKyc(ctx: AppContext, admin: UserRow, userId: string) {
   const user = await ctx.db.selectFrom('users').selectAll().where('id', '=', userId).executeTakeFirst()
   if (!user) throw notFound('ไม่พบบัญชีผู้ใช้')

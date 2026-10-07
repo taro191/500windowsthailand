@@ -19,6 +19,7 @@ export interface UsersTable {
   verified_at: string | null
   role: 'user' | 'admin'
   suspended: number
+  disabled: number
   /** PayoutAccount as JSON. */
   payout_json: string | null
   created_at: string
