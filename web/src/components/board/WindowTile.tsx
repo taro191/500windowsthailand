@@ -124,12 +124,12 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
     <button
       onClick={() => onSelect(windowItem)}
       id={`window-${windowItem.id}`}
-      title={`ช่องที่ ${t.slot} [${t.code}] - ${windowItem.title} (${status})${t.label ? ` · ${t.label}` : ''}`}
+      title={`หน้าต่าง ${t.code} · ตำแหน่ง ${t.slot} - ${windowItem.title} (${status})${t.label ? ` · ${t.label}` : ''}`}
       className={`relative group aspect-square rounded-sm overflow-hidden border transition-all cursor-pointer font-['Plus_Jakarta_Sans','Prompt',sans-serif] ${t.effectClass} ${t.isFollowed && !t.isMine && !isSelected ? 'kap-followed' : ''} ${ringClass} ${t.isAvailable ? 'bg-stone-900/60 hover:bg-stone-850' : 'bg-[#100d17]'}`}
     >
       {t.isAvailable ? (
         <div className="w-full h-full flex flex-col items-center justify-center p-0.5 text-stone-500 group-hover:text-rose-300 transition-colors">
-          <span className="text-[9px] font-mono leading-none">{t.slot}</span>
+          <span className="text-[9px] font-mono leading-none">{windowItem.id}</span>
           <span className="text-[7px] text-rose-400/90 font-mono mt-0.5 font-medium">ว่าง</span>
         </div>
       ) : (
@@ -141,7 +141,7 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
             loading="lazy"
           />
           <div className="absolute top-0 left-0 right-0 bg-stone-950/80 px-1 py-0.5 flex items-center justify-between text-[7px] font-mono text-stone-300">
-            <span>{showRegion ? `${REGIONS_BY_ID[windowItem.region]?.icon || ''}${t.slot}` : t.slot}</span>
+            <span>{showRegion ? `${REGIONS_BY_ID[windowItem.region]?.icon || ''}${windowItem.id}` : windowItem.id}</span>
             {t.isForResale && <span className="text-orange-400 font-bold">฿</span>}
             {t.isMine && <span className="text-purple-300 font-bold">ฉัน</span>}
             {t.isFollowed && !t.isMine && (
@@ -187,7 +187,7 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
             className="text-[10px] text-stone-400 font-normal px-1.5 py-0.2 rounded bg-stone-900 border border-stone-800"
             title="ตำแหน่งจัดวางบนหน้าต่างในรอบปัจจุบัน"
           >
-            ช่อง #{t.slot}
+            ตำแหน่ง #{t.slot}
           </span>
           {t.isMine && (
             <span className="px-1.5 py-0.2 text-[10px] bg-purple-950 text-purple-300 border border-purple-600/50 rounded font-bold">

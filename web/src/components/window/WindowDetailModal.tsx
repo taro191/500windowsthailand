@@ -129,7 +129,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
               className="px-2 py-0.5 text-xs bg-[#140f21] border border-purple-500/40 text-purple-300 font-mono rounded-md"
               title="ตำแหน่งจัดวางบนหน้าต่างในรอบปัจจุบัน"
             >
-              ช่อง #{w.slotPosition || w.id}
+              ตำแหน่ง #{w.slotPosition || w.id}
             </span>
             {region && (
               <span className="px-2 py-0.5 text-xs bg-[#140f21] border border-purple-900/40 rounded-md text-stone-200 flex items-center gap-1 font-['Prompt',sans-serif]">
