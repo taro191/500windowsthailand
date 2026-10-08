@@ -51,9 +51,9 @@ interface HubPanelProps {
 }
 
 const TABS: [HubTab, LucideIcon, string][] = [
-  ['rules', BookOpen, 'กติกา & เงื่อนไข 2 บาน'],
-  ['filter', Search, 'ค้นหา & กรอง'],
-  ['wallet', Wallet, 'บัญชี & กระเป๋าเงิน'],
+  ['rules', BookOpen, 'กติกา'],
+  ['filter', Search, 'ค้นหา'],
+  ['wallet', Wallet, 'บัญชี'],
   ['stats', ChartNoAxesColumn, 'สถิติ'],
 ]
 
