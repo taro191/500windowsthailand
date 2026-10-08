@@ -104,6 +104,15 @@ export const REGIONS: Region[] = [
   },
 ]
 
-export const REGIONS_BY_ID = Object.fromEntries(REGIONS.map((r) => [r.id, r])) as Record<RegionId, Region>
+// The Thailand board takes any of the 77 provinces: its highlights first, then the rest of
+// the regional lists in Thai alphabetical order.
+const thailand = REGIONS[0]
+const otherProvinces = new Set(REGIONS.slice(1).flatMap((r) => r.provinces))
+thailand.provinces = [
+  ...thailand.provinces,
+  ...[...otherProvinces].filter((p) => !thailand.provinces.includes(p)).sort((a, b) => a.localeCompare(b, 'th')),
+]
+
+export const REGIONS_BY_ID =Object.fromEntries(REGIONS.map((r) => [r.id, r])) as Record<RegionId, Region>
 
 export const REGION_IDS: RegionId[] = ['thailand', 'north', 'central', 'northeast', 'west', 'east', 'south']
