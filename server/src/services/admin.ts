@@ -191,6 +191,10 @@ export async function setUserRole(ctx: AppContext, admin: UserRow, userId: strin
   if (userId === admin.id) throw badRequest('เปลี่ยนสิทธิ์ของตัวเองไม่ได้')
   const user = await managedUser(ctx, userId)
   if (user.role === role) return adminUserDto(ctx, user)
+  // Admins hold no money of their own.
+  if (role === 'admin' && user.balance > 0) {
+    throw badRequest(`${user.name} ยังมียอดเงินในกระเป๋า ฿${user.balance.toLocaleString()} ต้องเป็น 0 ก่อนจึงจะตั้งเป็นผู้ดูแลระบบได้`)
+  }
   await ctx.db.updateTable('users').set({ role, updated_at: nowIso() }).where('id', '=', userId).execute()
   await audit(ctx.db, admin, 'เปลี่ยนสิทธิ์ผู้ใช้', `${user.name} → ${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}`)
   return adminUserDto(ctx, { ...user, role })

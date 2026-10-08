@@ -18,7 +18,7 @@ interface EditWindowModalProps {
   /** Owner's wallet balance, for paid edits. */
   balance: number
   onClose: () => void
-  onTopUp: () => void
+  onTopUp?: () => void
   onSubmitEdit: (windowId: number, input: WindowEditInput) => void
 }
 
@@ -254,7 +254,7 @@ export function EditWindowModal({ windowItem, balance, onClose, onTopUp, onSubmi
                   หักจากเครดิตในกระเป๋า (คงเหลือ <span className="font-mono">฿{balance.toLocaleString()}</span>)
                 </p>
               </div>
-              {shortOfMoney && (
+              {shortOfMoney && onTopUp && (
                 <button type="button" onClick={onTopUp} className="w-full py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold cursor-pointer">
                   ยอดเงินไม่พอ · เติมเงินเข้ากระเป๋า
                 </button>

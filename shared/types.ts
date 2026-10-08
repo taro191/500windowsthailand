@@ -32,7 +32,7 @@ export type StatusFilter =
 
 export type HubTab = 'rules' | 'filter' | 'wallet' | 'stats'
 
-export type AuthMode = 'login' | 'signup' | 'switch'
+export type AuthMode = 'login' | 'signup'
 
 export interface Region {
   id: RegionId
@@ -153,7 +153,7 @@ export interface WindowItem {
   reserved?: boolean
 }
 
-export type TransactionType = 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund' | 'edit_fee'
+export type TransactionType = 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund' | 'edit_fee' | 'bonus'
 
 export interface Transaction {
   id: string
@@ -245,6 +245,12 @@ export interface PlatformSettings {
     freeEditsPerDay: number
     /** Price of each edit after the free ones, taken from the wallet; 0 = no extra edits. */
     paidEditPrice: number
+  }
+  /** Wallet credit for accounts that sign up between startsAt and endsAt (ISO; null = open). 0 = off. */
+  signupBonus: {
+    amount: number
+    startsAt: string | null
+    endsAt: string | null
   }
   updatedAt?: string
 }

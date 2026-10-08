@@ -119,7 +119,6 @@ export function createApp(ctx: AppContext) {
       cardPayments: ctx.config.cardPayments,
       otpMode: ctx.config.otpMode,
       demoTools: ctx.config.demoTools,
-      signupBonus: ctx.config.signupBonus,
       minPasswordLength: users.MIN_PASSWORD_LENGTH,
     }),
   )

@@ -76,6 +76,7 @@ export function TransactionsPage({ data }: AdminPageProps) {
             <option value="topup">เติมเงิน</option>
             <option value="promo">ค่าโปรโมท</option>
             <option value="refund">คืนเงิน</option>
+            <option value="bonus">โบนัสสมัครสมาชิก</option>
           </select>
           <Button size="sm" tone="success" onClick={exportCsv} disabled={rows.length === 0}>
             <Download className="w-3.5 h-3.5" /> CSV

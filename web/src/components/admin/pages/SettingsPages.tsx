@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { BadgeDollarSign, BookOpen, CreditCard, ImagePlus, Pencil, Plus, RotateCcw, Save, Scale, Trash2 } from 'lucide-react'
+import { BadgeDollarSign, BookOpen, CreditCard, Gift, ImagePlus, Pencil, Plus, RotateCcw, Save, Scale, Trash2 } from 'lucide-react'
 import type { PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { updateSettings } from '@/lib/adminApi'
 import {
+  activeSignupBonus,
   CHANNEL_TYPE_LABELS,
   DEFAULT_SETTINGS,
   multiplierLabel,
@@ -436,6 +437,88 @@ export function EditSettingsPage({ notify }: AdminPageProps) {
           <p className="mb-3 text-sm text-[#6c757d]">
             ตัวอย่าง: ฟรี 1 ครั้ง ค่าแก้ไข 50 บาท = เจ้าของบานแก้ไขครั้งแรกของวันได้ฟรี ครั้งที่ 2 เป็นต้นไปเสียครั้งละ 50 บาท
             การเปลี่ยนแปลงมีผลทันทีกับการแก้ไขครั้งถัดไป
+          </p>
+          <div className="flex justify-end">
+            <Button tone="primary" type="submit">
+              <Save className="w-4 h-4" /> บันทึก
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- signup bonus
+
+/** ISO → value for <input type="datetime-local"> (the admin's local time). */
+function toLocalInput(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const fromLocalInput = (value: string) => (value ? new Date(value).toISOString() : null)
+const bonusTime = (iso: string | null, open: string) => (iso ? new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : open)
+
+export function SignupBonusPage({ notify }: AdminPageProps) {
+  const settings = useSettings()
+  const bonus = settings.signupBonus
+  const [amount, setAmount] = useState(String(bonus.amount))
+  const [startsAt, setStartsAt] = useState(toLocalInput(bonus.startsAt))
+  const [endsAt, setEndsAt] = useState(toLocalInput(bonus.endsAt))
+  const [error, setError] = useState('')
+
+  const now = Date.now()
+  const status =
+    bonus.amount <= 0 ? (
+      <Badge tone="secondary">ปิดอยู่</Badge>
+    ) : activeSignupBonus(settings) > 0 ? (
+      <Badge tone="success">กำลังแจก {baht(bonus.amount)}</Badge>
+    ) : bonus.startsAt && now < Date.parse(bonus.startsAt) ? (
+      <Badge tone="info">ยังไม่เริ่ม</Badge>
+    ) : (
+      <Badge tone="warning">หมดเวลาแล้ว</Badge>
+    )
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const value = Number(amount)
+    if (!Number.isInteger(value) || value < 0) return setError('ยอดโบนัสต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป')
+    const signupBonus = { amount: value, startsAt: fromLocalInput(startsAt), endsAt: fromLocalInput(endsAt) }
+    if (signupBonus.startsAt && signupBonus.endsAt && signupBonus.endsAt <= signupBonus.startsAt) {
+      return setError('วันเวลาสิ้นสุดต้องหลังวันเวลาเริ่ม')
+    }
+    setError('')
+    const what =
+      value > 0
+        ? `โบนัสสมัครสมาชิก → ${baht(value)} · ${bonusTime(signupBonus.startsAt, 'เริ่มทันที')} ถึง ${bonusTime(signupBonus.endsAt, 'ไม่กำหนดวันสิ้นสุด')}`
+        : 'โบนัสสมัครสมาชิก → ปิด'
+    const result = await updateSettings({ ...settings, signupBonus }, what)
+    if (!result.success) return setError(result.error)
+    notify('บันทึกโบนัสสมัครสมาชิกแล้ว')
+  }
+
+  return (
+    <div className="max-w-xl">
+      <Card title="โบนัสเครดิตสำหรับผู้สมัครใหม่" icon={Gift} outline="success" tools={status}>
+        <form onSubmit={save}>
+          {error && <div className="mb-3 p-2.5 rounded bg-[#f8d7da] text-[#721c24] text-sm border border-[#f5c6cb]">{error}</div>}
+          <FormRow label="ยอดโบนัส (บาท)" hint="เข้ากระเป๋าเงินทันทีเมื่อสมัครสมาชิก · 0 = ไม่แจก">
+            <input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} className={inputClass} />
+          </FormRow>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormRow label="เริ่มแจก" hint="เว้นว่าง = เริ่มทันที">
+              <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={inputClass} />
+            </FormRow>
+            <FormRow label="สิ้นสุด" hint="เว้นว่าง = ไม่กำหนดวันสิ้นสุด">
+              <input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} className={inputClass} />
+            </FormRow>
+          </div>
+          <p className="mb-3 text-sm text-[#6c757d]">
+            ผู้ที่สมัครระหว่างช่วงเวลานี้จะได้รับโบนัสคนละ 1 ครั้ง บันทึกเป็นธุรกรรม "โบนัสสมัครสมาชิก" ในประวัติกระเป๋าเงิน
+            ผู้ใช้ที่ผู้ดูแลสร้างให้ไม่ได้รับโบนัส
           </p>
           <div className="flex justify-end">
             <Button tone="primary" type="submit">

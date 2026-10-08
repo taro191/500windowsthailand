@@ -113,7 +113,7 @@ export interface WindowLikesTable {
 export interface TransactionsTable {
   id: string
   date: string
-  type: 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund' | 'edit_fee'
+  type: 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund' | 'edit_fee' | 'bonus'
   region: string
   window_num: number
   window_code: string

@@ -12,7 +12,7 @@ import { PromoPage } from './pages/PromoPage'
 import { PaymentsPage } from './pages/PaymentsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditPage, PayoutsPage, RevenuePage, TopUpsPage, TransactionsPage } from './pages/FinancePages'
-import { ChannelsPage, EditSettingsPage, PriceCapsPage, RulesPage, TopUpSettingsPage } from './pages/SettingsPages'
+import { ChannelsPage, EditSettingsPage, PriceCapsPage, RulesPage, SignupBonusPage, TopUpSettingsPage } from './pages/SettingsPages'
 
 /** The API sends only windows that changed; fill in the empty ones for all 3,500. */
 function allWindows(changed: WindowItem[]): WindowItem[] {
@@ -96,6 +96,7 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
           {page === 'channels' && <ChannelsPage {...props} />}
           {page === 'topup-settings' && <TopUpSettingsPage {...props} />}
           {page === 'edit-settings' && <EditSettingsPage {...props} />}
+          {page === 'signup-bonus' && <SignupBonusPage {...props} />}
           {page === 'rules' && <RulesPage />}
           {page === 'audit' && <AuditPage {...props} />}
         </>

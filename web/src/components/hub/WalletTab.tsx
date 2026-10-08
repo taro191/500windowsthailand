@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Check, CircleCheck, QrCode, Sparkles, Users, Wallet } from 'lucide-react'
+import { Building2, Check, CircleCheck, QrCode, Sparkles, Wallet } from 'lucide-react'
 import type { AuthMode, PayoutAccount, Transaction, User, WindowItem } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
@@ -9,7 +9,7 @@ interface WalletTabProps {
   currentUser: User | null
   myWindows: WindowItem[]
   transactions: Transaction[]
-  onOpenTopUp: () => void
+  onOpenTopUp?: () => void
   onUpdateUserName: (name: string) => void
   onUpdatePayoutAccount: (account: PayoutAccount) => void
   onSelectWindow: (window: WindowItem) => void
@@ -25,7 +25,7 @@ export function WalletTab(props: WalletTabProps) {
         <div className="p-4 rounded-xl bg-amber-950/50 border border-amber-500/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
           <div>
             <span className="font-bold text-amber-300 block text-sm">คุณยังไม่ได้เข้าสู่ระบบ</span>
-            <span className="text-stone-300 text-[11px]">เข้าสู่ระบบเพื่อจัดการหน้าต่าง สลับบัญชี และใช้งานกระเป๋าเงิน</span>
+            <span className="text-stone-300 text-[11px]">เข้าสู่ระบบเพื่อจัดการหน้าต่างและใช้งานกระเป๋าเงิน</span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -47,7 +47,7 @@ export function WalletTab(props: WalletTabProps) {
   }
   return (
     <div className="space-y-5">
-      <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} onOpenAuth={onOpenAuth} />
+      <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} />
       <BalanceCard user={currentUser} onOpenTopUp={props.onOpenTopUp} />
       <PayoutAccountCard user={currentUser} onUpdatePayoutAccount={props.onUpdatePayoutAccount} />
       <OwnedWindows windows={props.myWindows} onSelectWindow={props.onSelectWindow} onClose={props.onClose} />
@@ -59,11 +59,9 @@ export function WalletTab(props: WalletTabProps) {
 function ProfileCard({
   user,
   onUpdateUserName,
-  onOpenAuth,
 }: {
   user: User
   onUpdateUserName: (name: string) => void
-  onOpenAuth: (mode: AuthMode) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(user.name)
@@ -109,19 +107,12 @@ function ProfileCard({
             </span>
           </div>
         </div>
-        <button
-          onClick={() => onOpenAuth('switch')}
-          className="px-2.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-cyan-300 border border-cyan-700/50 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1"
-        >
-          <Users className="w-3.5 h-3.5" />
-          <span>สลับบัญชี</span>
-        </button>
       </div>
     </div>
   )
 }
 
-function BalanceCard({ user, onOpenTopUp }: { user: User; onOpenTopUp: () => void }) {
+function BalanceCard({ user, onOpenTopUp }: { user: User; onOpenTopUp?: () => void }) {
   return (
     <div className="p-4 rounded-xl bg-gradient-to-br from-stone-950 to-stone-900 border border-amber-500/40">
       <div className="flex items-center justify-between text-xs text-stone-400 mb-1">
@@ -131,12 +122,14 @@ function BalanceCard({ user, onOpenTopUp }: { user: User; onOpenTopUp: () => voi
       <div className="text-2xl sm:text-3xl font-black font-mono text-amber-300 tabular-nums">฿{user.balance.toLocaleString()}</div>
       <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-stone-800">
         <span className="text-[11px] text-stone-400">ใช้ชำระค่าจับจองและซื้อต่อได้ทันที · ไม่พอใช้ช่องทางอื่นร่วมได้</span>
-        <button
-          onClick={onOpenTopUp}
-          className="px-3 py-1.5 text-xs bg-gradient-to-r from-amber-400 to-amber-500 text-stone-950 rounded-lg font-bold cursor-pointer shrink-0"
-        >
-          + เติมเงิน
-        </button>
+        {onOpenTopUp && (
+          <button
+            onClick={onOpenTopUp}
+            className="px-3 py-1.5 text-xs bg-gradient-to-r from-amber-400 to-amber-500 text-stone-950 rounded-lg font-bold cursor-pointer shrink-0"
+          >
+            + เติมเงิน
+          </button>
+        )}
       </div>
     </div>
   )
@@ -553,6 +546,7 @@ const TX_TYPE_STYLES: Record<string, [string, string]> = {
   promo: ['ค่าโปรโมท', 'bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-500/40'],
   refund: ['คืนเงินเข้ากระเป๋า', 'bg-stone-800 text-stone-200 border border-stone-500/40'],
   edit_fee: ['ค่าแก้ไขบาน', 'bg-sky-950 text-sky-300 border border-sky-500/40'],
+  bonus: ['โบนัสสมัครสมาชิก', 'bg-lime-950 text-lime-300 border border-lime-500/40'],
 }
 
 function TransactionHistory({ transactions }: { transactions: Transaction[] }) {

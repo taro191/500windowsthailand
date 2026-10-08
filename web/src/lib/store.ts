@@ -32,7 +32,6 @@ export interface AppConfig {
   otpMode: 'dev'
   /** Demo helpers: sample slip, skip the 24h edit wait, back-date ownership. */
   demoTools: boolean
-  signupBonus: number
   minPasswordLength: number
 }
 
@@ -43,7 +42,7 @@ interface SessionData {
   promoRequests: PromoRequest[]
 }
 
-let appConfig: AppConfig = { cardPayments: 'simulated', otpMode: 'dev', demoTools: false, signupBonus: 0, minPasswordLength: 8 }
+let appConfig: AppConfig = { cardPayments: 'simulated', otpMode: 'dev', demoTools: false, minPasswordLength: 8 }
 let currentUser: User | null = null
 let transactions: Transaction[] = []
 let orders: PaymentOrder[] = []

@@ -297,7 +297,7 @@ export function WindowGrid({
 
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className="fixed bottom-6 right-6 z-30 p-2.5 bg-[#120f1c]/90 hover:bg-stone-800 text-stone-300 hover:text-rose-300 border border-purple-900/60 rounded-full shadow-xl transition-all cursor-pointer backdrop-blur"
+        className="fixed bottom-20 sm:bottom-6 right-6 z-30 p-2.5 bg-[#120f1c]/90 hover:bg-stone-800 text-stone-300 hover:text-rose-300 border border-purple-900/60 rounded-full shadow-xl transition-all cursor-pointer backdrop-blur"
         title="กลับขึ้นด้านบน"
       >
         <ArrowUp className="w-4 h-4" />

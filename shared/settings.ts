@@ -73,6 +73,20 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     freeEditsPerDay: 1,
     paidEditPrice: 0,
   },
+  signupBonus: {
+    amount: 0,
+    startsAt: null,
+    endsAt: null,
+  },
+}
+
+/** The bonus a new account gets right now (0 when off or outside the period). */
+export function activeSignupBonus({ signupBonus }: PlatformSettings, now: Date = new Date()): number {
+  const { amount, startsAt, endsAt } = signupBonus ?? DEFAULT_SETTINGS.signupBonus
+  if (!(amount > 0)) return 0
+  if (startsAt && now.getTime() < Date.parse(startsAt)) return 0
+  if (endsAt && now.getTime() >= Date.parse(endsAt)) return 0
+  return amount
 }
 
 /** e.g. "แก้ไขรูปภาพ/ข้อความได้ฟรีวันละ 1 ครั้ง (ครั้งต่อไป ฿50)". */
@@ -159,5 +173,14 @@ export function validateSettings(settings: PlatformSettings): string | null {
   if (!Number.isInteger(paidEditPrice) || paidEditPrice < 0 || paidEditPrice > 1_000_000)
     return 'ค่าแก้ไขเพิ่มต้องเป็นจำนวนเต็ม 0–1,000,000 บาท'
   if (freeEditsPerDay === 0 && paidEditPrice === 0) return 'ต้องให้แก้ไขฟรีอย่างน้อย 1 ครั้งต่อวัน หรือกำหนดค่าแก้ไขเพิ่ม'
+
+  const { signupBonus } = settings
+  if (!signupBonus) return 'ข้อมูลโบนัสสมัครสมาชิกไม่ครบ'
+  if (!Number.isInteger(signupBonus.amount) || signupBonus.amount < 0 || signupBonus.amount > 1_000_000)
+    return 'ยอดโบนัสต้องเป็นจำนวนเต็ม 0–1,000,000 บาท'
+  const isDate = (value: string | null) => value === null || (typeof value === 'string' && !Number.isNaN(Date.parse(value)))
+  if (!isDate(signupBonus.startsAt) || !isDate(signupBonus.endsAt)) return 'วันเวลาเริ่ม/สิ้นสุดโบนัสไม่ถูกต้อง'
+  if (signupBonus.startsAt && signupBonus.endsAt && Date.parse(signupBonus.endsAt) <= Date.parse(signupBonus.startsAt))
+    return 'วันเวลาสิ้นสุดโบนัสต้องหลังวันเวลาเริ่ม'
   return null
 }

@@ -15,7 +15,7 @@ interface MobileDrawerProps {
   onLogout: () => void
   onOpenHub: (tab: HubTab) => void
   onBackToWelcome: () => void
-  onOpenTopUp: () => void
+  onOpenTopUp?: () => void
   /** Only passed for admins. */
   onOpenAdmin?: () => void
   statusFilter: StatusFilter
@@ -137,9 +137,11 @@ export function MobileDrawer({
                 </div>
                 <div className="text-right shrink-0">
                   <span className="font-mono text-rose-300 font-bold text-xs block">฿{currentUser.balance.toLocaleString()}</span>
-                  <button onClick={then(onOpenTopUp)} className="text-[10px] text-amber-400 font-bold underline cursor-pointer">
-                    + เติมเงิน
-                  </button>
+                  {onOpenTopUp && (
+                    <button onClick={then(onOpenTopUp)} className="text-[10px] text-amber-400 font-bold underline cursor-pointer">
+                      + เติมเงิน
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="pt-2 border-t border-purple-900/30 flex items-center justify-between">
@@ -158,12 +160,6 @@ export function MobileDrawer({
                   </button>
                 )}
                 <div className="flex items-center gap-1.5 font-['Prompt',sans-serif]">
-                  <button
-                    onClick={then(() => onOpenAuth('switch'))}
-                    className="px-2 py-1 rounded bg-[#181329] hover:bg-stone-800 text-purple-300 border border-purple-800/60 text-[10px] font-medium cursor-pointer"
-                  >
-                    สลับบัญชี
-                  </button>
                   {onOpenAdmin && (
                     <button
                       onClick={then(onOpenAdmin)}

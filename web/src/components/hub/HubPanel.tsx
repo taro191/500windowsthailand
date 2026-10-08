@@ -40,7 +40,7 @@ interface HubPanelProps {
   setJumpNumber: (value: string) => void
   onJumpToWindow: (windowNumber: number) => void
   onSelectWindow: (window: WindowItem) => void
-  onOpenTopUp: () => void
+  onOpenTopUp?: () => void
   onUpdateUserName: (name: string) => void
   onUpdatePayoutAccount: (account: PayoutAccount) => void
   onRotateWindows: (forceRandom: boolean) => void

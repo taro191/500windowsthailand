@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS, enabledChannels as sharedEnabledChannels } from '@sha
 export {
   CHANNEL_TYPE_LABELS,
   DEFAULT_SETTINGS,
+  activeSignupBonus,
   editPolicyLabel,
   multiplierLabel,
   SLIP_CHANNEL_TYPES,

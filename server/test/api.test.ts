@@ -102,7 +102,6 @@ before(async () => {
       uploadDir: mkdtempSync(path.join(tmpdir(), '500w-test-')),
       admin: { email: 'admin@test.th', password: 'admin-pass-123' },
       superAdminEmail: 'admin@test.th',
-      signupBonus: 0,
       cardPayments: 'simulated',
       otpMode: 'dev',
       demoTools: true,
@@ -486,6 +485,44 @@ describe('user management', () => {
     assert.equal((await admin.post('/admin/users', { name: 'สั้น', email: 'short@test.th', password: 'short', role: 'user' })).status, 400)
     const overview = await admin.get('/admin/overview')
     assert.ok(overview.auditLog.some((a: any) => a.action === 'สร้างผู้ใช้'))
+  })
+
+  it('starts new members at 0 and keeps money away from admins', async () => {
+    const admin = await adminClient()
+    const { c, user } = await verifiedUser()
+    assert.equal(user.balance, 0)
+    assert.equal((await admin.post('/wallet/topup', { amount: 500, channelId: 'ch-card' })).status, 403)
+
+    await topUpByCard(c, 500)
+    const refused = await admin.post(`/admin/users/${user.id}/role`, { role: 'admin' })
+    assert.equal(refused.status, 400)
+    assert.match(refused.error, /ยอดเงิน/)
+  })
+
+  it('gives the signup bonus set by an admin, only within its period', async () => {
+    const admin = await adminClient()
+    const setBonus = async (signupBonus: object) => {
+      const { settings } = await admin.get('/config')
+      return admin.put('/admin/settings', { settings: { ...settings, signupBonus }, what: 'โบนัสสมัครสมาชิก' })
+    }
+    const hour = 3_600_000
+    const at = (offset: number) => new Date(Date.now() + offset).toISOString()
+
+    const saved = await setBonus({ amount: 300, startsAt: at(-hour), endsAt: at(hour) })
+    assert.equal(saved.success, true, saved.error)
+    const { c, user } = await verifiedUser()
+    assert.equal(user.balance, 300)
+    const tx = (await c.get('/session')).transactions
+    assert.ok(tx.some((t: any) => t.type === 'bonus' && t.amount === 300), 'recorded in the wallet history')
+
+    await setBonus({ amount: 300, startsAt: at(hour), endsAt: null })
+    assert.equal((await verifiedUser()).user.balance, 0, 'not started yet')
+    await setBonus({ amount: 300, startsAt: null, endsAt: at(-hour) })
+    assert.equal((await verifiedUser()).user.balance, 0, 'already ended')
+
+    assert.equal((await setBonus({ amount: 300, startsAt: at(hour), endsAt: at(-hour) })).status, 400)
+    assert.equal((await setBonus({ amount: -1, startsAt: null, endsAt: null })).status, 400)
+    await setBonus({ amount: 0, startsAt: null, endsAt: null })
   })
 
   it('keeps user creation and admin rights to the super admin', async () => {

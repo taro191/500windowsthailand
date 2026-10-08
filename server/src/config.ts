@@ -40,7 +40,6 @@ export const config = {
   admin: { email: env('ADMIN_EMAIL').toLowerCase(), password: env('ADMIN_PASSWORD') },
   /** The admin account with this email may create users and grant or remove admin rights. */
   superAdminEmail: (env('SUPER_ADMIN_EMAIL') || env('ADMIN_EMAIL')).trim().toLowerCase(),
-  signupBonus: Math.max(0, Math.floor(Number(env('SIGNUP_BONUS', '0')) || 0)),
   cardPayments: env('CARD_PAYMENTS', 'simulated') as 'simulated' | 'disabled',
   otpMode: env('OTP_MODE', 'dev') as 'dev',
   demoTools: flag('DEMO_TOOLS'),

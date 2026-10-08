@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { Check, CircleAlert, CreditCard, Eye, EyeOff, Loader2, Lock, LogIn, Mail, Phone, ShieldCheck, UserPlus, X } from 'lucide-react'
 import type { AuthMode, Result, User } from '@shared/types'
 import { getAppConfig, type SignupInput } from '@/lib/store'
+import { activeSignupBonus, useSettings } from '@/lib/settings'
 import { formatCitizenId, formatPhone, isValidCitizenId, isValidThaiMobile } from '@shared/identity'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
-  /** "switch" (older callers) opens the login tab. */
   initialMode?: AuthMode
   currentUser: User | null
   onLogin: (identifier: string, password: string) => Promise<Result<{ user: User }>>
@@ -24,7 +24,7 @@ const MODE_TITLES: Record<Mode, string> = {
 
 /** Mounted only while open, so every opening starts with a fresh form. */
 export function AuthModal({ isOpen, initialMode = 'login', ...props }: AuthModalProps) {
-  return isOpen ? <AuthDialog {...props} initialMode={initialMode === 'signup' ? 'signup' : 'login'} /> : null
+  return isOpen ? <AuthDialog {...props} initialMode={initialMode} /> : null
 }
 
 function AuthDialog({
@@ -226,7 +226,8 @@ function SignupForm({
   onError: (message: string) => void
   onGoLogin: () => void
 }) {
-  const { signupBonus, minPasswordLength } = getAppConfig()
+  const { minPasswordLength } = getAppConfig()
+  const signupBonus = activeSignupBonus(useSettings())
   const [name, setName] = useState('')
   const [citizenId, setCitizenId] = useState('')
   const [phone, setPhone] = useState('')

@@ -20,7 +20,7 @@ interface HeaderProps {
   zoomLevel: ZoomLevel
   setZoomLevel: (zoom: ZoomLevel) => void
   onOpenMobileDrawer: () => void
-  onOpenTopUp: () => void
+  onOpenTopUp?: () => void
   /** Only passed for admins. */
   onOpenAdmin?: () => void
 }
@@ -302,15 +302,17 @@ export function Header({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-rose-300 font-mono text-sm">฿{currentUser.balance.toLocaleString()}</span>
-                      <button
-                        onClick={() => {
-                          setAccountMenuOpen(false)
-                          onOpenTopUp()
-                        }}
-                        className="px-2 py-0.5 rounded-lg bg-amber-400 text-stone-950 text-[11px] font-bold cursor-pointer"
-                      >
-                        + เติมเงิน
-                      </button>
+                      {onOpenTopUp && (
+                        <button
+                          onClick={() => {
+                            setAccountMenuOpen(false)
+                            onOpenTopUp()
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-amber-400 text-stone-950 text-[11px] font-bold cursor-pointer"
+                        >
+                          + เติมเงิน
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -330,16 +332,7 @@ export function Header({
                     </button>
                   )}
 
-                  <div className="pt-1 border-t border-stone-800/80 flex items-center justify-between text-[11px] font-['Prompt',sans-serif]">
-                    <button
-                      onClick={() => {
-                        setAccountMenuOpen(false)
-                        onOpenAuth('switch')
-                      }}
-                      className="text-purple-400 hover:text-purple-300 cursor-pointer font-medium"
-                    >
-                      สลับบัญชีผู้ใช้
-                    </button>
+                  <div className="pt-1 border-t border-stone-800/80 flex items-center justify-end text-[11px] font-['Prompt',sans-serif]">
                     <div className="flex items-center gap-3">
                       {onOpenAdmin && (
                         <button

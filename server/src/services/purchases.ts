@@ -433,6 +433,7 @@ export async function topUp(
   amount: number,
   input: { channelId?: string; slip?: PaymentInput['slip'] },
 ): Promise<PurchaseResult> {
+  if (user.role === 'admin') throw forbidden('บัญชีผู้ดูแลระบบเติมเงินเข้ากระเป๋าไม่ได้')
   if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
   const { min, max } = (await getSettings(ctx)).topUp
   if (!Number.isInteger(amount) || amount < min) throw badRequest(`เติมขั้นต่ำ ฿${min.toLocaleString()}`)

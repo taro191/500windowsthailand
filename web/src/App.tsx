@@ -30,6 +30,7 @@ import { Footer } from '@/components/layout/Footer'
 import { Toast } from '@/components/layout/Toast'
 import { MobileDrawer } from '@/components/layout/MobileDrawer'
 import { RegionMenuModal } from '@/components/layout/RegionMenuModal'
+import { BottomNav } from '@/components/layout/BottomNav'
 import { WindowGrid } from '@/components/board/WindowGrid'
 import { WindowDetailModal } from '@/components/window/WindowDetailModal'
 import { ClaimWindowModal } from '@/components/window/ClaimWindowModal'
@@ -274,7 +275,7 @@ export default function App() {
     if (result.success) {
       syncAccount()
       refreshBoard()
-      const bonus = store.getAppConfig().signupBonus
+      const bonus = result.user.balance
       showToast(`สมัครสมาชิกสำเร็จ! ยินดีต้อนรับคุณ ${result.user.name}${bonus > 0 ? ` (ได้รับโบนัส ${bonus.toLocaleString()} ฿)` : ''}`)
     }
     return result
@@ -490,6 +491,8 @@ export default function App() {
   // ------------------------------------------------------------ render
 
   const isAdmin = currentUser?.role === 'admin'
+  // Admins don't hold money of their own, so they get no top-up buttons (the API refuses too).
+  const openTopUp = isAdmin ? undefined : () => setTopUpOpen(true)
 
   if (view === 'admin' && currentUser && isAdmin) {
     return (
@@ -524,7 +527,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09080e] text-stone-100 flex flex-col font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
+    <div className="min-h-screen bg-[#09080e] text-stone-100 flex flex-col pb-16 sm:pb-0 font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
       <Toast toast={toast} />
 
       <Header
@@ -542,7 +545,7 @@ export default function App() {
         zoomLevel={zoomLevel}
         setZoomLevel={setZoomLevel}
         onOpenMobileDrawer={() => setDrawerOpen(true)}
-        onOpenTopUp={() => setTopUpOpen(true)}
+        onOpenTopUp={openTopUp}
         onOpenAdmin={isAdmin ? () => setView('admin') : undefined}
       />
 
@@ -642,7 +645,7 @@ export default function App() {
         currentUser={currentUser}
         amount={payment?.amount ?? 500}
         onConfirm={handleCheckout}
-        onOpenTopUp={() => setTopUpOpen(true)}
+        onOpenTopUp={openTopUp}
       />
 
 
@@ -650,7 +653,7 @@ export default function App() {
           windowItem={editTarget}
           balance={currentUser?.balance ?? 0}
           onClose={() => setEditTarget(null)}
-          onTopUp={() => setTopUpOpen(true)}
+          onTopUp={openTopUp}
           onSubmitEdit={handleEdit}
         />}
 
@@ -681,7 +684,7 @@ export default function App() {
         setJumpNumber={setJumpNumber}
         onJumpToWindow={jumpToWindow}
         onSelectWindow={selectWindow}
-        onOpenTopUp={() => setTopUpOpen(true)}
+        onOpenTopUp={openTopUp}
         onUpdateUserName={(name) => updateProfile({ name }, 'อัปเดตชื่อผู้ใช้เรียบร้อยแล้ว')}
         onUpdatePayoutAccount={(account: PayoutAccount) =>
           updateProfile({ payoutAccount: account }, 'บันทึกข้อมูลบัญชีเพื่อรับเงินเรียบร้อยแล้ว (พร้อมรับเงินสุทธิ 95%)')
@@ -727,11 +730,29 @@ export default function App() {
         onLogout={handleLogout}
         onOpenHub={openHub}
         onBackToWelcome={() => setView('welcome')}
-        onOpenTopUp={() => setTopUpOpen(true)}
+        onOpenTopUp={openTopUp}
         onOpenAdmin={isAdmin ? () => setView('admin') : undefined}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
         counts={counts}
+      />
+
+      <BottomNav
+        currentUser={currentUser}
+        showingFollow={statusFilter === 'follow'}
+        followCount={followedWindows.length}
+        onHome={() => {
+          setStatusFilter('all')
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
+        onOpenRegionMenu={() => setRegionMenuOpen(true)}
+        onOpenPromo={() => window.dispatchEvent(new Event(OPEN_PROMO_EVENT))}
+        onShowFollowing={() => {
+          if (!currentUser) return openAuth('login')
+          setStatusFilter('follow')
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
+        onOpenProfile={() => (currentUser ? openHub('wallet') : openAuth('login'))}
       />
 
       {/* Last so it stacks above the Hub and checkout, which can both open it. */}

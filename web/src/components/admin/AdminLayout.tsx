@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileCheck2,
   Gauge,
+  Gift,
   HandCoins,
   History,
   ImageOff,
@@ -41,6 +42,7 @@ export type AdminPage =
   | 'channels'
   | 'topup-settings'
   | 'edit-settings'
+  | 'signup-bonus'
   | 'rules'
   | 'audit'
 
@@ -71,6 +73,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   channels: 'ช่องทางรับชำระเงิน',
   'topup-settings': 'ตั้งค่าการเติมเงิน',
   'edit-settings': 'สิทธิ์แก้ไขบาน',
+  'signup-bonus': 'โบนัสสมัครสมาชิก',
   rules: 'กติกาทั่วไป',
   audit: 'บันทึกการใช้งาน',
 }
@@ -119,6 +122,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'channels', label: PAGE_TITLES.channels, icon: CreditCard },
         { id: 'topup-settings', label: PAGE_TITLES['topup-settings'], icon: BadgeDollarSign },
         { id: 'edit-settings', label: PAGE_TITLES['edit-settings'], icon: ImagePlus },
+        { id: 'signup-bonus', label: PAGE_TITLES['signup-bonus'], icon: Gift },
         { id: 'rules', label: PAGE_TITLES.rules, icon: BookOpen },
       ],
     },

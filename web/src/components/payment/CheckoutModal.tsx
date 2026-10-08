@@ -14,7 +14,7 @@ interface CheckoutModalProps {
   amount: number
   /** Performs the purchase; the modal shows the result. */
   onConfirm: (payment: PaymentBreakdown) => Promise<ConfirmResult>
-  onOpenTopUp: () => void
+  onOpenTopUp?: () => void
 }
 
 /** Paying for a window claim or resale (wallet first, rest through a channel). */

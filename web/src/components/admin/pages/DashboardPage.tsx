@@ -91,5 +91,6 @@ export function TxBadge({ type }: { type: string }) {
   if (type === 'promo') return <Badge tone="danger">ค่าโปรโมท</Badge>
   if (type === 'refund') return <Badge tone="secondary">คืนเงิน</Badge>
   if (type === 'edit_fee') return <Badge tone="primary">ค่าแก้ไขบาน</Badge>
+  if (type === 'bonus') return <Badge tone="success">โบนัสสมัครสมาชิก</Badge>
   return <Badge tone="secondary">{type}</Badge>
 }

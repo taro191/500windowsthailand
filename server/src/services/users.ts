@@ -1,10 +1,13 @@
 // Accounts: sign-up, login, sessions, profile, KYC (citizen ID + phone OTP).
 import type { PayoutAccount, User } from '@shared/types'
 import { formatCitizenId, isValidCitizenId, isValidThaiMobile, maskCitizenId } from '@shared/identity'
+import { activeSignupBonus } from '@shared/settings'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId, newToken, sha256, verifyPassword } from '../lib/crypto'
 import { ApiError, badRequest, conflict, forbidden } from '../lib/errors'
 import { nowIso, type AppContext } from '../context'
+import { creditWallet, recordTransaction } from './ledger'
+import { getSettings } from './settings'
 
 export const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
@@ -104,7 +107,7 @@ export async function signup(ctx: AppContext, input: SignupInput): Promise<UserR
     citizen_hash: citizenHash,
     citizen_enc: ctx.secrets.encrypt(citizen),
     password_hash: await hashPassword(password),
-    balance: ctx.config.signupBonus,
+    balance: 0,
     avatar_url: DEFAULT_AVATAR_URL,
     bio: null,
     is_verified: 0,
@@ -116,8 +119,26 @@ export async function signup(ctx: AppContext, input: SignupInput): Promise<UserR
     created_at: now,
     updated_at: now,
   }
-  await ctx.db.insertInto('users').values(row).execute()
-  return row
+  const bonus = activeSignupBonus(await getSettings(ctx))
+  await ctx.db.transaction().execute(async (trx) => {
+    await trx.insertInto('users').values(row).execute()
+    if (bonus <= 0) return
+    await creditWallet(trx, row.id, bonus)
+    await recordTransaction(trx, {
+      windowId: 0,
+      windowCode: 'BONUS',
+      region: 'thailand',
+      windowTitle: 'โบนัสสมัครสมาชิก',
+      fromOwner: '500 Windows',
+      toOwner: name,
+      toOwnerId: row.id,
+      amount: bonus,
+      type: 'bonus',
+      walletAmount: 0,
+      externalAmount: 0,
+    })
+  })
+  return { ...row, balance: bonus }
 }
 
 /** Login by email, phone or citizen ID. Same message for unknown account and wrong password. */
