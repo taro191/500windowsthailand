@@ -181,6 +181,8 @@ export function createApp(ctx: AppContext) {
   api.post('/kyc/otp', async (c) => {
     otpLimiter.hit(`otp:${me(c).id}`)
     const { phone } = await body<{ phone: string }>(c)
+    // Each OTP is a paid SMS: also cap per number, so many accounts can't flood one phone.
+    otpLimiter.hit(`otp-phone:${String(phone ?? '').replace(/\D/g, '')}`)
     return ok(c, await users.requestOtp(ctx, me(c), phone))
   })
 
@@ -303,6 +305,11 @@ export function createApp(ctx: AppContext) {
   })
 
   adminApi.post('/users/:id/revoke-kyc', async (c) => ok(c, { user: await admin.revokeKyc(ctx, me(c), c.req.param('id')) }))
+
+  adminApi.post('/users/:id/verify-kyc', async (c) => {
+    const input = await body<{ citizenId?: string; phone?: string }>(c)
+    return ok(c, { user: await admin.verifyUserKyc(ctx, me(c), c.req.param('id'), input) })
+  })
 
   adminApi.post('/orders/:id/decide', async (c) => {
     const { decision, note } = await body<{ decision: 'approved' | 'rejected'; note?: string }>(c)

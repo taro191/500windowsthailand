@@ -539,4 +539,100 @@ describe('user management', () => {
     assert.equal((await other.post(`/admin/users/${superId}/suspend`, { suspended: true })).status, 403)
     assert.equal((await other.post(`/admin/users/${target.id}/disable`, { disabled: true })).success, true, 'other admin tools still work')
   })
+
+  it('lets only the super admin verify KYC for a user, without OTP', async () => {
+    const admin = await adminClient()
+    const { c: user, user: kycUser } = await verifiedUser()
+
+    // Revoked user: blank fields reuse the ID and phone on file.
+    await admin.post(`/admin/users/${kycUser.id}/revoke-kyc`)
+    assert.equal((await user.get('/session')).user.isVerified, false)
+    const again = await admin.post(`/admin/users/${kycUser.id}/verify-kyc`, {})
+    assert.equal(again.success, true, again.error)
+    assert.equal(again.user.isVerified, true)
+    assert.equal((await user.get('/session')).user.isVerified, true)
+
+    // Account without ID or phone: both must be given, valid and unused.
+    const created = await admin.post('/admin/users', { name: 'ไม่มีบัตร', email: 'kyc-by-admin@test.th', password: 'xxxxxxxx', role: 'user' })
+    assert.equal(created.success, true, created.error)
+    const id = created.user.id
+    assert.equal((await admin.post(`/admin/users/${id}/verify-kyc`, {})).status, 400)
+    const ownSession = await user.get('/session')
+    const taken = await admin.post(`/admin/users/${id}/verify-kyc`, { citizenId: citizenId(424242), phone: ownSession.user.phone })
+    assert.equal(taken.status, 409, 'phone already belongs to another account')
+    const done = await admin.post(`/admin/users/${id}/verify-kyc`, { citizenId: citizenId(424242), phone: '0899999999' })
+    assert.equal(done.success, true, done.error)
+    assert.equal(done.user.isVerified, true)
+
+    // Other admins can't.
+    const { c: other, user: otherUser } = await verifiedUser()
+    await admin.post(`/admin/users/${otherUser.id}/role`, { role: 'admin' })
+    await admin.post(`/admin/users/${kycUser.id}/revoke-kyc`)
+    assert.equal((await other.post(`/admin/users/${kycUser.id}/verify-kyc`, {})).status, 403)
+  })
+})
+
+describe('KYC OTP by SMS', () => {
+  /** Runs `body` with OTP_MODE=sms and THSMS answered by `reply`; returns the requests sent to THSMS. */
+  async function withSms(reply: { success: boolean; message?: string }, body: () => Promise<void>) {
+    const sent: { url: string; auth: string; payload: any }[] = []
+    const realFetch = globalThis.fetch
+    const { otpMode, sms } = ctx.config
+    ctx.config.otpMode = 'sms'
+    ctx.config.sms = { token: 'test-token', sender: 'TESTER' }
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      sent.push({ url: String(url), auth: new Headers(init.headers).get('authorization') || '', payload: JSON.parse(String(init.body)) })
+      return new Response(JSON.stringify(reply), { status: reply.success ? 200 : 400, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    try {
+      await body()
+    } finally {
+      globalThis.fetch = realFetch
+      Object.assign(ctx.config, { otpMode, sms })
+    }
+    return sent
+  }
+
+  async function newMember() {
+    const c = client()
+    seq++
+    const phone = `086${String(1000000 + seq).slice(-7)}`
+    const citizen = citizenId(seq * 6007)
+    const signup = await c.post('/auth/signup', { name: `SMS ${seq}`, email: `sms${seq}@test.th`, phone, citizenId: citizen, password: 'secret-pass' })
+    assert.equal(signup.success, true, signup.error)
+    return { c, phone, citizen }
+  }
+
+  it('sends the OTP through THSMS and never returns it to the app', async () => {
+    const { c, phone, citizen } = await newMember()
+    let otp: any
+    const sent = await withSms({ success: true }, async () => {
+      otp = await c.post('/kyc/otp', { phone })
+    })
+    assert.equal(otp.success, true, otp.error)
+    assert.equal(otp.devCode, undefined)
+    assert.equal(sent.length, 1)
+    assert.equal(sent[0].url, 'https://thsms.com/api/send-sms')
+    assert.equal(sent[0].auth, 'Bearer test-token')
+    assert.equal(sent[0].payload.sender, 'TESTER')
+    assert.deepEqual(sent[0].payload.msisdn, [phone])
+    const code = String(sent[0].payload.message).match(/\d{6}/)?.[0]
+    assert.ok(code)
+    const kyc = await c.post('/kyc/verify', { citizenId: citizen, phone, otp: code })
+    assert.equal(kyc.success, true, kyc.error)
+    assert.equal(kyc.user.isVerified, true)
+  })
+
+  it('reports a failed SMS and keeps no usable code', async () => {
+    const { c, phone, citizen } = await newMember()
+    let otp: any
+    await withSms({ success: false, message: 'Credit not enough' }, async () => {
+      otp = await c.post('/kyc/otp', { phone })
+    })
+    assert.equal(otp.status, 502)
+    assert.equal(otp.success, false)
+    const kyc = await c.post('/kyc/verify', { citizenId: citizen, phone, otp: '123456' })
+    assert.equal(kyc.status, 400)
+    assert.match(kyc.error, /ขอรหัส OTP/)
+  })
 })

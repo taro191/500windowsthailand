@@ -25,7 +25,7 @@ npm run dev
 ทดสอบ API: `cd server && npm test`
 
 สถานะ: ข้อมูลทั้งหมดอยู่ในฐานข้อมูลฝั่ง server แล้ว ส่วนที่ยังเป็นการจำลอง: ชำระเงินด้วยบัตร (ยังไม่ได้เลือก Payment Gateway, ตั้ง `CARD_PAYMENTS=disabled` เพื่อปิด)
-และ OTP ตอนยืนยันตัวตน (แสดงรหัสบนหน้าจอ เพราะยังไม่มีผู้ให้บริการ SMS) · สลิปโอนเงินตรวจด้วยมือผ่านหน้า Admin
+· OTP ตอนยืนยันตัวตนส่งทาง SMS ผ่าน THSMS เมื่อตั้ง `OTP_MODE=sms` (ค่าเริ่มต้น `dev` แสดงรหัสบนหน้าจอ) · สลิปโอนเงินตรวจด้วยมือผ่านหน้า Admin
 
 ## Deploy
 
@@ -70,6 +70,9 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    SUPER_ADMIN_EMAIL=<อีเมล super admin ถ้าไม่ใส่จะใช้ ADMIN_EMAIL — บัญชีนี้ต้องเป็นแอดมินอยู่แล้ว>
    DEMO_TOOLS=false
    CARD_PAYMENTS=disabled
+   OTP_MODE=sms
+   THSMS_TOKEN=<Access Token จาก thsms.com › API Key>
+   THSMS_SENDER=<ชื่อผู้ส่งที่อนุมัติแล้วในบัญชี THSMS>
    ```
 
    สุ่ม `APP_SECRET`: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`

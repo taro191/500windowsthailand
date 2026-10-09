@@ -4,6 +4,7 @@ import { formatCitizenId, isValidCitizenId, isValidThaiMobile, maskCitizenId } f
 import { activeSignupBonus } from '@shared/settings'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId, newToken, sha256, verifyPassword } from '../lib/crypto'
+import { sendSms } from '../lib/sms'
 import { ApiError, badRequest, conflict, forbidden } from '../lib/errors'
 import { nowIso, type AppContext } from '../context'
 import { creditWallet, recordTransaction } from './ledger'
@@ -256,26 +257,29 @@ export async function requestOtp(ctx: AppContext, user: UserRow, phoneInput: str
   const values = { phone, code_hash: otpHash(user.id, code), expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(), attempts: 0 }
   await ctx.db.deleteFrom('otp_codes').where('user_id', '=', user.id).execute()
   await ctx.db.insertInto('otp_codes').values({ user_id: user.id, ...values }).execute()
-  // No SMS provider yet: OTP_MODE=dev returns the code so the app can show it.
-  return ctx.config.otpMode === 'dev' ? { devCode: code } : {}
+  // OTP_MODE=dev returns the code so the app can show it instead of sending an SMS.
+  if (ctx.config.otpMode === 'dev') return { devCode: code }
+  try {
+    await sendSms(ctx.config.sms, phone, `รหัส OTP ยืนยันตัวตน 500 Windows คือ ${code} (ใช้ได้ 5 นาที) ห้ามบอกรหัสนี้กับผู้อื่น`)
+  } catch (err) {
+    await ctx.db.deleteFrom('otp_codes').where('user_id', '=', user.id).execute()
+    throw err
+  }
+  return {}
 }
 
-export async function verifyKyc(ctx: AppContext, user: UserRow, input: { citizenId: string; phone: string; otp: string }) {
-  const citizen = digits(String(input.citizenId ?? ''))
-  const phone = digits(String(input.phone ?? ''))
+function checkIdentity(citizenInput: unknown, phoneInput: unknown) {
+  const citizen = digits(String(citizenInput ?? ''))
+  const phone = digits(String(phoneInput ?? ''))
   if (citizen.length !== 13) throw badRequest('เลขบัตรประชาชนต้องมี 13 หลัก')
   if (!isValidCitizenId(citizen)) throw badRequest('เลขประจำตัวประชาชนไม่ถูกต้องตามสูตรคำนวณของกรมการปกครอง')
   if (!isValidThaiMobile(phone)) throw badRequest('เบอร์โทรศัพท์ต้องมี 10 หลักและขึ้นต้นด้วย 06, 08 หรือ 09')
+  return { citizen, phone }
+}
 
-  const otp = await ctx.db.selectFrom('otp_codes').selectAll().where('user_id', '=', user.id).executeTakeFirst()
-  if (!otp || otp.phone !== phone) throw badRequest('กรุณากดขอรหัส OTP สำหรับเบอร์นี้ก่อน')
-  if (otp.expires_at < nowIso()) throw badRequest('รหัส OTP หมดอายุ กรุณาขอรหัสใหม่')
-  if (otp.attempts >= OTP_MAX_ATTEMPTS) throw new ApiError(429, 'กรอกรหัส OTP ผิดหลายครั้ง กรุณาขอรหัสใหม่')
-  if (otp.code_hash !== otpHash(user.id, String(input.otp ?? '').trim())) {
-    await ctx.db.updateTable('otp_codes').set({ attempts: otp.attempts + 1 }).where('user_id', '=', user.id).execute()
-    throw badRequest('รหัส OTP ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง')
-  }
-
+/** Marks the user verified with this citizen ID and phone, unless another account holds either. */
+export async function markVerified(ctx: AppContext, user: UserRow, citizenInput: unknown, phoneInput: unknown): Promise<UserRow> {
+  const { citizen, phone } = checkIdentity(citizenInput, phoneInput)
   const citizenHash = ctx.secrets.citizenHash(citizen)
   const other = await ctx.db
     .selectFrom('users')
@@ -296,6 +300,20 @@ export async function verifyKyc(ctx: AppContext, user: UserRow, input: { citizen
   await ctx.db.updateTable('users').set(changes).where('id', '=', user.id).execute()
   await ctx.db.deleteFrom('otp_codes').where('user_id', '=', user.id).execute()
   return { ...user, ...changes }
+}
+
+export async function verifyKyc(ctx: AppContext, user: UserRow, input: { citizenId: string; phone: string; otp: string }) {
+  const { phone } = checkIdentity(input.citizenId, input.phone)
+
+  const otp = await ctx.db.selectFrom('otp_codes').selectAll().where('user_id', '=', user.id).executeTakeFirst()
+  if (!otp || otp.phone !== phone) throw badRequest('กรุณากดขอรหัส OTP สำหรับเบอร์นี้ก่อน')
+  if (otp.expires_at < nowIso()) throw badRequest('รหัส OTP หมดอายุ กรุณาขอรหัสใหม่')
+  if (otp.attempts >= OTP_MAX_ATTEMPTS) throw new ApiError(429, 'กรอกรหัส OTP ผิดหลายครั้ง กรุณาขอรหัสใหม่')
+  if (otp.code_hash !== otpHash(user.id, String(input.otp ?? '').trim())) {
+    await ctx.db.updateTable('otp_codes').set({ attempts: otp.attempts + 1 }).where('user_id', '=', user.id).execute()
+    throw badRequest('รหัส OTP ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง')
+  }
+  return markVerified(ctx, user, input.citizenId, input.phone)
 }
 
 /** Throws unless the user may buy, sell or claim (not suspended, KYC done). */

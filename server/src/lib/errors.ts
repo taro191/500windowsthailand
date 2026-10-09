@@ -1,7 +1,7 @@
 /** A failure to report to the client as `{ success: false, error }` with an HTTP status. */
 export class ApiError extends Error {
   constructor(
-    public status: 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500,
+    public status: 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500 | 502 | 503,
     message: string,
     public extra: Record<string, unknown> = {},
   ) {

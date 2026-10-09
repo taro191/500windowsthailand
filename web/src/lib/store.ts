@@ -29,7 +29,7 @@ export interface AppConfig {
   /** "simulated" until a payment gateway is chosen. */
   cardPayments: 'simulated' | 'disabled'
   /** "dev": the OTP is shown on screen (no SMS provider yet). */
-  otpMode: 'dev'
+  otpMode: 'dev' | 'sms'
   /** Demo helpers: sample slip, skip the 24h edit wait, back-date ownership. */
   demoTools: boolean
   minPasswordLength: number

@@ -17,14 +17,14 @@ interface KycModalProps {
 
 /**
  * Identity verification with a 13-digit citizen ID and a Thai mobile number.
- * The server issues the OTP; until an SMS provider is connected (OTP_MODE=dev) it returns
- * the code and it is shown here instead of being sent by SMS.
+ * The server issues the OTP and sends it by SMS (OTP_MODE=sms); in dev mode it returns
+ * the code and it is shown here instead.
  */
 export function KycModal({ isOpen, currentUser, onClose, onSuccess, onVerify, reasonNotice }: KycModalProps) {
   const [citizenId, setCitizenId] = useState(currentUser?.citizenId ? formatCitizenId(currentUser.citizenId) : '')
   const [phone, setPhone] = useState(currentUser?.phone ? formatPhone(currentUser.phone) : '')
   const [otpSent, setOtpSent] = useState(false)
-  /** Code returned by the server in dev mode (no SMS provider yet). */
+  /** Code returned by the server in dev mode (OTP_MODE=dev). */
   const [devCode, setDevCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [otp, setOtp] = useState('')

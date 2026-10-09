@@ -9,7 +9,7 @@ import { toTransaction } from './ledger'
 import { toOrder } from './purchases'
 import { toPromoRequest } from './promo'
 import { saveSettings } from './settings'
-import { adminUserDto, DEFAULT_AVATAR_URL, isEmail, isSuperAdmin, MIN_PASSWORD_LENGTH } from './users'
+import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
 import { emptyWindowRow, loadBoards, loadWindow } from './windows'
 
 /** Everything the admin pages show. */
@@ -206,5 +206,16 @@ export async function revokeKyc(ctx: AppContext, admin: UserRow, userId: string)
   await ctx.db.updateTable('users').set({ is_verified: 0, verified_at: null, updated_at: nowIso() }).where('id', '=', userId).execute()
   await audit(ctx.db, admin, 'เพิกถอนการยืนยันตัวตน (KYC)', user.name)
   return adminUserDto(ctx, { ...user, is_verified: 0, verified_at: null })
+}
+
+/** Super admin verifies a user's KYC without OTP. Blank fields reuse the ID and phone already on the account. */
+export async function verifyUserKyc(ctx: AppContext, admin: UserRow, userId: string, input: { citizenId?: string; phone?: string }) {
+  assertSuperAdmin(ctx, admin)
+  const user = await managedUser(ctx, userId)
+  const citizenId = String(input?.citizenId ?? '').trim() || citizenIdOf(ctx, user)
+  const phone = String(input?.phone ?? '').trim() || user.phone || ''
+  const verified = await markVerified(ctx, user, citizenId, phone)
+  await audit(ctx.db, admin, 'ยืนยันตัวตน (KYC) ให้ผู้ใช้', user.name)
+  return adminUserDto(ctx, verified)
 }
 

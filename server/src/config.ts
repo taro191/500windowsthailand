@@ -41,9 +41,13 @@ export const config = {
   /** The admin account with this email may create users and grant or remove admin rights. */
   superAdminEmail: (env('SUPER_ADMIN_EMAIL') || env('ADMIN_EMAIL')).trim().toLowerCase(),
   cardPayments: env('CARD_PAYMENTS', 'simulated') as 'simulated' | 'disabled',
-  otpMode: env('OTP_MODE', 'dev') as 'dev',
+  /** "dev" returns the OTP to the app; "sms" sends it through THSMS. */
+  otpMode: (env('OTP_MODE', 'dev') === 'sms' ? 'sms' : 'dev') as 'dev' | 'sms',
+  sms: { token: env('THSMS_TOKEN'), sender: env('THSMS_SENDER', 'NOTICE') },
   demoTools: flag('DEMO_TOOLS'),
   sessionDays: 30,
 }
+
+if (config.otpMode === 'sms' && !config.sms.token) console.warn('[config] OTP_MODE=sms but THSMS_TOKEN is empty: OTP requests will fail')
 
 export type AppConfig = typeof config
