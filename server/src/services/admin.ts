@@ -208,12 +208,14 @@ export async function revokeKyc(ctx: AppContext, admin: UserRow, userId: string)
   return adminUserDto(ctx, { ...user, is_verified: 0, verified_at: null })
 }
 
-/** Super admin verifies a user's KYC without OTP. Blank fields reuse the ID and phone already on the account. */
-export async function verifyUserKyc(ctx: AppContext, admin: UserRow, userId: string, input: { citizenId?: string; phone?: string }) {
+/** Super admin verifies a user's KYC without OTP, using the citizen ID and phone already on the account. */
+export async function verifyUserKyc(ctx: AppContext, admin: UserRow, userId: string) {
   assertSuperAdmin(ctx, admin)
   const user = await managedUser(ctx, userId)
-  const citizenId = String(input?.citizenId ?? '').trim() || citizenIdOf(ctx, user)
-  const phone = String(input?.phone ?? '').trim() || user.phone || ''
+  const citizenId = citizenIdOf(ctx, user)
+  const phone = user.phone || ''
+  const missing = [!citizenId && 'เลขบัตรประชาชน', !phone && 'เบอร์โทรศัพท์'].filter(Boolean)
+  if (missing.length) throw badRequest(`ข้อมูลไม่ครบ (ไม่มี${missing.join('และ')}) ยืนยันตัวตนไม่ได้`)
   const verified = await markVerified(ctx, user, citizenId, phone)
   await audit(ctx.db, admin, 'ยืนยันตัวตน (KYC) ให้ผู้ใช้', user.name)
   return adminUserDto(ctx, verified)

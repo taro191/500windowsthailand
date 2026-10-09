@@ -544,7 +544,7 @@ describe('user management', () => {
     const admin = await adminClient()
     const { c: user, user: kycUser } = await verifiedUser()
 
-    // Revoked user: blank fields reuse the ID and phone on file.
+    // Revoked user: verified again with the ID and phone on file.
     await admin.post(`/admin/users/${kycUser.id}/revoke-kyc`)
     assert.equal((await user.get('/session')).user.isVerified, false)
     const again = await admin.post(`/admin/users/${kycUser.id}/verify-kyc`, {})
@@ -552,17 +552,12 @@ describe('user management', () => {
     assert.equal(again.user.isVerified, true)
     assert.equal((await user.get('/session')).user.isVerified, true)
 
-    // Account without ID or phone: both must be given, valid and unused.
+    // Account without ID or phone (created by the super admin): refused, even if some are sent.
     const created = await admin.post('/admin/users', { name: 'ไม่มีบัตร', email: 'kyc-by-admin@test.th', password: 'xxxxxxxx', role: 'user' })
     assert.equal(created.success, true, created.error)
-    const id = created.user.id
-    assert.equal((await admin.post(`/admin/users/${id}/verify-kyc`, {})).status, 400)
-    const ownSession = await user.get('/session')
-    const taken = await admin.post(`/admin/users/${id}/verify-kyc`, { citizenId: citizenId(424242), phone: ownSession.user.phone })
-    assert.equal(taken.status, 409, 'phone already belongs to another account')
-    const done = await admin.post(`/admin/users/${id}/verify-kyc`, { citizenId: citizenId(424242), phone: '0899999999' })
-    assert.equal(done.success, true, done.error)
-    assert.equal(done.user.isVerified, true)
+    const incomplete = await admin.post(`/admin/users/${created.user.id}/verify-kyc`, { citizenId: citizenId(424242), phone: '0899999999' })
+    assert.equal(incomplete.status, 400)
+    assert.match(incomplete.error, /ข้อมูลไม่ครบ/)
 
     // Other admins can't.
     const { c: other, user: otherUser } = await verifiedUser()

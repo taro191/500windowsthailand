@@ -72,78 +72,8 @@ function NewUserCard({ onClose, refresh, notify }: { onClose: () => void } & Pic
   )
 }
 
-/** Super admin only: verify a user's KYC without OTP, typing the ID and phone or reusing those on file. */
-function VerifyKycCard({ user, onClose, refresh, notify }: { user: User; onClose: () => void } & Pick<AdminPageProps, 'refresh' | 'notify'>) {
-  const [citizenId, setCitizenId] = useState('')
-  const [phone, setPhone] = useState('')
-  const [saving, setSaving] = useState(false)
-  const hasCitizen = !!user.citizenId
-  const hasPhone = !!user.phone
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    const result = await verifyUserKyc(user.id, { citizenId: digitsOf(citizenId), phone: digitsOf(phone) })
-    setSaving(false)
-    if (!result.success) return notify(result.error || 'ยืนยันตัวตนไม่สำเร็จ', 'error')
-    await refresh()
-    notify(`ยืนยันตัวตน (KYC) ให้ ${user.name} แล้ว`)
-    onClose()
-  }
-
-  return (
-    <Card
-      title={`ยืนยันตัวตน (KYC) ให้ ${user.name}`}
-      icon={ShieldCheck}
-      outline="success"
-      tools={
-        <button type="button" onClick={onClose} className="text-[#6c757d] hover:text-[#212529] cursor-pointer" aria-label="ปิด">
-          <X className="w-4 h-4" />
-        </button>
-      }
-    >
-      <form onSubmit={submit} className="grid gap-x-4 sm:grid-cols-2">
-        <FormRow
-          label="เลขบัตรประชาชน 13 หลัก"
-          hint={hasCitizen ? `เว้นว่างเพื่อใช้เลขเดิม (${maskCitizenId(user.citizenId)})` : 'ตรวจกับบัตรจริงของผู้ใช้'}
-        >
-          <input
-            required={!hasCitizen}
-            inputMode="numeric"
-            autoComplete="off"
-            value={citizenId}
-            onChange={(e) => setCitizenId(e.target.value)}
-            className={inputClass}
-            maxLength={17}
-          />
-        </FormRow>
-        <FormRow label="เบอร์โทรศัพท์" hint={hasPhone ? `เว้นว่างเพื่อใช้เบอร์เดิม (${maskPhone(user.phone)})` : 'ขึ้นต้นด้วย 06, 08 หรือ 09'}>
-          <input
-            required={!hasPhone}
-            inputMode="tel"
-            autoComplete="off"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={inputClass}
-            maxLength={12}
-          />
-        </FormRow>
-        <div className="sm:col-span-2 flex justify-end gap-2">
-          <Button tone="secondary" outline onClick={onClose}>
-            ยกเลิก
-          </Button>
-          <Button type="submit" tone="success" disabled={saving}>
-            <ShieldCheck className="w-4 h-4" /> {saving ? 'กำลังบันทึก...' : 'ยืนยันตัวตน'}
-          </Button>
-        </div>
-      </form>
-    </Card>
-  )
-}
-
 export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
   const [adding, setAdding] = useState(false)
-  const [kycFor, setKycFor] = useState<User | null>(null)
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -205,13 +135,21 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
       () => setUserRole(u.id, u.role === 'admin' ? 'user' : 'admin'),
       u.role === 'admin' ? `${u.name} เป็นผู้ใช้ทั่วไปแล้ว` : `${u.name} เป็นผู้ดูแลระบบแล้ว`,
     )
+  const verifyKyc = (u: User) => {
+    const missing = [!u.citizenId && 'เลขบัตรประชาชน', !u.phone && 'เบอร์โทรศัพท์'].filter(Boolean)
+    if (missing.length) return notify(`${u.name} ข้อมูลไม่ครบ (ไม่มี${missing.join('และ')}) ยืนยันตัวตนไม่ได้`, 'error')
+    act(
+      `ยืนยันตัวตน (KYC) ให้ ${u.name} ด้วยเลขบัตร ${maskCitizenId(u.citizenId)} และเบอร์ ${maskPhone(u.phone)}?`,
+      () => verifyUserKyc(u.id),
+      `ยืนยันตัวตน (KYC) ให้ ${u.name} แล้ว`,
+    )
+  }
   const revoke = (u: User) =>
     act(`เพิกถอนการยืนยันตัวตนของ ${u.name}? ผู้ใช้จะต้องยืนยันใหม่ก่อนซื้อขาย`, () => revokeKyc(u.id), `เพิกถอน KYC ของ ${u.name} แล้ว`)
 
   return (
     <>
       {adding && <NewUserCard onClose={() => setAdding(false)} refresh={refresh} notify={notify} />}
-      {kycFor && <VerifyKycCard key={kycFor.id} user={kycFor} onClose={() => setKycFor(null)} refresh={refresh} notify={notify} />}
       <Card
         title={`ผู้ใช้งาน (${users.length}/${data.users.length})`}
         icon={Users}
@@ -326,14 +264,7 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
                         </Button>
                       ) : (
                         admin.superAdmin && (
-                          <Button
-                            size="sm"
-                            tone="success"
-                            onClick={() => {
-                              setKycFor(u)
-                              window.scrollTo({ top: 0, behavior: 'smooth' })
-                            }}
-                          >
+                          <Button size="sm" tone="success" onClick={() => verifyKyc(u)}>
                             <ShieldCheck className="w-3.5 h-3.5" /> ยืนยัน KYC
                           </Button>
                         )
