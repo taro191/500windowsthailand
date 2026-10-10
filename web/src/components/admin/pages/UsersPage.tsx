@@ -77,7 +77,9 @@ function EditUserCard({ user, onClose, refresh, notify }: { user: User; onClose:
   const [form, setForm] = useState({ name: user.name, email: user.email, phone: user.phone, citizenId: '', bio: user.bio ?? '', password: '' })
   const [saving, setSaving] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), [])
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
   const set = (changes: Partial<typeof form>) => setForm((f) => ({ ...f, ...changes }))
 
   const submit = async (e: React.FormEvent) => {
