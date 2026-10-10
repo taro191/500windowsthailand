@@ -52,7 +52,7 @@ npm run deploy            # build แล้ว force-push web/dist ขึ้น 
 
 ## Deploy
 
-- เว็บจริง: https://500windowsthailand.yaydang.com (Plesk @ Hostatom, Node.js/Passenger + MySQL) — ขั้นตอนตั้งค่า Plesk อยู่ใน `README.md`
+- เว็บจริง: https://500windowsthailand.com (Plesk @ Hostatom, Node.js/Passenger + MySQL; โดเมนเก่า 500windowsthailand.yaydang.com redirect มาด้วย `public/.htaccess`) — ขั้นตอนตั้งค่า Plesk อยู่ใน `README.md`
 - `npm run deploy` ใน `web/` = test server + build ทั้งสองฝั่ง แล้ว force-push ขึ้น branch `deploy` (`app.cjs`, `server.mjs` ที่ esbuild รวม dependency ไว้แล้ว, `public/`, `tmp/restart.txt`) → GitHub webhook ให้ Plesk ดึงไปเอง · `-- --dry-run` = build อย่างเดียวไม่ push
 - `server/scripts/build.mjs` สร้าง `server/dist/server.mjs` — ถ้าเพิ่ม dependency ที่ bundle ไม่ได้ (native module) ต้องแก้ขั้นตอน deploy ด้วย
 - ค่า production ทั้งหมดตั้งใน env ของ Plesk ไม่ใช้ไฟล์ `.env` · `UPLOAD_DIR` อยู่นอกโฟลเดอร์ deploy

@@ -1,10 +1,11 @@
 // Builds the web app and the API server, then force-pushes them to the `deploy` branch of the
-// GitHub repo. The Plesk host (500windowsthailand.yaydang.com) pulls that branch into
-// /500windowsthailand and runs it as a Node.js app (Passenger):
+// GitHub repo. The Plesk host (500windowsthailand.com) pulls that branch into
+// /500windowsthailand.com and runs it as a Node.js app (Passenger):
 //
 //   app.cjs           startup file (Passenger loads CommonJS; it imports server.mjs)
 //   server.mjs        API + dependencies in one file, so the host needs no npm install
 //   public/           the built web app (document root), served by the API as well
+//   public/.htaccess  301 from the old subdomain (500windowsthailand.yaydang.com) to the new domain
 //   tmp/restart.txt   changes every deploy, so Passenger restarts the app
 //
 //   npm run deploy
@@ -38,6 +39,16 @@ if (!existsSync(serverBundle)) throw new Error('Build did not produce server/dis
 const work = mkdtempSync(path.join(tmpdir(), '500windows-deploy-'))
 try {
   cpSync(webDist, path.join(work, 'public'), { recursive: true })
+  // The site moved from the old subdomain; Apache sends its visitors to the same path on the new domain.
+  writeFileSync(
+    path.join(work, 'public/.htaccess'),
+    [
+      'RewriteEngine On',
+      'RewriteCond %{HTTP_HOST} ^500windowsthailand\\.yaydang\\.com$ [NC]',
+      'RewriteRule ^ https://500windowsthailand.com%{REQUEST_URI} [R=301,L]',
+      '',
+    ].join('\n'),
+  )
   cpSync(serverBundle, path.join(work, 'server.mjs'))
   writeFileSync(path.join(work, 'app.cjs'), "import('./server.mjs').catch((error) => { console.error(error); process.exit(1) })\n")
   mkdirSync(path.join(work, 'tmp'))

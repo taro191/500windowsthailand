@@ -29,7 +29,7 @@ npm run dev
 
 ## Deploy
 
-เว็บจริง: **https://500windowsthailand.yaydang.com** (Plesk @ Hostatom)
+เว็บจริง: **https://500windowsthailand.com** (Plesk @ Hostatom) · ลิงก์เดิม `500windowsthailand.yaydang.com` ถูก redirect 301 มาที่นี่ด้วย `public/.htaccess`
 
 ```bash
 cd web
@@ -40,8 +40,8 @@ npm run deploy -- --dry-run  # build และแสดงไฟล์ที่�
 branch `deploy` มี `app.cjs` (startup file), `server.mjs` (API รวม dependency ไว้ในไฟล์เดียว ไม่ต้อง `npm install` บน host),
 `public/` (เว็บที่ build แล้ว) และ `tmp/restart.txt` (เปลี่ยนทุกครั้ง ทำให้ Passenger รีสตาร์ตแอป)
 
-GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `deploy` เปลี่ยน แล้ว Plesk (Git › 500windowsthailand.git, โหมด Automatic)
-จะ deploy ลงโฟลเดอร์ `/500windowsthailand` ให้เอง ถ้าไม่อัปเดต กด **Pull now** / **Deploy now** ในหน้า Git ของโดเมนใน Plesk
+GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `deploy` เปลี่ยน แล้ว Plesk (Git › 500windowsthailand-com.git ของโดเมน 500windowsthailand.com, โหมด Automatic)
+จะ deploy ลงโฟลเดอร์ `/500windowsthailand.com` ให้เอง ถ้าไม่อัปเดต กด **Pull now** / **Deploy now** ในหน้า Git ของโดเมนใน Plesk
 
 ### ตั้งค่า Plesk (ครั้งแรก)
 
@@ -52,8 +52,8 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    |---|---|
    | Node.js version | 22.13 ขึ้นไป |
    | Application mode | production |
-   | Application root | `/500windowsthailand` |
-   | Document root | `/500windowsthailand/public` |
+   | Application root | `/500windowsthailand.com` |
+   | Document root | `/500windowsthailand.com/public` |
    | Application startup file | `app.cjs` |
 
 3. **Custom environment variables** (หน้า Node.js เดียวกัน)
@@ -64,7 +64,7 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    DB_CLIENT=mysql
    DATABASE_URL=mysql://USER:PASSWORD@localhost:3306/windows500
    PUBLIC_DIR=public
-   UPLOAD_DIR=<โฟลเดอร์นอก /500windowsthailand เช่น /var/www/vhosts/<โดเมนหลัก>/500windows-data/uploads>
+   UPLOAD_DIR=<โฟลเดอร์นอกโฟลเดอร์ deploy เช่น ../500windows-data/uploads (= /var/www/vhosts/yaydang.com/500windows-data/uploads)>
    ADMIN_EMAIL=<อีเมลผู้ดูแล>
    ADMIN_PASSWORD=<รหัสชั่วคราว>
    SUPER_ADMIN_EMAIL=<อีเมล super admin ถ้าไม่ใส่จะใช้ ADMIN_EMAIL — บัญชีนี้ต้องเป็นแอดมินอยู่แล้ว>
@@ -74,11 +74,11 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    THSMS_TOKEN=<Access Token จาก thsms.com › API Key: 200 ตัวแรก>
    THSMS_TOKEN_2=<ส่วนที่เหลือของ token (Plesk ใส่ได้ช่องละไม่เกิน 255 ตัว ระบบจะต่อให้เอง)>
    THSMS_SENDER=<ชื่อผู้ส่งที่อนุมัติแล้วในบัญชี THSMS>
-   SMTP_HOST=<เซิร์ฟเวอร์ส่งอีเมล สำหรับรหัสลืมรหัสผ่าน เช่น mail.yaydang.com (Plesk › Mail)>
+   SMTP_HOST=<เซิร์ฟเวอร์ส่งอีเมล สำหรับรหัสลืมรหัสผ่าน เช่น mail.500windowsthailand.com (Plesk › Mail)>
    SMTP_PORT=587
-   SMTP_USER=<กล่องอีเมลที่ใช้ส่ง เช่น no-reply@yaydang.com>
+   SMTP_USER=<กล่องอีเมลที่ใช้ส่ง เช่น no-reply@500windowsthailand.com>
    SMTP_PASS=<รหัสผ่านของกล่องอีเมลนั้น>
-   MAIL_FROM=500 Windows <no-reply@yaydang.com>
+   MAIL_FROM=500 Windows <no-reply@500windowsthailand.com>
    ```
 
    สุ่ม `APP_SECRET`: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`
