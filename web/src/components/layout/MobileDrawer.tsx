@@ -1,4 +1,4 @@
-import { Check, ChevronRight, CircleAlert, Compass, Gauge, LogOut, MapPin, ShieldCheck, Sparkles, Wallet, X } from 'lucide-react'
+import { Check, ChevronRight, CircleAlert, Compass, Gauge, LogOut, MapPin, ShieldCheck, Sparkles, UserCog, Wallet, X } from 'lucide-react'
 import type { AuthMode, HubTab, RegionId, StatusCounts, StatusFilter, User } from '@shared/types'
 import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { maskPhone } from '@shared/identity'
@@ -12,6 +12,7 @@ interface MobileDrawerProps {
   currentUser: User | null
   onOpenAuth: (mode: AuthMode) => void
   onOpenKyc: () => void
+  onOpenProfile: () => void
   onLogout: () => void
   onOpenHub: (tab: HubTab) => void
   onBackToWelcome: () => void
@@ -32,6 +33,7 @@ export function MobileDrawer({
   currentUser,
   onOpenAuth,
   onOpenKyc,
+  onOpenProfile,
   onLogout,
   onOpenHub,
   onBackToWelcome,
@@ -160,6 +162,12 @@ export function MobileDrawer({
                   </button>
                 )}
                 <div className="flex items-center gap-1.5 font-['Prompt',sans-serif]">
+                  <button
+                    onClick={then(onOpenProfile)}
+                    className="px-2 py-1 rounded bg-[#181329] hover:bg-stone-800 text-amber-300 border border-amber-900/60 text-[10px] font-medium cursor-pointer flex items-center gap-1"
+                  >
+                    <UserCog className="w-3 h-3" /> ข้อมูลส่วนตัว
+                  </button>
                   {onOpenAdmin && (
                     <button
                       onClick={then(onOpenAdmin)}

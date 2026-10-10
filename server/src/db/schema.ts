@@ -42,6 +42,13 @@ export interface OtpCodesTable {
   attempts: number
 }
 
+export interface PasswordResetsTable {
+  user_id: string
+  code_hash: string
+  expires_at: string
+  attempts: number
+}
+
 export interface WindowsTable {
   region: string
   num: number
@@ -201,6 +208,7 @@ export interface Database {
   users: UsersTable
   sessions: SessionsTable
   otp_codes: OtpCodesTable
+  password_resets: PasswordResetsTable
   windows: WindowsTable
   window_images: WindowImagesTable
   window_owners: WindowOwnersTable

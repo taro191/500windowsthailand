@@ -158,6 +158,20 @@ export function createApp(ctx: AppContext) {
     return ok(c, await sessionPayload(user))
   })
 
+  api.post('/auth/password/forgot', async (c) => {
+    const { email } = await body<{ email: string }>(c)
+    authLimiter.hit(`forgot:${ip(c)}`)
+    // Each request sends an email: also cap per address, so one inbox can't be flooded.
+    otpLimiter.hit(`forgot-email:${String(email ?? '').trim().toLowerCase()}`)
+    return ok(c, await users.requestPasswordReset(ctx, email))
+  })
+
+  api.post('/auth/password/reset', async (c) => {
+    authLimiter.hit(`reset:${ip(c)}`)
+    await users.resetPassword(ctx, await body(c))
+    return ok(c)
+  })
+
   api.post('/auth/logout', async (c) => {
     const token = getCookie(c, SESSION_COOKIE)
     if (token) await users.deleteSession(ctx, token)

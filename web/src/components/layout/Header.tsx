@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, Compass, Gauge, LayoutGrid, LogOut, Menu, Search, ShieldCheck, UserCheck, Wallet, X } from 'lucide-react'
+import { ChevronDown, Compass, Gauge, LayoutGrid, LogOut, Menu, Search, ShieldCheck, UserCheck, UserCog, Wallet, X } from 'lucide-react'
 import type { AuthMode, HubTab, Quota, RegionId, User, ZoomLevel } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { maskPhone } from '@shared/identity'
@@ -13,6 +13,7 @@ interface HeaderProps {
   quota: Quota
   onOpenAuth: (mode: AuthMode) => void
   onOpenKyc: () => void
+  onOpenProfile: () => void
   onLogout: () => void
   onBackToWelcome: () => void
   searchQuery: string
@@ -39,6 +40,7 @@ export function Header({
   quota,
   onOpenAuth,
   onOpenKyc,
+  onOpenProfile,
   onLogout,
   onBackToWelcome,
   searchQuery,
@@ -332,7 +334,17 @@ export function Header({
                     </button>
                   )}
 
-                  <div className="pt-1 border-t border-stone-800/80 flex items-center justify-end text-[11px] font-['Prompt',sans-serif]">
+                  <div className="pt-1 border-t border-stone-800/80 flex items-center justify-between text-[11px] font-['Prompt',sans-serif]">
+                    <button
+                      onClick={() => {
+                        setAccountMenuOpen(false)
+                        onOpenProfile()
+                      }}
+                      className="flex items-center gap-1 text-amber-300 hover:text-amber-200 cursor-pointer font-medium"
+                    >
+                      <UserCog className="w-3.5 h-3.5" />
+                      <span>ข้อมูลส่วนตัว</span>
+                    </button>
                     <div className="flex items-center gap-3">
                       {onOpenAdmin && (
                         <button

@@ -666,3 +666,68 @@ describe('KYC OTP by SMS', () => {
     assert.match(kyc.error, /ขอรหัส OTP/)
   })
 })
+
+describe('forgot password and personal info', () => {
+  it('resets the password with the emailed code and signs the account out', async () => {
+    const { c, user } = await verifiedUser()
+    // Unknown emails get the same answer, with no code.
+    const unknown = await client().post('/auth/password/forgot', { email: 'nobody@test.th' })
+    assert.equal(unknown.success, true, unknown.error)
+    assert.equal(unknown.devCode, undefined)
+
+    const forgot = await client().post('/auth/password/forgot', { email: user.email.toUpperCase() })
+    assert.equal(forgot.success, true, forgot.error)
+    assert.match(forgot.devCode, /^\d{6}$/)
+
+    const wrong = await client().post('/auth/password/reset', { email: user.email, code: '000000', password: 'brand-new-pass' })
+    assert.equal(wrong.status, 400)
+    const short = await client().post('/auth/password/reset', { email: user.email, code: forgot.devCode, password: 'short' })
+    assert.equal(short.status, 400)
+    const reset = await client().post('/auth/password/reset', { email: user.email, code: forgot.devCode, password: 'brand-new-pass' })
+    assert.equal(reset.success, true, reset.error)
+
+    assert.equal((await c.get('/session')).user, null)
+    assert.equal((await client().post('/auth/login', { identifier: user.email, password: 'secret-pass' })).status, 401)
+    assert.equal((await client().post('/auth/login', { identifier: user.email, password: 'brand-new-pass' })).success, true)
+    // The code works once.
+    const again = await client().post('/auth/password/reset', { email: user.email, code: forgot.devCode, password: 'another-pass-1' })
+    assert.equal(again.status, 400)
+  })
+
+  it('never hands out the code in production without SMTP', async () => {
+    const { user } = await verifiedUser()
+    ctx.config.isProduction = true
+    try {
+      const res = await client().post('/auth/password/forgot', { email: user.email })
+      assert.equal(res.status, 503)
+      assert.equal(res.devCode, undefined)
+    } finally {
+      ctx.config.isProduction = false
+    }
+  })
+
+  it('lets users edit their name, bio and email (email needs the password)', async () => {
+    const { c } = await verifiedUser()
+    const { user: other } = await verifiedUser()
+    const named = await c.patch('/me', { name: 'ชื่อใหม่', bio: 'สวัสดีครับ' })
+    assert.equal(named.success, true, named.error)
+    assert.equal(named.user.name, 'ชื่อใหม่')
+    assert.equal(named.user.bio, 'สวัสดีครับ')
+
+    assert.equal((await c.patch('/me', { email: 'mine@test.th', currentPassword: 'wrong' })).status, 400)
+    assert.equal((await c.patch('/me', { email: other.email, currentPassword: 'secret-pass' })).status, 409)
+    const moved = await c.patch('/me', { email: 'Mine@Test.th', currentPassword: 'secret-pass' })
+    assert.equal(moved.success, true, moved.error)
+    assert.equal(moved.user.email, 'mine@test.th')
+    assert.equal((await client().post('/auth/login', { identifier: 'mine@test.th', password: 'secret-pass' })).success, true)
+    // Unchanged email needs no password.
+    assert.equal((await c.patch('/me', { name: 'อีกชื่อ', email: 'mine@test.th' })).success, true)
+  })
+
+  it('changes the password with the current one', async () => {
+    const { c, user } = await verifiedUser()
+    assert.equal((await c.post('/me/password', { currentPassword: 'nope', newPassword: 'next-pass-123' })).status, 400)
+    assert.equal((await c.post('/me/password', { currentPassword: 'secret-pass', newPassword: 'next-pass-123' })).success, true)
+    assert.equal((await client().post('/auth/login', { identifier: user.email, password: 'next-pass-123' })).success, true)
+  })
+})

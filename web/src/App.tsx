@@ -41,6 +41,7 @@ import { TopUpModal } from '@/components/payment/TopUpModal'
 import { HubPanel } from '@/components/hub/HubPanel'
 import { AuthModal } from '@/components/auth/AuthModal'
 import { KycModal } from '@/components/auth/KycModal'
+import { ProfileModal } from '@/components/auth/ProfileModal'
 import { AdminApp } from '@/components/admin/AdminApp'
 
 const EMPTY_QUOTA: Quota = {
@@ -100,6 +101,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [kycOpen, setKycOpen] = useState(false)
   const [kycReason, setKycReason] = useState('')
+  const [profileOpen, setProfileOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(true)
   const [topUpOpen, setTopUpOpen] = useState(false)
@@ -538,6 +540,7 @@ export default function App() {
         quota={quota}
         onOpenAuth={openAuth}
         onOpenKyc={() => openKyc()}
+        onOpenProfile={() => setProfileOpen(true)}
         onLogout={handleLogout}
         onBackToWelcome={() => setView('welcome')}
         searchQuery={searchQuery}
@@ -686,6 +689,7 @@ export default function App() {
         onSelectWindow={selectWindow}
         onOpenTopUp={openTopUp}
         onUpdateUserName={(name) => updateProfile({ name }, 'อัปเดตชื่อผู้ใช้เรียบร้อยแล้ว')}
+        onOpenProfile={() => setProfileOpen(true)}
         onUpdatePayoutAccount={(account: PayoutAccount) =>
           updateProfile({ payoutAccount: account }, 'บันทึกข้อมูลบัญชีเพื่อรับเงินเรียบร้อยแล้ว (พร้อมรับเงินสุทธิ 95%)')
         }
@@ -719,6 +723,16 @@ export default function App() {
         />
       )}
 
+      {profileOpen && currentUser && (
+        <ProfileModal
+          key={currentUser.id}
+          currentUser={currentUser}
+          onClose={() => setProfileOpen(false)}
+          onSaved={syncAccount}
+          onOpenKyc={() => openKyc()}
+        />
+      )}
+
       <MobileDrawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -727,6 +741,7 @@ export default function App() {
         currentUser={currentUser}
         onOpenAuth={openAuth}
         onOpenKyc={() => openKyc()}
+        onOpenProfile={() => setProfileOpen(true)}
         onLogout={handleLogout}
         onOpenHub={openHub}
         onBackToWelcome={() => setView('welcome')}

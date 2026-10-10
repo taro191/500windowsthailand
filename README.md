@@ -74,11 +74,17 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    THSMS_TOKEN=<Access Token จาก thsms.com › API Key: 200 ตัวแรก>
    THSMS_TOKEN_2=<ส่วนที่เหลือของ token (Plesk ใส่ได้ช่องละไม่เกิน 255 ตัว ระบบจะต่อให้เอง)>
    THSMS_SENDER=<ชื่อผู้ส่งที่อนุมัติแล้วในบัญชี THSMS>
+   SMTP_HOST=<เซิร์ฟเวอร์ส่งอีเมล สำหรับรหัสลืมรหัสผ่าน เช่น mail.yaydang.com (Plesk › Mail)>
+   SMTP_PORT=587
+   SMTP_USER=<กล่องอีเมลที่ใช้ส่ง เช่น no-reply@yaydang.com>
+   SMTP_PASS=<รหัสผ่านของกล่องอีเมลนั้น>
+   MAIL_FROM=500 Windows <no-reply@yaydang.com>
    ```
 
    สุ่ม `APP_SECRET`: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`
    · รหัสผ่านใน `DATABASE_URL` ที่มีอักขระพิเศษต้อง URL-encode
    · `UPLOAD_DIR` ต้องอยู่นอกโฟลเดอร์ที่ Git deploy เขียนทับ ไม่งั้นรูปและสลิปที่อัปโหลดอาจหาย
+   · ไม่ตั้ง `SMTP_HOST` = เมนูลืมรหัสผ่านใช้ไม่ได้ (แจ้งผู้ใช้ให้ติดต่อผู้ดูแล) · พอร์ต 465 ใช้ SSL อัตโนมัติ
 
 4. `npm run deploy` แล้วกด **Restart App** — ตอนเริ่มแอปจะสร้างตารางและบัญชีผู้ดูแลให้เอง
 5. ล็อกอินด้วยบัญชีผู้ดูแล เปลี่ยนรหัสผ่าน แล้วลบ `ADMIN_PASSWORD` ออกจาก env

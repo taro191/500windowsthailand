@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Check, CircleAlert, CreditCard, Eye, EyeOff, Loader2, Lock, LogIn, Mail, Phone, ShieldCheck, UserPlus, X } from 'lucide-react'
+import { ArrowLeft, Check, CircleAlert, CreditCard, Eye, EyeOff, KeyRound, Loader2, Lock, LogIn, Mail, Phone, ShieldCheck, UserPlus, X } from 'lucide-react'
 import type { AuthMode, Result, User } from '@shared/types'
-import { getAppConfig, type SignupInput } from '@/lib/store'
+import { getAppConfig, requestPasswordReset, resetPassword, type SignupInput } from '@/lib/store'
 import { activeSignupBonus, useSettings } from '@/lib/settings'
 import { formatCitizenId, formatPhone, isValidCitizenId, isValidThaiMobile } from '@shared/identity'
 import { KapsulepLogo } from '../KapsulepLogo'
@@ -15,11 +15,12 @@ interface AuthModalProps {
   onRegister: (input: SignupInput) => Promise<Result<{ user: User }>>
 }
 
-type Mode = 'login' | 'signup'
+type Mode = 'login' | 'signup' | 'forgot'
 
 const MODE_TITLES: Record<Mode, string> = {
   login: 'เข้าสู่ระบบ (Log in)',
   signup: 'สมัครสมาชิกใหม่ (Sign up)',
+  forgot: 'ลืมรหัสผ่าน (Reset password)',
 }
 
 /** Mounted only while open, so every opening starts with a fresh form. */
@@ -32,7 +33,7 @@ function AuthDialog({
   initialMode,
   onLogin,
   onRegister,
-}: Omit<AuthModalProps, 'isOpen' | 'initialMode' | 'currentUser'> & { initialMode: Mode }) {
+}: Omit<AuthModalProps, 'isOpen' | 'initialMode' | 'currentUser'> & { initialMode: AuthMode }) {
   const [mode, setMode] = useState<Mode>(initialMode)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -118,6 +119,20 @@ function AuthDialog({
                 run(() => onLogin(identifier.trim(), password), (user) => `เข้าสู่ระบบสำเร็จ ยินดีต้อนรับคุณ ${user.name}`)
               }}
               onGoSignup={() => switchMode('signup')}
+              onForgot={() => {
+                switchMode('forgot')
+                setSuccess('')
+              }}
+            />
+          )}
+          {mode === 'forgot' && (
+            <ForgotPasswordForm
+              onError={setError}
+              onDone={() => {
+                switchMode('login')
+                setSuccess('ตั้งรหัสผ่านใหม่สำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่')
+              }}
+              onBack={() => switchMode('login')}
             />
           )}
           {mode === 'signup' && (
@@ -143,10 +158,12 @@ function LoginForm({
   busy,
   onSubmit,
   onGoSignup,
+  onForgot,
 }: {
   busy: boolean
   onSubmit: (identifier: string, password: string) => void
   onGoSignup: () => void
+  onForgot: () => void
 }) {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -178,7 +195,12 @@ function LoginForm({
         </div>
       </div>
       <div>
-        <label className="block text-stone-300 font-medium mb-1">รหัสผ่าน</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-stone-300 font-medium">รหัสผ่าน</label>
+          <button type="button" onClick={onForgot} className="text-amber-400 hover:underline text-[11px] cursor-pointer">
+            ลืมรหัสผ่าน?
+          </button>
+        </div>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500">
             <Lock className="w-4 h-4" />
@@ -405,5 +427,169 @@ function SignupForm({
         </button>
       </div>
     </form>
+  )
+}
+
+/** Two steps: email → emailed code + new password. */
+function ForgotPasswordForm({ onError, onDone, onBack }: { onError: (message: string) => void; onDone: () => void; onBack: () => void }) {
+  const { minPasswordLength } = getAppConfig()
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState(false)
+  const [devCode, setDevCode] = useState('')
+  const [code, setCode] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const sendCode = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    onError('')
+    if (!email.trim() || !email.includes('@')) return onError('กรุณาระบุอีเมลที่ถูกต้อง')
+    setBusy(true)
+    const result = await requestPasswordReset(email.trim())
+    setBusy(false)
+    if (!result.success) return onError(result.error || 'ส่งรหัสไม่สำเร็จ')
+    setSent(true)
+    setDevCode(result.devCode || '')
+    setCode(result.devCode || '')
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    onError('')
+    if (!/^\d{6}$/.test(code.trim())) return onError('กรุณากรอกรหัสยืนยัน 6 หลักจากอีเมล')
+    if (password.length < minPasswordLength) return onError(`รหัสผ่านต้องมีความยาวอย่างน้อย ${minPasswordLength} ตัวอักษร`)
+    if (password !== confirmPassword) return onError('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน')
+    setBusy(true)
+    const result = await resetPassword(email.trim(), code.trim(), password)
+    setBusy(false)
+    if (!result.success) return onError(result.error || 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ')
+    onDone()
+  }
+
+  const emailField = (
+    <div>
+      <label className="block text-stone-300 font-medium mb-1">อีเมลที่ใช้สมัครสมาชิก</label>
+      <div className="relative">
+        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          autoComplete="email"
+          disabled={sent}
+          className={`${inputClass} pl-9 pr-3 py-2.5 disabled:opacity-60`}
+          required
+        />
+      </div>
+    </div>
+  )
+
+  if (!sent) {
+    return (
+      <form onSubmit={sendCode} className="space-y-4">
+        <p className="text-[11px] text-stone-400 leading-snug">กรอกอีเมลของบัญชี เราจะส่งรหัสยืนยัน 6 หลักไปที่อีเมลนั้น เพื่อใช้ตั้งรหัสผ่านใหม่</p>
+        {emailField}
+        <button type="submit" disabled={busy} className={submitClass}>
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+          <span>ส่งรหัสยืนยันทางอีเมล</span>
+        </button>
+        <BackToLogin onBack={onBack} />
+      </form>
+    )
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      {emailField}
+      <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/40 space-y-1">
+        {devCode ? (
+          <>
+            <span className="text-cyan-300 text-xs font-semibold block">📧 โหมดทดสอบ: ยังไม่ได้ตั้งค่าระบบส่งอีเมล</span>
+            <p className="text-[11px] text-stone-300">
+              รหัสยืนยันคือ <strong className="text-cyan-300 font-mono tracking-widest">{devCode}</strong> (กรอกให้อัตโนมัติแล้ว · หมดอายุใน 15 นาที)
+            </p>
+          </>
+        ) : (
+          <p className="text-[11px] text-stone-300">
+            ถ้ามีบัญชีที่ใช้อีเมลนี้ เราได้ส่งรหัสยืนยันไปแล้ว (หมดอายุใน 15 นาที) ไม่พบอีเมล? ดูในโฟลเดอร์จดหมายขยะ หรือ{' '}
+            <button type="button" onClick={() => sendCode()} disabled={busy} className="text-amber-400 hover:underline font-bold cursor-pointer">
+              ส่งรหัสอีกครั้ง
+            </button>
+          </p>
+        )}
+      </div>
+      <div>
+        <label className="block text-stone-300 font-medium mb-1">รหัสยืนยัน 6 หลัก</label>
+        <div className="relative">
+          <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            placeholder="xxxxxx"
+            className={`${inputClass} pl-9 pr-3 py-2.5 font-mono tracking-widest`}
+            required
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+          <label className="block text-stone-300 font-medium mb-1">รหัสผ่านใหม่ (≥ {minPasswordLength} ตัว)</label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-500" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className={`${inputClass} pl-8 pr-8 py-2`}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200"
+            >
+              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="block text-stone-300 font-medium mb-1">ยืนยันรหัสผ่านใหม่</label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-500" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              className={`${inputClass} pl-8 pr-2 py-2`}
+              required
+            />
+          </div>
+        </div>
+      </div>
+      <button type="submit" disabled={busy} className={submitClass}>
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+        <span>ตั้งรหัสผ่านใหม่</span>
+      </button>
+      <BackToLogin onBack={onBack} />
+    </form>
+  )
+}
+
+function BackToLogin({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="pt-1 text-center">
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1 text-amber-400 hover:underline font-bold text-[11px] cursor-pointer">
+        <ArrowLeft className="w-3.5 h-3.5" /> กลับไปหน้าเข้าสู่ระบบ
+      </button>
+    </div>
   )
 }

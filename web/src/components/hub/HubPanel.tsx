@@ -42,6 +42,7 @@ interface HubPanelProps {
   onSelectWindow: (window: WindowItem) => void
   onOpenTopUp?: () => void
   onUpdateUserName: (name: string) => void
+  onOpenProfile: () => void
   onUpdatePayoutAccount: (account: PayoutAccount) => void
   onRotateWindows: (forceRandom: boolean) => void
   onOpenAuth: (mode: AuthMode) => void
@@ -173,6 +174,7 @@ export function HubPanel(props: HubPanelProps) {
                   transactions={props.transactions}
                   onOpenTopUp={props.onOpenTopUp}
                   onUpdateUserName={props.onUpdateUserName}
+                  onOpenProfile={props.onOpenProfile}
                   onUpdatePayoutAccount={props.onUpdatePayoutAccount}
                   onSelectWindow={props.onSelectWindow}
                   onOpenAuth={props.onOpenAuth}

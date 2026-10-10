@@ -242,6 +242,19 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('users').addColumn('disabled', 'integer', (c) => c.notNull().defaultTo(0)).execute()
     },
   },
+  '004_password_resets': {
+    // Forgot password: one emailed code per user at a time.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('password_resets')
+        .addColumn('user_id', id, (c) => c.primaryKey())
+        .addColumn('code_hash', varchar(64), (c) => c.notNull())
+        .addColumn('expires_at', time, (c) => c.notNull())
+        .addColumn('attempts', 'integer', (c) => c.notNull().defaultTo(0))
+        .execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

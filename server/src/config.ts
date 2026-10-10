@@ -45,10 +45,20 @@ export const config = {
   otpMode: (env('OTP_MODE', 'dev') === 'sms' ? 'sms' : 'dev') as 'dev' | 'sms',
   // Plesk caps env values at 255 characters, so a long token may be split over THSMS_TOKEN_2, _3.
   sms: { token: ['', '_2', '_3'].map((n) => env(`THSMS_TOKEN${n}`).trim()).join(''), sender: env('THSMS_SENDER', 'NOTICE') },
+  /** SMTP for password reset emails. Without SMTP_HOST, dev returns the code to the app; production refuses. */
+  mail: {
+    host: env('SMTP_HOST').trim(),
+    port: Number(env('SMTP_PORT', '587')),
+    secure: flag('SMTP_SECURE', env('SMTP_PORT') === '465'),
+    user: env('SMTP_USER').trim(),
+    pass: env('SMTP_PASS'),
+    from: env('MAIL_FROM').trim(),
+  },
   demoTools: flag('DEMO_TOOLS'),
   sessionDays: 30,
 }
 
 if (config.otpMode === 'sms' && !config.sms.token) console.warn('[config] OTP_MODE=sms but THSMS_TOKEN is empty: OTP requests will fail')
+if (isProduction && !config.mail.host) console.warn('[config] SMTP_HOST is empty: password reset emails will fail')
 
 export type AppConfig = typeof config

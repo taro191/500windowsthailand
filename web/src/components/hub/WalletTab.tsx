@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Check, CircleCheck, QrCode, Sparkles, Wallet } from 'lucide-react'
+import { Building2, Check, CircleCheck, QrCode, Sparkles, UserCog, Wallet } from 'lucide-react'
 import type { AuthMode, PayoutAccount, Transaction, User, WindowItem } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
@@ -11,6 +11,7 @@ interface WalletTabProps {
   transactions: Transaction[]
   onOpenTopUp?: () => void
   onUpdateUserName: (name: string) => void
+  onOpenProfile: () => void
   onUpdatePayoutAccount: (account: PayoutAccount) => void
   onSelectWindow: (window: WindowItem) => void
   onOpenAuth: (mode: AuthMode) => void
@@ -47,7 +48,7 @@ export function WalletTab(props: WalletTabProps) {
   }
   return (
     <div className="space-y-5">
-      <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} />
+      <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} onOpenProfile={props.onOpenProfile} />
       <BalanceCard user={currentUser} onOpenTopUp={props.onOpenTopUp} />
       <PayoutAccountCard user={currentUser} onUpdatePayoutAccount={props.onUpdatePayoutAccount} />
       <OwnedWindows windows={props.myWindows} onSelectWindow={props.onSelectWindow} onClose={props.onClose} />
@@ -59,9 +60,11 @@ export function WalletTab(props: WalletTabProps) {
 function ProfileCard({
   user,
   onUpdateUserName,
+  onOpenProfile,
 }: {
   user: User
   onUpdateUserName: (name: string) => void
+  onOpenProfile: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(user.name)
@@ -107,6 +110,12 @@ function ProfileCard({
             </span>
           </div>
         </div>
+        <button
+          onClick={onOpenProfile}
+          className="shrink-0 px-2.5 py-1 rounded-lg bg-stone-900 hover:bg-stone-850 text-amber-300 border border-stone-700 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+        >
+          <UserCog className="w-3.5 h-3.5" /> ข้อมูลส่วนตัว
+        </button>
       </div>
     </div>
   )

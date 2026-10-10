@@ -217,11 +217,27 @@ export async function logout() {
   await refreshBoards()
 }
 
-export async function updateProfile(changes: { name?: string; payoutAccount?: PayoutAccount }): Promise<Result<{ user: User }>> {
+export interface ProfileChanges {
+  name?: string
+  bio?: string
+  /** A new email needs currentPassword. */
+  email?: string
+  currentPassword?: string
+  payoutAccount?: PayoutAccount
+}
+
+export async function updateProfile(changes: ProfileChanges): Promise<Result<{ user: User }>> {
   const result = await patch<{ user: User }>('/me', changes)
   if (result.success) currentUser = result.user
   return result
 }
+
+export const changePassword = (currentPassword: string, newPassword: string) => post('/me/password', { currentPassword, newPassword })
+
+/** Emails a password reset code; in dev (no SMTP) the server returns it. */
+export const requestPasswordReset = (email: string) => post<{ devCode?: string }>('/auth/password/forgot', { email })
+
+export const resetPassword = (email: string, code: string, password: string) => post('/auth/password/reset', { email, code, password })
 
 /** Sends a KYC OTP; in dev mode the server returns the code. */
 export const requestOtp = (phone: string) => post<{ devCode?: string }>('/kyc/otp', { phone })

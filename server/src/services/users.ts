@@ -1,9 +1,11 @@
 // Accounts: sign-up, login, sessions, profile, KYC (citizen ID + phone OTP).
+import { randomInt } from 'node:crypto'
 import type { PayoutAccount, User } from '@shared/types'
 import { formatCitizenId, isValidCitizenId, isValidThaiMobile, maskCitizenId } from '@shared/identity'
 import { activeSignupBonus } from '@shared/settings'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId, newToken, sha256, verifyPassword } from '../lib/crypto'
+import { sendMail } from '../lib/mail'
 import { sendSms } from '../lib/sms'
 import { ApiError, badRequest, conflict, forbidden } from '../lib/errors'
 import { nowIso, type AppContext } from '../context'
@@ -172,6 +174,73 @@ export async function changePassword(ctx: AppContext, user: UserRow, current: st
     .execute()
 }
 
+// ---------------------------------------------------------------- forgot password
+
+const RESET_TTL_MS = 15 * 60_000
+const RESET_MAX_ATTEMPTS = 5
+const resetHash = (userId: string, code: string) => sha256(`reset:${userId}:${code}`)
+const BAD_RESET_CODE = 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ กรุณาขอรหัสใหม่'
+
+/**
+ * Emails a 6-digit code for setting a new password. Answers the same whether or not the email
+ * has an account, so it can't be used to find out who is registered. Without SMTP outside
+ * production, returns the code to the app instead.
+ */
+export async function requestPasswordReset(ctx: AppContext, emailInput: string): Promise<{ devCode?: string }> {
+  const email = String(emailInput ?? '').trim().toLowerCase()
+  if (!isEmail(email)) throw badRequest('อีเมลไม่ถูกต้อง')
+  const devMode = !ctx.config.isProduction && !ctx.config.mail.host
+  // Checked before the lookup, so a missing mail setup shows the same for every address.
+  if (!devMode && !ctx.config.mail.host) throw new ApiError(503, 'ระบบส่งอีเมลยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ')
+  const user = await ctx.db.selectFrom('users').select(['id', 'name', 'disabled']).where('email', '=', email).executeTakeFirst()
+  if (!user || user.disabled) return {}
+
+  const code = String(randomInt(100000, 1000000))
+  const values = { code_hash: resetHash(user.id, code), expires_at: new Date(Date.now() + RESET_TTL_MS).toISOString(), attempts: 0 }
+  await ctx.db.deleteFrom('password_resets').where('user_id', '=', user.id).execute()
+  await ctx.db.insertInto('password_resets').values({ user_id: user.id, ...values }).execute()
+  if (devMode) return { devCode: code }
+  try {
+    await sendMail(
+      ctx.config.mail,
+      email,
+      'รหัสตั้งรหัสผ่านใหม่ 500 Windows',
+      [
+        `สวัสดีคุณ ${user.name}`,
+        '',
+        `รหัสสำหรับตั้งรหัสผ่านใหม่ของคุณคือ ${code}`,
+        'รหัสนี้ใช้ได้ 15 นาที ห้ามบอกรหัสนี้กับผู้อื่น',
+        '',
+        'ถ้าคุณไม่ได้ขอเปลี่ยนรหัสผ่าน ไม่ต้องทำอะไร รหัสผ่านเดิมยังใช้ได้ตามปกติ',
+        '',
+        '500 Windows to Thailand',
+      ].join('\n'),
+    )
+  } catch (err) {
+    await ctx.db.deleteFrom('password_resets').where('user_id', '=', user.id).execute()
+    throw err
+  }
+  return {}
+}
+
+/** Sets a new password with the emailed code, and signs the account out everywhere. */
+export async function resetPassword(ctx: AppContext, input: { email: string; code: string; password: string }) {
+  const email = String(input.email ?? '').trim().toLowerCase()
+  const password = String(input.password ?? '')
+  if (password.length < MIN_PASSWORD_LENGTH) throw badRequest(`รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`)
+  const user = await ctx.db.selectFrom('users').select('id').where('email', '=', email).executeTakeFirst()
+  const reset = user && (await ctx.db.selectFrom('password_resets').selectAll().where('user_id', '=', user.id).executeTakeFirst())
+  if (!user || !reset || reset.expires_at < nowIso()) throw badRequest(BAD_RESET_CODE)
+  if (reset.attempts >= RESET_MAX_ATTEMPTS) throw new ApiError(429, 'กรอกรหัสผิดหลายครั้ง กรุณาขอรหัสใหม่')
+  if (reset.code_hash !== resetHash(user.id, String(input.code ?? '').trim())) {
+    await ctx.db.updateTable('password_resets').set({ attempts: reset.attempts + 1 }).where('user_id', '=', user.id).execute()
+    throw badRequest('รหัสยืนยันไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง')
+  }
+  await ctx.db.updateTable('users').set({ password_hash: await hashPassword(password), updated_at: nowIso() }).where('id', '=', user.id).execute()
+  await ctx.db.deleteFrom('password_resets').where('user_id', '=', user.id).execute()
+  await ctx.db.deleteFrom('sessions').where('user_id', '=', user.id).execute()
+}
+
 // ---------------------------------------------------------------- sessions
 
 export async function createSession(ctx: AppContext, userId: string): Promise<{ token: string; expiresAt: Date }> {
@@ -205,6 +274,9 @@ export async function deleteSession(ctx: AppContext, token: string) {
 export interface ProfileInput {
   name?: string
   bio?: string
+  /** Changing the email (used for login and password reset) needs the current password. */
+  email?: string
+  currentPassword?: string
   payoutAccount?: PayoutAccount
 }
 
@@ -215,7 +287,19 @@ export async function updateProfile(ctx: AppContext, user: UserRow, input: Profi
     if (!name || name.length > 120) throw badRequest('ชื่อต้องไม่ว่างและยาวไม่เกิน 120 ตัวอักษร')
     changes.name = name
   }
-  if (input.bio !== undefined) changes.bio = String(input.bio).slice(0, 500)
+  if (input.bio !== undefined) changes.bio = String(input.bio).trim().slice(0, 500) || null
+  if (input.email !== undefined) {
+    const email = String(input.email).trim().toLowerCase()
+    if (email !== user.email) {
+      if (!isEmail(email)) throw badRequest('อีเมลไม่ถูกต้อง')
+      if (!(await verifyPassword(String(input.currentPassword ?? ''), user.password_hash))) {
+        throw badRequest('กรุณากรอกรหัสผ่านปัจจุบันให้ถูกต้องเพื่อเปลี่ยนอีเมล')
+      }
+      const taken = await ctx.db.selectFrom('users').select('id').where('email', '=', email).where('id', '!=', user.id).executeTakeFirst()
+      if (taken) throw conflict('อีเมลนี้ถูกใช้งานในระบบแล้ว')
+      changes.email = email
+    }
+  }
   if (input.payoutAccount !== undefined) changes.payout_json = JSON.stringify(cleanPayoutAccount(input.payoutAccount))
   await ctx.db.updateTable('users').set(changes).where('id', '=', user.id).execute()
   return { ...user, ...changes }
