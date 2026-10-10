@@ -74,9 +74,13 @@ export interface LineStatus {
   hasToken: boolean
   hasSecret: boolean
   recipients: number
+  /** IDs from LINE_ADMIN_TO (env) and saved from this page. */
+  fromEnv: number
+  saved: string[]
   lastFailure: { at: string; error: string } | null
 }
 
 /** Super admin only: LINE alerts to the finance admin (new slips to check). */
 export const loadLineStatus = () => get<LineStatus>('/admin/line-status')
 export const sendLineTest = () => post<{ sent: number }>('/admin/line-test')
+export const saveLineRecipients = (ids: string[]) => put<LineStatus>('/admin/line-recipients', { ids })

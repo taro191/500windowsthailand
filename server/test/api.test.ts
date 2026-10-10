@@ -827,6 +827,31 @@ describe('LINE alerts to the finance admin', () => {
     assert.match(calls[0].payload.messages[0].text, /Uabc123/)
   })
 
+  it('sends alerts to recipients saved from the admin page, without LINE_ADMIN_TO', async () => {
+    const admin = await adminClient()
+    const saved = 'U' + 'a'.repeat(32)
+    let bad: any
+    let status: any
+    let test: any
+    const calls = await withLine(async () => {
+      ctx.config.line.to = []
+      bad = await admin.put('/admin/line-recipients', { ids: ['not-an-id'] })
+      status = await admin.put('/admin/line-recipients', { ids: [saved, saved] })
+      test = await admin.post('/admin/line-test')
+    })
+    assert.equal(bad.status, 400)
+    assert.equal(status.success, true, status.error)
+    assert.deepEqual(status.saved, [saved])
+    assert.equal(status.configured, true)
+    assert.equal(test.success, true, test.error)
+    assert.deepEqual(
+      calls.map((call) => call.payload.to),
+      [saved],
+    )
+    assert.doesNotMatch(JSON.stringify(await client().get('/config')), new RegExp(saved))
+    await admin.put('/admin/line-recipients', { ids: [] })
+  })
+
   it('lets only the super admin check the setup and send a test alert', async () => {
     const admin = await adminClient()
     let status: any

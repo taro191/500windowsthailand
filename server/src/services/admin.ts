@@ -5,7 +5,6 @@ import type { UserRow } from '../db/schema'
 import { hashPassword, newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { smsStatus } from '../lib/sms'
-import { lineReady } from '../lib/line'
 import { nowIso, type AppContext } from '../context'
 import { audit, loadAuditLog } from './audit'
 import { toTransaction } from './ledger'
@@ -13,7 +12,7 @@ import { toOrder } from './purchases'
 import { toPromoRequest } from './promo'
 import { saveSettings } from './settings'
 import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, digits, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
-import { lineLastFailure, sendLineAlert } from './notify'
+import { LINE_ID, lineLastFailure, lineRecipients, saveLineRecipients, savedLineRecipients, sendLineAlert } from './notify'
 import { emptyWindowRow, loadBoards, loadWindow } from './windows'
 
 /** Everything the admin pages show. */
@@ -112,21 +111,44 @@ function assertSuperAdmin(ctx: AppContext, admin: UserRow) {
 }
 
 /** Super admin only: how LINE alerts to the finance admin are set up (never returns the token). */
-export function lineStatus(ctx: AppContext, admin: UserRow) {
+export async function lineStatus(ctx: AppContext, admin: UserRow) {
   assertSuperAdmin(ctx, admin)
   const { token, secret, to } = ctx.config.line
-  return { configured: lineReady(ctx.config.line), hasToken: !!token, hasSecret: !!secret, recipients: to.length, lastFailure: lineLastFailure() }
+  const saved = await savedLineRecipients(ctx)
+  const recipients = await lineRecipients(ctx)
+  return {
+    configured: !!token && recipients.length > 0,
+    hasToken: !!token,
+    hasSecret: !!secret,
+    recipients: recipients.length,
+    fromEnv: to.length,
+    saved,
+    lastFailure: lineLastFailure(),
+  }
+}
+
+/** Super admin only: the LINE IDs (from the bot's reply to "id") that receive alerts. */
+export async function setLineRecipients(ctx: AppContext, admin: UserRow, input: unknown) {
+  assertSuperAdmin(ctx, admin)
+  const ids = [...new Set((Array.isArray(input) ? input : []).map((id) => String(id).trim()).filter(Boolean))]
+  const bad = ids.find((id) => !LINE_ID.test(id))
+  if (bad) throw badRequest(`ID ไม่ถูกต้อง: ${bad.slice(0, 40)} (ต้องขึ้นต้นด้วย U, C หรือ R ตามด้วยตัวอักษร 32 ตัว)`)
+  if (ids.length > 10) throw badRequest('ใส่ผู้รับได้ไม่เกิน 10 ราย')
+  await saveLineRecipients(ctx, ids)
+  await audit(ctx.db, admin, 'ตั้งผู้รับแจ้งเตือน LINE', `${ids.length} ราย`)
+  return lineStatus(ctx, admin)
 }
 
 /** Super admin only: sends a test alert so the admin can check that it arrives. */
 export async function testLineAlert(ctx: AppContext, admin: UserRow) {
   assertSuperAdmin(ctx, admin)
-  if (!lineReady(ctx.config.line)) throw badRequest('ยังไม่ได้ตั้งค่า LINE (LINE_CHANNEL_ACCESS_TOKEN และ LINE_ADMIN_TO)')
+  const recipients = await lineRecipients(ctx)
+  if (!ctx.config.line.token) throw badRequest('ยังไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN')
+  if (!recipients.length) throw badRequest('ยังไม่มีผู้รับแจ้งเตือน กรุณาใส่ LINE ID ก่อน')
   const failures = await sendLineAlert(ctx, `✅ ทดสอบการแจ้งเตือนจาก 500 Windows\nส่งโดย ${admin.name}\nถ้าได้รับข้อความนี้ แปลว่าจะได้รับแจ้งเตือนเมื่อมีสลิปรอตรวจ`)
   if (failures.length) throw badRequest(`ส่ง LINE ไม่สำเร็จ: ${failures.map((f) => f.error).join(' · ')}`)
-  return { sent: ctx.config.line.to.length }
+  return { sent: recipients.length }
 }
-
 /** Super admin only: whether THSMS accepts the token, its credit, and the last refusal. */
 export async function smsDiagnostics(ctx: AppContext, admin: UserRow) {
   assertSuperAdmin(ctx, admin)

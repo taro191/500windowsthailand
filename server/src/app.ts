@@ -325,7 +325,12 @@ export function createApp(ctx: AppContext) {
 
   adminApi.get('/sms-status', async (c) => ok(c, await admin.smsDiagnostics(ctx, me(c))))
 
-  adminApi.get('/line-status', (c) => ok(c, admin.lineStatus(ctx, me(c))))
+  adminApi.get('/line-status', async (c) => ok(c, await admin.lineStatus(ctx, me(c))))
+
+  adminApi.put('/line-recipients', async (c) => {
+    const { ids } = await body<{ ids: string[] }>(c)
+    return ok(c, await admin.setLineRecipients(ctx, me(c), ids))
+  })
 
   adminApi.post('/line-test', async (c) => ok(c, await admin.testLineAlert(ctx, me(c))))
 
