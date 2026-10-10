@@ -43,7 +43,8 @@ export const config = {
   cardPayments: env('CARD_PAYMENTS', 'simulated') as 'simulated' | 'disabled',
   /** "dev" returns the OTP to the app; "sms" sends it through THSMS. */
   otpMode: (env('OTP_MODE', 'dev') === 'sms' ? 'sms' : 'dev') as 'dev' | 'sms',
-  sms: { token: env('THSMS_TOKEN'), sender: env('THSMS_SENDER', 'NOTICE') },
+  // Plesk caps env values at 255 characters, so a long token may be split over THSMS_TOKEN_2, _3.
+  sms: { token: ['', '_2', '_3'].map((n) => env(`THSMS_TOKEN${n}`).trim()).join(''), sender: env('THSMS_SENDER', 'NOTICE') },
   demoTools: flag('DEMO_TOOLS'),
   sessionDays: 30,
 }

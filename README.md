@@ -71,7 +71,8 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    DEMO_TOOLS=false
    CARD_PAYMENTS=disabled
    OTP_MODE=sms
-   THSMS_TOKEN=<Access Token จาก thsms.com › API Key>
+   THSMS_TOKEN=<Access Token จาก thsms.com › API Key: 200 ตัวแรก>
+   THSMS_TOKEN_2=<ส่วนที่เหลือของ token (Plesk ใส่ได้ช่องละไม่เกิน 255 ตัว ระบบจะต่อให้เอง)>
    THSMS_SENDER=<ชื่อผู้ส่งที่อนุมัติแล้วในบัญชี THSMS>
    ```
 
