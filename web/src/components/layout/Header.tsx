@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, Compass, Gauge, LayoutGrid, LogOut, Menu, Search, ShieldCheck, UserCheck, UserCog, Wallet, X } from 'lucide-react'
+import { ChevronDown, Compass, Gauge, History, LayoutGrid, LogOut, Menu, Search, ShieldCheck, UserCheck, UserCog, Wallet, X } from 'lucide-react'
 import type { AuthMode, HubTab, Quota, RegionId, User, ZoomLevel } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { maskPhone } from '@shared/identity'
@@ -14,6 +14,7 @@ interface HeaderProps {
   onOpenAuth: (mode: AuthMode) => void
   onOpenKyc: () => void
   onOpenProfile: () => void
+  onOpenWalletHistory: () => void
   onLogout: () => void
   onBackToWelcome: () => void
   searchQuery: string
@@ -41,6 +42,7 @@ export function Header({
   onOpenAuth,
   onOpenKyc,
   onOpenProfile,
+  onOpenWalletHistory,
   onLogout,
   onBackToWelcome,
   searchQuery,
@@ -317,6 +319,18 @@ export function Header({
                       )}
                     </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      setAccountMenuOpen(false)
+                      onOpenWalletHistory()
+                    }}
+                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-xl bg-[#09080e] border border-stone-800 hover:border-amber-500/50 text-[11px] text-amber-300 cursor-pointer font-['Prompt',sans-serif]"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <History className="w-3.5 h-3.5" /> ประวัติการเงิน (เติมเงิน / ตัดเงิน)
+                    </span>
+                    <span>›</span>
+                  </button>
 
                   {!currentUser.isVerified && (
                     <button

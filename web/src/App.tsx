@@ -42,6 +42,7 @@ import { HubPanel } from '@/components/hub/HubPanel'
 import { AuthModal } from '@/components/auth/AuthModal'
 import { KycModal } from '@/components/auth/KycModal'
 import { ProfileModal } from '@/components/auth/ProfileModal'
+import { WalletHistoryModal } from '@/components/payment/WalletHistoryModal'
 import { AdminApp } from '@/components/admin/AdminApp'
 
 const EMPTY_QUOTA: Quota = {
@@ -102,6 +103,7 @@ export default function App() {
   const [kycOpen, setKycOpen] = useState(false)
   const [kycReason, setKycReason] = useState('')
   const [profileOpen, setProfileOpen] = useState(false)
+  const [walletHistoryOpen, setWalletHistoryOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(true)
   const [topUpOpen, setTopUpOpen] = useState(false)
@@ -541,6 +543,7 @@ export default function App() {
         onOpenAuth={openAuth}
         onOpenKyc={() => openKyc()}
         onOpenProfile={() => setProfileOpen(true)}
+        onOpenWalletHistory={() => setWalletHistoryOpen(true)}
         onLogout={handleLogout}
         onBackToWelcome={() => setView('welcome')}
         searchQuery={searchQuery}
@@ -690,6 +693,7 @@ export default function App() {
         onOpenTopUp={openTopUp}
         onUpdateUserName={(name) => updateProfile({ name }, 'อัปเดตชื่อผู้ใช้เรียบร้อยแล้ว')}
         onOpenProfile={() => setProfileOpen(true)}
+        onOpenWalletHistory={() => setWalletHistoryOpen(true)}
         onUpdatePayoutAccount={(account: PayoutAccount) =>
           updateProfile({ payoutAccount: account }, 'บันทึกข้อมูลบัญชีเพื่อรับเงินเรียบร้อยแล้ว (พร้อมรับเงินสุทธิ 95%)')
         }
@@ -733,6 +737,10 @@ export default function App() {
         />
       )}
 
+      {walletHistoryOpen && currentUser && (
+        <WalletHistoryModal key={currentUser.id} currentUser={currentUser} onClose={() => setWalletHistoryOpen(false)} onRefreshed={syncAccount} />
+      )}
+
       <MobileDrawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -742,6 +750,7 @@ export default function App() {
         onOpenAuth={openAuth}
         onOpenKyc={() => openKyc()}
         onOpenProfile={() => setProfileOpen(true)}
+        onOpenWalletHistory={() => setWalletHistoryOpen(true)}
         onLogout={handleLogout}
         onOpenHub={openHub}
         onBackToWelcome={() => setView('welcome')}

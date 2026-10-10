@@ -13,6 +13,7 @@ interface MobileDrawerProps {
   onOpenAuth: (mode: AuthMode) => void
   onOpenKyc: () => void
   onOpenProfile: () => void
+  onOpenWalletHistory: () => void
   onLogout: () => void
   onOpenHub: (tab: HubTab) => void
   onBackToWelcome: () => void
@@ -34,6 +35,7 @@ export function MobileDrawer({
   onOpenAuth,
   onOpenKyc,
   onOpenProfile,
+  onOpenWalletHistory,
   onLogout,
   onOpenHub,
   onBackToWelcome,
@@ -144,6 +146,9 @@ export function MobileDrawer({
                       + เติมเงิน
                     </button>
                   )}
+                  <button onClick={then(onOpenWalletHistory)} className="block ml-auto text-[10px] text-sky-300 font-bold underline cursor-pointer">
+                    ประวัติการเงิน
+                  </button>
                 </div>
               </div>
               <div className="pt-2 border-t border-purple-900/30 flex items-center justify-between">

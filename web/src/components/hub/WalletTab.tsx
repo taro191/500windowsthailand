@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Check, CircleCheck, QrCode, Sparkles, UserCog, Wallet } from 'lucide-react'
+import { Building2, Check, CircleCheck, History, QrCode, Sparkles, UserCog, Wallet } from 'lucide-react'
 import type { AuthMode, PayoutAccount, Transaction, User, WindowItem } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
@@ -12,6 +12,7 @@ interface WalletTabProps {
   onOpenTopUp?: () => void
   onUpdateUserName: (name: string) => void
   onOpenProfile: () => void
+  onOpenWalletHistory: () => void
   onUpdatePayoutAccount: (account: PayoutAccount) => void
   onSelectWindow: (window: WindowItem) => void
   onOpenAuth: (mode: AuthMode) => void
@@ -49,7 +50,7 @@ export function WalletTab(props: WalletTabProps) {
   return (
     <div className="space-y-5">
       <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} onOpenProfile={props.onOpenProfile} />
-      <BalanceCard user={currentUser} onOpenTopUp={props.onOpenTopUp} />
+      <BalanceCard user={currentUser} onOpenTopUp={props.onOpenTopUp} onOpenHistory={props.onOpenWalletHistory} />
       <PayoutAccountCard user={currentUser} onUpdatePayoutAccount={props.onUpdatePayoutAccount} />
       <OwnedWindows windows={props.myWindows} onSelectWindow={props.onSelectWindow} onClose={props.onClose} />
       <TransactionHistory transactions={props.transactions} />
@@ -121,7 +122,7 @@ function ProfileCard({
   )
 }
 
-function BalanceCard({ user, onOpenTopUp }: { user: User; onOpenTopUp?: () => void }) {
+function BalanceCard({ user, onOpenTopUp, onOpenHistory }: { user: User; onOpenTopUp?: () => void; onOpenHistory: () => void }) {
   return (
     <div className="p-4 rounded-xl bg-gradient-to-br from-stone-950 to-stone-900 border border-amber-500/40">
       <div className="flex items-center justify-between text-xs text-stone-400 mb-1">
@@ -131,14 +132,22 @@ function BalanceCard({ user, onOpenTopUp }: { user: User; onOpenTopUp?: () => vo
       <div className="text-2xl sm:text-3xl font-black font-mono text-amber-300 tabular-nums">฿{user.balance.toLocaleString()}</div>
       <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-stone-800">
         <span className="text-[11px] text-stone-400">ใช้ชำระค่าจับจองและซื้อต่อได้ทันที · ไม่พอใช้ช่องทางอื่นร่วมได้</span>
-        {onOpenTopUp && (
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={onOpenTopUp}
-            className="px-3 py-1.5 text-xs bg-gradient-to-r from-amber-400 to-amber-500 text-stone-950 rounded-lg font-bold cursor-pointer shrink-0"
+            onClick={onOpenHistory}
+            className="px-2.5 py-1.5 text-xs bg-stone-900 hover:bg-stone-850 text-amber-300 border border-stone-700 rounded-lg font-bold cursor-pointer flex items-center gap-1"
           >
-            + เติมเงิน
+            <History className="w-3.5 h-3.5" /> ประวัติการเงิน
           </button>
-        )}
+          {onOpenTopUp && (
+            <button
+              onClick={onOpenTopUp}
+              className="px-3 py-1.5 text-xs bg-gradient-to-r from-amber-400 to-amber-500 text-stone-950 rounded-lg font-bold cursor-pointer"
+            >
+              + เติมเงิน
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
