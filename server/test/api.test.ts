@@ -665,6 +665,28 @@ describe('KYC OTP by SMS', () => {
     assert.equal(kyc.status, 400)
     assert.match(kyc.error, /ขอรหัส OTP/)
   })
+
+  it('shows the super admin why THSMS refused, without the token', async () => {
+    const admin = await adminClient()
+    const { c, phone } = await newMember()
+    let status: any
+    await withSms({ success: false, message: 'Sender name not approved' }, async () => {
+      await c.post('/kyc/otp', { phone })
+      status = await admin.get('/admin/sms-status')
+    })
+    assert.equal(status.success, true, status.error)
+    assert.equal(status.otpMode, 'sms')
+    assert.equal(status.tokenLength, 'test-token'.length)
+    assert.equal(status.lastFailure.message, 'Sender name not approved')
+    assert.equal(status.account.ok, false)
+    assert.doesNotMatch(JSON.stringify(status), /test-token/)
+
+    const { user: other } = await verifiedUser()
+    await admin.post(`/admin/users/${other.id}/role`, { role: 'admin' })
+    const otherAdmin = client()
+    await otherAdmin.post('/auth/login', { identifier: other.email, password: 'secret-pass' })
+    assert.equal((await otherAdmin.get('/admin/sms-status')).status, 403)
+  })
 })
 
 describe('forgot password and personal info', () => {

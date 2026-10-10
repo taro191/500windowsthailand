@@ -284,6 +284,8 @@ export function createApp(ctx: AppContext) {
 
   adminApi.get('/overview', async (c) => ok(c, await admin.adminOverview(ctx)))
 
+  adminApi.get('/sms-status', async (c) => ok(c, await admin.smsDiagnostics(ctx, me(c))))
+
   adminApi.put('/settings', async (c) => {
     const { settings, what } = await body<{ settings: PlatformSettings; what: string }>(c)
     return ok(c, { settings: await admin.updateSettings(ctx, me(c), settings, what) })

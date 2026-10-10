@@ -4,6 +4,7 @@ import { isValidCitizenId, isValidThaiMobile } from '@shared/identity'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
+import { smsStatus } from '../lib/sms'
 import { nowIso, type AppContext } from '../context'
 import { audit, loadAuditLog } from './audit'
 import { toTransaction } from './ledger'
@@ -106,6 +107,12 @@ export async function releaseWindow(ctx: AppContext, admin: UserRow, region: Reg
 
 function assertSuperAdmin(ctx: AppContext, admin: UserRow) {
   if (!isSuperAdmin(ctx, admin)) throw forbidden('เฉพาะ Super Admin เท่านั้น')
+}
+
+/** Super admin only: whether THSMS accepts the token, its credit, and the last refusal. */
+export async function smsDiagnostics(ctx: AppContext, admin: UserRow) {
+  assertSuperAdmin(ctx, admin)
+  return { otpMode: ctx.config.otpMode, ...(await smsStatus(ctx.config.sms)) }
 }
 
 /** Loads a user that admins may act on: anyone but the super admin. */
