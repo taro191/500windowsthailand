@@ -198,9 +198,9 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
     )
   const toggleSuspend = (u: User) =>
     act(
-      u.suspended ? `ยกเลิกการระงับธุรกรรมของ ${u.name}?` : `ระงับการทำธุรกรรมของ ${u.name}? (จับจอง/ซื้อ/ขาย/แก้ไขบานไม่ได้ และถูกออกจากระบบทุกอุปกรณ์)`,
+      u.suspended ? `เปิดการทำธุรกรรมของ ${u.name} อีกครั้ง?` : `ระงับการทำธุรกรรมของ ${u.name}? (จับจอง/ซื้อ/ขาย/แก้ไขบานไม่ได้ และถูกออกจากระบบทุกอุปกรณ์)`,
       () => setUserSuspended(u.id, !u.suspended),
-      u.suspended ? `ยกเลิกการระงับ ${u.name} แล้ว` : `ระงับธุรกรรมของ ${u.name} แล้ว`,
+      u.suspended ? `เปิดธุรกรรมของ ${u.name} แล้ว` : `ระงับธุรกรรมของ ${u.name} แล้ว`,
     )
   const toggleRole = (u: User) =>
     act(
@@ -340,7 +340,7 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
                       {!u.disabled && (
                         <Button size="sm" tone={u.suspended ? 'success' : 'danger'} onClick={() => toggleSuspend(u)}>
                           {u.suspended ? <Undo2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
-                          {u.suspended ? 'ยกเลิกระงับ' : 'ระงับธุรกรรม'}
+                          {u.suspended ? 'เปิดธุรกรรม' : 'ระงับธุรกรรม'}
                         </Button>
                       )}
                       {u.isVerified ? (
