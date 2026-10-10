@@ -173,4 +173,6 @@ export const translationOverrides = {
   "ส่วนที่หักจากกระเป๋าจะคืนให้ ถ้าสลิปไม่ผ่านการอนุมัติ": "The wallet part is returned if the slip is rejected",
   "คืนเงินส่วนที่หักจากกระเป๋าแล้ว (ดูรายการคืนเงิน)": "The wallet part was returned (see the refund entry)",
   "เหตุผล:": "Reason:",
+  โอนเข้ามาผ่าน: "Transferred in via",
+  ยอดจะเข้ากระเป๋าเมื่อผู้ดูแลอนุมัติสลิป: "Added to your wallet once an admin approves the slip",
 } as const;

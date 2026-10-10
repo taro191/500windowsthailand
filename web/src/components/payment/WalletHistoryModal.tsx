@@ -23,6 +23,8 @@ interface Entry {
   /** Paid outside the wallet (bank transfer, PromptPay, card). */
   external?: { amount: number; channel?: string }
   status?: 'pending' | 'rejected'
+  /** A top-up slip: money that comes into the wallet once an admin approves it. */
+  incoming?: number
   note?: string
 }
 
@@ -70,8 +72,9 @@ function fromOrder(order: PaymentOrder): Entry {
     id: order.id,
     date: order.createdAt,
     title: ORDER_TITLES[order.kind] ?? order.label,
-    detail: order.label,
+    detail: order.label !== ORDER_TITLES[order.kind] ? order.label : undefined,
     walletChange: -order.walletAmount,
+    incoming: order.kind === 'topup' ? order.amount : undefined,
     external: order.externalAmount ? { amount: order.externalAmount, channel: order.channelName } : undefined,
     status: order.status === 'pending' ? 'pending' : 'rejected',
     note:
@@ -129,8 +132,8 @@ export function WalletHistoryModal({ currentUser, onClose, onRefreshed }: Wallet
     (e) =>
       filter === 'all' ||
       (filter === 'pending' && !!e.status) ||
-      (filter === 'in' && e.walletChange > 0) ||
-      (filter === 'out' && (e.walletChange < 0 || !!e.external)),
+      (filter === 'in' && (e.walletChange > 0 || !!e.incoming)) ||
+      (filter === 'out' && (e.walletChange < 0 || (!!e.external && !e.incoming))),
   )
 
   return (
@@ -232,12 +235,22 @@ function EntryRow({ entry: e }: { entry: Entry }) {
               {baht(e.walletChange)}
             </span>
           )}
+          {!!e.incoming && (
+            <span
+              className={`font-mono font-bold whitespace-nowrap ${e.status === 'rejected' ? 'text-stone-500 line-through' : 'text-amber-300'}`}
+            >
+              +{baht(e.incoming)}
+            </span>
+          )}
         </div>
         {e.detail && <div className="text-[11px] text-stone-400 truncate">{e.detail}</div>}
         {e.external && (
           <div className="text-[11px] text-sky-300">
-            ชำระผ่าน {e.external.channel || 'ช่องทางอื่น'} {baht(e.external.amount)}
+            {e.incoming ? 'โอนเข้ามาผ่าน' : 'ชำระผ่าน'} {e.external.channel || 'ช่องทางอื่น'} {baht(e.external.amount)}
           </div>
+        )}
+        {e.incoming && e.status === 'pending' && (
+          <div className="text-[10px] text-amber-300/80">ยอดจะเข้ากระเป๋าเมื่อผู้ดูแลอนุมัติสลิป</div>
         )}
         {e.status && (
           <span
