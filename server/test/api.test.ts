@@ -646,6 +646,7 @@ describe('KYC OTP by SMS', () => {
     assert.equal(sent[0].auth, 'Bearer test-token')
     assert.equal(sent[0].payload.sender, 'TESTER')
     assert.deepEqual(sent[0].payload.msisdn, [phone])
+    assert.match(String(sent[0].payload.message), /^ใช้ OTP \d{6} ยืนยันตัวตนใน 500Windows$/)
     const code = String(sent[0].payload.message).match(/\d{6}/)?.[0]
     assert.ok(code)
     const kyc = await c.post('/kyc/verify', { citizenId: citizen, phone, otp: code })

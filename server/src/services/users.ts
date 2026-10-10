@@ -344,7 +344,7 @@ export async function requestOtp(ctx: AppContext, user: UserRow, phoneInput: str
   // OTP_MODE=dev returns the code so the app can show it instead of sending an SMS.
   if (ctx.config.otpMode === 'dev') return { devCode: code }
   try {
-    await sendSms(ctx.config.sms, phone, `รหัส OTP ยืนยันตัวตน 500 Windows คือ ${code} (ใช้ได้ 5 นาที) ห้ามบอกรหัสนี้กับผู้อื่น`)
+    await sendSms(ctx.config.sms, phone, `ใช้ OTP ${code} ยืนยันตัวตนใน 500Windows`)
   } catch (err) {
     await ctx.db.deleteFrom('otp_codes').where('user_id', '=', user.id).execute()
     throw err
