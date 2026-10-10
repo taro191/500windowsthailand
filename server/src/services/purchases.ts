@@ -616,3 +616,15 @@ export async function userOrders(ctx: AppContext, userId: string, limit = 50): P
   return rows.map((r) => toOrder(r))
 }
 
+
+/** One order with its payer's name (for alerts). */
+export async function findOrder(ctx: AppContext, orderId: string): Promise<PaymentOrder | undefined> {
+  const row = await ctx.db
+    .selectFrom('payment_orders')
+    .leftJoin('users', 'users.id', 'payment_orders.user_id')
+    .selectAll('payment_orders')
+    .select('users.name as user_name')
+    .where('payment_orders.id', '=', orderId)
+    .executeTakeFirst()
+  return row ? toOrder(row, row.user_name ?? '') : undefined
+}

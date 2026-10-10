@@ -13,6 +13,7 @@ import { newToken } from './lib/crypto'
 import { ApiError, forbidden } from './lib/errors'
 import { uploadFilePath } from './lib/files'
 import { createRateLimiter } from './lib/rateLimit'
+import { replyLine, validLineSignature } from './lib/line'
 import { getSettings } from './services/settings'
 import * as users from './services/users'
 import * as windows from './services/windows'
@@ -20,6 +21,7 @@ import * as purchases from './services/purchases'
 import * as promo from './services/promo'
 import * as admin from './services/admin'
 import { userTransactions } from './services/ledger'
+import { notifyPendingSlip } from './services/notify'
 
 type Env = { Variables: { user: UserRow | null } }
 
@@ -73,6 +75,11 @@ export function createApp(ctx: AppContext) {
   const ok = (c: Context, data: object = {}) => c.json({ success: true, ...data })
   const body = async <T>(c: Context): Promise<T> => (await c.req.json()) as T
   const ip = (c: Context) => c.req.header('x-forwarded-for')?.split(',')[0].trim() || c.req.header('x-real-ip') || 'local'
+  /** The site's address for links in alerts (the live site is always served over https). */
+  const siteUrl = (c: Context) => {
+    const host = c.req.header('x-forwarded-host') || c.req.header('host')
+    return host ? `https://${host.split(',')[0].trim()}` : ''
+  }
 
   const startSession = async (c: Context, user: UserRow) => {
     const { token, expiresAt } = await users.createSession(ctx, user.id)
@@ -209,6 +216,7 @@ export function createApp(ctx: AppContext) {
 
   const windowRoute = (c: Context) => windows.parseWindowRef(c.req.param('region')!, c.req.param('num')!)
   const withWindow = async (c: Context<Env>, result: purchases.PurchaseResult) => {
+    if (result.pending) notifyPendingSlip(ctx, result.order, siteUrl(c))
     const { region, num } = windowRoute(c)
     return ok(c, { ...result, window: await windows.loadWindow(ctx, region, num, me(c).id) })
   }
@@ -256,12 +264,43 @@ export function createApp(ctx: AppContext) {
 
   api.post('/wallet/topup', async (c) => {
     const { amount, channelId, slip } = await body<{ amount: number; channelId: string; slip?: purchases.PaymentInput['slip'] }>(c)
-    return ok(c, { ...(await purchases.topUp(ctx, me(c), amount, { channelId, slip })) })
+    const result = await purchases.topUp(ctx, me(c), amount, { channelId, slip })
+    if (result.pending) notifyPendingSlip(ctx, result.order, siteUrl(c))
+    return ok(c, { ...result })
   })
 
   api.post('/promo/requests', requireUser, async (c) => {
     const { request, payment } = await body<{ request: promo.PromoInput; payment: purchases.PaymentInput }>(c)
-    return ok(c, await promo.submitPromoRequest(ctx, me(c), request, payment))
+    const result = await promo.submitPromoRequest(ctx, me(c), request, payment)
+    const orderId = result.request.payment?.orderStatus === 'pending' ? result.request.payment.orderId : undefined
+    if (orderId) notifyPendingSlip(ctx, await purchases.findOrder(ctx, orderId), siteUrl(c))
+    return ok(c, result)
+  })
+
+  // ------------------------------------------------------------ LINE webhook
+  // Lets the finance admin find the ID to put in LINE_ADMIN_TO: send "id" to the LINE OA
+  // (or add it to a group), and it replies with the user or group ID.
+
+  api.post('/line/webhook', async (c) => {
+    const raw = await c.req.text()
+    if (!validLineSignature(ctx.config.line.secret, raw, c.req.header('x-line-signature'))) {
+      return c.json({ success: false, error: 'invalid signature' }, 401)
+    }
+    const { events = [] } = JSON.parse(raw) as {
+      events?: { type: string; replyToken?: string; message?: { type: string; text?: string }; source?: { type: string; userId?: string; groupId?: string; roomId?: string } }[]
+    }
+    for (const event of events) {
+      const asked = event.type === 'message' && /^(id|ไอดี)$/i.test(event.message?.text?.trim() ?? '')
+      if (!event.replyToken || !ctx.config.line.token || !(asked || event.type === 'join')) continue
+      const source = event.source
+      const id = source?.groupId ?? source?.roomId ?? source?.userId
+      const kind = source?.groupId ? 'Group ID' : source?.roomId ? 'Room ID' : 'User ID'
+      if (!id) continue
+      await replyLine(ctx.config.line, event.replyToken, `${kind} สำหรับรับแจ้งเตือน 500 Windows:\n${id}\n\nใส่ค่านี้ใน LINE_ADMIN_TO ของเซิร์ฟเวอร์`).catch((err) =>
+        console.error('[line] reply failed:', err),
+      )
+    }
+    return ok(c)
   })
 
   // ------------------------------------------------------------ demo helpers
@@ -285,6 +324,10 @@ export function createApp(ctx: AppContext) {
   adminApi.get('/overview', async (c) => ok(c, await admin.adminOverview(ctx)))
 
   adminApi.get('/sms-status', async (c) => ok(c, await admin.smsDiagnostics(ctx, me(c))))
+
+  adminApi.get('/line-status', (c) => ok(c, admin.lineStatus(ctx, me(c))))
+
+  adminApi.post('/line-test', async (c) => ok(c, await admin.testLineAlert(ctx, me(c))))
 
   adminApi.put('/settings', async (c) => {
     const { settings, what } = await body<{ settings: PlatformSettings; what: string }>(c)

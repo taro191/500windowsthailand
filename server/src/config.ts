@@ -54,6 +54,15 @@ export const config = {
     pass: env('SMTP_PASS'),
     from: env('MAIL_FROM').trim(),
   },
+  /** LINE alerts to the finance admin (new slips to check). Long tokens may be split over LINE_CHANNEL_ACCESS_TOKEN_2. */
+  line: {
+    token: ['', '_2'].map((n) => env(`LINE_CHANNEL_ACCESS_TOKEN${n}`).trim()).join(''),
+    secret: env('LINE_CHANNEL_SECRET').trim(),
+    to: env('LINE_ADMIN_TO')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
+  },
   demoTools: flag('DEMO_TOOLS'),
   sessionDays: 30,
 }

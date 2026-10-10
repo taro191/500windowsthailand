@@ -5,6 +5,7 @@ import type { UserRow } from '../db/schema'
 import { hashPassword, newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { smsStatus } from '../lib/sms'
+import { lineReady } from '../lib/line'
 import { nowIso, type AppContext } from '../context'
 import { audit, loadAuditLog } from './audit'
 import { toTransaction } from './ledger'
@@ -12,6 +13,7 @@ import { toOrder } from './purchases'
 import { toPromoRequest } from './promo'
 import { saveSettings } from './settings'
 import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, digits, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
+import { lineLastFailure, sendLineAlert } from './notify'
 import { emptyWindowRow, loadBoards, loadWindow } from './windows'
 
 /** Everything the admin pages show. */
@@ -107,6 +109,22 @@ export async function releaseWindow(ctx: AppContext, admin: UserRow, region: Reg
 
 function assertSuperAdmin(ctx: AppContext, admin: UserRow) {
   if (!isSuperAdmin(ctx, admin)) throw forbidden('เฉพาะ Super Admin เท่านั้น')
+}
+
+/** Super admin only: how LINE alerts to the finance admin are set up (never returns the token). */
+export function lineStatus(ctx: AppContext, admin: UserRow) {
+  assertSuperAdmin(ctx, admin)
+  const { token, secret, to } = ctx.config.line
+  return { configured: lineReady(ctx.config.line), hasToken: !!token, hasSecret: !!secret, recipients: to.length, lastFailure: lineLastFailure() }
+}
+
+/** Super admin only: sends a test alert so the admin can check that it arrives. */
+export async function testLineAlert(ctx: AppContext, admin: UserRow) {
+  assertSuperAdmin(ctx, admin)
+  if (!lineReady(ctx.config.line)) throw badRequest('ยังไม่ได้ตั้งค่า LINE (LINE_CHANNEL_ACCESS_TOKEN และ LINE_ADMIN_TO)')
+  const failures = await sendLineAlert(ctx, `✅ ทดสอบการแจ้งเตือนจาก 500 Windows\nส่งโดย ${admin.name}\nถ้าได้รับข้อความนี้ แปลว่าจะได้รับแจ้งเตือนเมื่อมีสลิปรอตรวจ`)
+  if (failures.length) throw badRequest(`ส่ง LINE ไม่สำเร็จ: ${failures.map((f) => f.error).join(' · ')}`)
+  return { sent: ctx.config.line.to.length }
 }
 
 /** Super admin only: whether THSMS accepts the token, its credit, and the last refusal. */

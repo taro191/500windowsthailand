@@ -79,12 +79,22 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    SMTP_USER=<กล่องอีเมลที่ใช้ส่ง เช่น no-reply@500windowsthailand.com>
    SMTP_PASS=<รหัสผ่านของกล่องอีเมลนั้น>
    MAIL_FROM=500 Windows <no-reply@500windowsthailand.com>
+   LINE_CHANNEL_ACCESS_TOKEN=<Channel access token (long-lived) จาก LINE Developers › Messaging API ยาวเกิน 255 ตัวแบ่งใส่ LINE_CHANNEL_ACCESS_TOKEN_2>
+   LINE_CHANNEL_SECRET=<Channel secret จากหน้า Basic settings ของ channel เดียวกัน>
+   LINE_ADMIN_TO=<User ID หรือ Group ID ของแอดมินการเงิน (ดูวิธีหาด้านล่าง) หลายคนคั่นด้วย ,>
    ```
 
    สุ่ม `APP_SECRET`: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`
    · รหัสผ่านใน `DATABASE_URL` ที่มีอักขระพิเศษต้อง URL-encode
    · `UPLOAD_DIR` ต้องอยู่นอกโฟลเดอร์ที่ Git deploy เขียนทับ ไม่งั้นรูปและสลิปที่อัปโหลดอาจหาย
    · ไม่ตั้ง `SMTP_HOST` = เมนูลืมรหัสผ่านใช้ไม่ได้ (แจ้งผู้ใช้ให้ติดต่อผู้ดูแล) · พอร์ต 465 ใช้ SSL อัตโนมัติ
+
+   **แจ้งเตือน LINE ถึงแอดมินการเงิน** (ทุกครั้งที่มีสลิปรอตรวจ: เติมเงิน / จับจอง / ซื้อต่อ / โปรโมท) ใช้ LINE Messaging API (LINE Notify ปิดบริการแล้ว)
+   1. https://developers.line.biz › สร้าง Provider › สร้าง channel แบบ **Messaging API** (จะได้ LINE Official Account)
+   2. แท็บ Basic settings คัดลอก **Channel secret** → `LINE_CHANNEL_SECRET` · แท็บ Messaging API กด Issue **Channel access token (long-lived)** → `LINE_CHANNEL_ACCESS_TOKEN`
+   3. แท็บ Messaging API ตั้ง **Webhook URL** = `https://500windowsthailand.com/api/line/webhook` แล้วเปิด **Use webhook** · ปิด Auto-reply messages ใน LINE Official Account Manager
+   4. Restart App แล้วให้แอดมินการเงินเพิ่ม LINE OA เป็นเพื่อน แล้วพิมพ์ `id` (หรือเชิญ OA เข้ากลุ่ม LINE การเงิน แล้วพิมพ์ `id` ในกลุ่ม) → บอทตอบ User ID / Group ID กลับมา
+   5. ใส่ ID นั้นใน `LINE_ADMIN_TO` · Restart App · ไปที่ Admin › ตรวจสลิปชำระเงิน กด **ส่งข้อความทดสอบ**
 
 4. `npm run deploy` แล้วกด **Restart App** — ตอนเริ่มแอปจะสร้างตารางและบัญชีผู้ดูแลให้เอง
 5. ล็อกอินด้วยบัญชีผู้ดูแล เปลี่ยนรหัสผ่าน แล้วลบ `ADMIN_PASSWORD` ออกจาก env

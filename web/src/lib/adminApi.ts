@@ -68,3 +68,15 @@ export const updateUserInfo = (
   userId: string,
   info: { name: string; email: string; phone: string; citizenId: string; bio: string; password: string },
 ) => put<{ user: User }>(`/admin/users/${userId}`, info)
+
+export interface LineStatus {
+  configured: boolean
+  hasToken: boolean
+  hasSecret: boolean
+  recipients: number
+  lastFailure: { at: string; error: string } | null
+}
+
+/** Super admin only: LINE alerts to the finance admin (new slips to check). */
+export const loadLineStatus = () => get<LineStatus>('/admin/line-status')
+export const sendLineTest = () => post<{ sent: number }>('/admin/line-test')

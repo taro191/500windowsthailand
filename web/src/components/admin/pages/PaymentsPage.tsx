@@ -4,6 +4,7 @@ import type { PaymentOrder, PaymentOrderKind, PaymentOrderStatus } from '@shared
 import { decideOrder } from '@/lib/adminApi'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Callout, Card, DataTable, thaiDateTime } from '../ui'
+import { LineAlertCard } from '../LineAlertCard'
 
 const STATUS_LABELS: Record<PaymentOrderStatus, string> = { pending: 'รอตรวจสลิป', approved: 'อนุมัติแล้ว', rejected: 'ไม่อนุมัติ' }
 const KIND_LABELS: Record<PaymentOrderKind, string> = { topup: 'เติมเงิน', claim: 'จับจองบาน', resale: 'ซื้อต่อ', promo: 'โปรโมท' }
@@ -12,7 +13,7 @@ const KIND_LABELS: Record<PaymentOrderKind, string> = { topup: 'เติมเ�
  * Transfer slips waiting for an admin. Approving completes the purchase or top-up;
  * rejecting returns the wallet part and frees the held window.
  */
-export function PaymentsPage({ data, refresh, notify }: AdminPageProps) {
+export function PaymentsPage({ admin, data, refresh, notify }: AdminPageProps) {
   const [filter, setFilter] = useState<PaymentOrderStatus | 'all'>('pending')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [preview, setPreview] = useState<PaymentOrder | null>(null)
@@ -45,6 +46,7 @@ export function PaymentsPage({ data, refresh, notify }: AdminPageProps) {
         เปิดแอปธนาคาร/บัญชีรับเงินเพื่อยืนยันว่าได้รับยอดตรงตามสลิปจริง · <b>อนุมัติ</b> = ทำรายการให้เสร็จ (โอนสิทธิ์บาน / เติมเงิน /
         ยืนยันค่าโปรโมท) · <b>ไม่อนุมัติ</b> = คืนส่วนที่ตัดจากกระเป๋าและปล่อยบานที่จองไว้ (ยอดที่โอนเข้ามาจริงต้องโอนคืนเอง)
       </Callout>
+      {admin.superAdmin && <LineAlertCard notify={notify} />}
       <Card
         title="ตรวจสลิปชำระเงิน"
         icon={FileCheck2}

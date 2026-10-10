@@ -1,5 +1,6 @@
 // End-to-end API tests against an in-memory SQLite database: npm test
 import assert from 'node:assert/strict'
+import { createHmac } from 'node:crypto'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -752,5 +753,99 @@ describe('forgot password and personal info', () => {
     assert.equal((await c.post('/me/password', { currentPassword: 'nope', newPassword: 'next-pass-123' })).status, 400)
     assert.equal((await c.post('/me/password', { currentPassword: 'secret-pass', newPassword: 'next-pass-123' })).success, true)
     assert.equal((await client().post('/auth/login', { identifier: user.email, password: 'next-pass-123' })).success, true)
+  })
+})
+
+describe('LINE alerts to the finance admin', () => {
+  /** Runs `body` with LINE set up and api.line.me stubbed; returns the calls made to LINE. */
+  async function withLine(body: () => Promise<void>, reply = { status: 200, json: {} as object }) {
+    const calls: { url: string; auth: string; payload: any }[] = []
+    const realFetch = globalThis.fetch
+    const { line } = ctx.config
+    ctx.config.line = { token: 'line-token', secret: 'line-secret', to: ['Ufinance'] }
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), auth: new Headers(init.headers).get('authorization') || '', payload: JSON.parse(String(init.body)) })
+      return new Response(JSON.stringify(reply.json), { status: reply.status, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    try {
+      await body()
+      await new Promise((r) => setTimeout(r, 50)) // alerts are sent in the background
+    } finally {
+      globalThis.fetch = realFetch
+      ctx.config.line = line
+    }
+    return calls
+  }
+
+  it('alerts the finance admin when a slip waits for review, and only then', async () => {
+    const { c } = await verifiedUser('สลิป')
+    const calls = await withLine(async () => {
+      const bySlip = await c.post('/wallet/topup', { amount: 700, channelId: 'ch-truemoney', slip: { slipUrl: PNG } }, { host: 'shop.test' })
+      assert.equal(bySlip.pending, true, bySlip.error)
+      const byCard = await c.post('/wallet/topup', { amount: 300, channelId: 'ch-card' })
+      assert.equal(byCard.pending, false, byCard.error)
+    })
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, 'https://api.line.me/v2/bot/message/push')
+    assert.equal(calls[0].auth, 'Bearer line-token')
+    assert.equal(calls[0].payload.to, 'Ufinance')
+    const text = calls[0].payload.messages[0].text
+    assert.match(text, /มีสลิปรอตรวจ/)
+    assert.match(text, /เติมเงินเข้ากระเป๋า/)
+    assert.match(text, /฿700/)
+    assert.match(text, /https:\/\/shop\.test\/#admin\/payments/)
+  })
+
+  it('never fails the purchase when LINE is down', async () => {
+    const { c } = await verifiedUser()
+    let res: any
+    await withLine(
+      async () => {
+        res = await c.post('/wallet/topup', { amount: 500, channelId: 'ch-truemoney', slip: { slipUrl: PNG } })
+      },
+      { status: 500, json: { message: 'down' } },
+    )
+    assert.equal(res.success, true, res.error)
+    assert.equal(res.pending, true)
+  })
+
+  it('answers "id" on the webhook only when LINE signed the call', async () => {
+    const event = { events: [{ type: 'message', replyToken: 'rt-1', message: { type: 'text', text: 'id' }, source: { type: 'user', userId: 'Uabc123' } }] }
+    const raw = JSON.stringify(event)
+    const signature = createHmac('sha256', 'line-secret').update(raw).digest('base64')
+    let forged: any
+    let signed: any
+    const calls = await withLine(async () => {
+      forged = await client().post('/line/webhook', event, { 'x-line-signature': 'bad' })
+      signed = await client().post('/line/webhook', event, { 'x-line-signature': signature })
+    })
+    assert.equal(forged.status, 401)
+    assert.equal(signed.success, true, signed.error)
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, 'https://api.line.me/v2/bot/message/reply')
+    assert.equal(calls[0].payload.replyToken, 'rt-1')
+    assert.match(calls[0].payload.messages[0].text, /Uabc123/)
+  })
+
+  it('lets only the super admin check the setup and send a test alert', async () => {
+    const admin = await adminClient()
+    let status: any
+    let test: any
+    const calls = await withLine(async () => {
+      status = await admin.get('/admin/line-status')
+      test = await admin.post('/admin/line-test')
+    })
+    assert.equal(status.configured, true)
+    assert.equal(status.recipients, 1)
+    assert.doesNotMatch(JSON.stringify(status), /line-token|line-secret/)
+    assert.equal(test.success, true, test.error)
+    assert.equal(calls.length, 1)
+    assert.match(calls[0].payload.messages[0].text, /ทดสอบการแจ้งเตือน/)
+
+    const { user: other } = await verifiedUser()
+    await admin.post(`/admin/users/${other.id}/role`, { role: 'admin' })
+    const otherAdmin = client()
+    await otherAdmin.post('/auth/login', { identifier: other.email, password: 'secret-pass' })
+    assert.equal((await otherAdmin.get('/admin/line-status')).status, 403)
   })
 })
