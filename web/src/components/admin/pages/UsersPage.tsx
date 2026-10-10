@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Ban, Power, PowerOff, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Ban, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users, X } from 'lucide-react'
 import type { User } from '@shared/types'
-import { createUser, revokeKyc, setUserDisabled, setUserRole, setUserSuspended, verifyUserKyc } from '@/lib/adminApi'
+import { createUser, revokeKyc, setUserDisabled, setUserRole, setUserSuspended, updateUserInfo, verifyUserKyc } from '@/lib/adminApi'
 import { maskCitizenId, maskPhone } from '@shared/identity'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Card, DataTable, FormRow, inputClass, thaiDateTime } from '../ui'
@@ -72,8 +72,81 @@ function NewUserCard({ onClose, refresh, notify }: { onClose: () => void } & Pic
   )
 }
 
+/** Super admin only: edit a user's details. Blank citizen ID or password keeps the current one. */
+function EditUserCard({ user, onClose, refresh, notify }: { user: User; onClose: () => void } & Pick<AdminPageProps, 'refresh' | 'notify'>) {
+  const [form, setForm] = useState({ name: user.name, email: user.email, phone: user.phone, citizenId: '', bio: user.bio ?? '', password: '' })
+  const [saving, setSaving] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), [])
+  const set = (changes: Partial<typeof form>) => setForm((f) => ({ ...f, ...changes }))
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (form.password && !window.confirm(`ตั้งรหัสผ่านใหม่ให้ ${user.name}? ผู้ใช้จะถูกออกจากระบบทุกอุปกรณ์`)) return
+    setSaving(true)
+    const result = await updateUserInfo(user.id, form)
+    setSaving(false)
+    if (!result.success) return notify(result.error || 'บันทึกไม่สำเร็จ', 'error')
+    await refresh()
+    notify(`บันทึกข้อมูลของ ${form.name} แล้ว`)
+    onClose()
+  }
+
+  return (
+    <div ref={ref} className="scroll-mt-4">
+      <Card
+        title={`แก้ไขข้อมูลผู้ใช้ · ${user.name}`}
+        icon={Pencil}
+        outline="primary"
+        tools={
+          <button type="button" onClick={onClose} className="text-[#6c757d] hover:text-[#212529] cursor-pointer" aria-label="ปิด">
+            <X className="w-4 h-4" />
+          </button>
+        }
+      >
+        <form onSubmit={submit} className="grid gap-x-4 sm:grid-cols-2">
+          <FormRow label="ชื่อ">
+            <input required value={form.name} onChange={(e) => set({ name: e.target.value })} className={inputClass} maxLength={120} />
+          </FormRow>
+          <FormRow label="อีเมล" hint="ใช้เป็นชื่อเข้าสู่ระบบ">
+            <input required type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} className={inputClass} />
+          </FormRow>
+          <FormRow label="เบอร์โทรศัพท์" hint={user.isVerified ? 'ผู้ใช้ที่ยืนยันตัวตนแล้วต้องมีเบอร์โทร' : 'เว้นว่างได้'}>
+            <input type="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} className={inputClass} placeholder="08x-xxx-xxxx" />
+          </FormRow>
+          <FormRow label="เลขบัตรประชาชน" hint={`ปัจจุบัน ${maskCitizenId(user.citizenId) || 'ยังไม่มี'} · เว้นว่างเพื่อใช้เลขเดิม`}>
+            <input
+              inputMode="numeric"
+              autoComplete="off"
+              value={form.citizenId}
+              onChange={(e) => set({ citizenId: e.target.value })}
+              className={inputClass}
+              placeholder="เลข 13 หลัก"
+            />
+          </FormRow>
+          <FormRow label="แนะนำตัว">
+            <input value={form.bio} onChange={(e) => set({ bio: e.target.value })} className={inputClass} maxLength={500} />
+          </FormRow>
+          <FormRow label="ตั้งรหัสผ่านใหม่" hint="เว้นว่างเพื่อใช้รหัสเดิม · อย่างน้อย 8 ตัวอักษร">
+            <input type="text" autoComplete="off" minLength={8} value={form.password} onChange={(e) => set({ password: e.target.value })} className={inputClass} />
+          </FormRow>
+          <div className="sm:col-span-2 flex justify-end gap-2">
+            <Button tone="secondary" outline onClick={onClose}>
+              ยกเลิก
+            </Button>
+            <Button type="submit" disabled={saving}>
+              <Save className="w-4 h-4" /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  )
+}
+
 export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<User | null>(null)
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -144,12 +217,17 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
       `ยืนยันตัวตน (KYC) ให้ ${u.name} แล้ว`,
     )
   }
+  const edit = (u: User) => {
+    setAdding(false)
+    setEditing(u)
+  }
   const revoke = (u: User) =>
     act(`เพิกถอนการยืนยันตัวตนของ ${u.name}? ผู้ใช้จะต้องยืนยันใหม่ก่อนซื้อขาย`, () => revokeKyc(u.id), `เพิกถอน KYC ของ ${u.name} แล้ว`)
 
   return (
     <>
       {adding && <NewUserCard onClose={() => setAdding(false)} refresh={refresh} notify={notify} />}
+      {editing && <EditUserCard key={editing.id} user={editing} onClose={() => setEditing(null)} refresh={refresh} notify={notify} />}
       <Card
         title={`ผู้ใช้งาน (${users.length}/${data.users.length})`}
         icon={Users}
@@ -242,6 +320,11 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
                     <span className="text-[0.8rem] text-[#6c757d]">-</span>
                   ) : (
                     <div className="flex flex-wrap gap-1">
+                      {admin.superAdmin && (
+                        <Button size="sm" tone="info" onClick={() => edit(u)}>
+                          <Pencil className="w-3.5 h-3.5" /> แก้ไข
+                        </Button>
+                      )}
                       <Button size="sm" tone={u.disabled ? 'success' : 'secondary'} onClick={() => toggleDisabled(u)}>
                         {u.disabled ? <Power className="w-3.5 h-3.5" /> : <PowerOff className="w-3.5 h-3.5" />}
                         {u.disabled ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}

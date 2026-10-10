@@ -1,5 +1,6 @@
 // Admin-only reads and actions. Every change is written to the audit log.
 import type { PlatformSettings, RegionId } from '@shared/types'
+import { isValidCitizenId, isValidThaiMobile } from '@shared/identity'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
@@ -9,7 +10,7 @@ import { toTransaction } from './ledger'
 import { toOrder } from './purchases'
 import { toPromoRequest } from './promo'
 import { saveSettings } from './settings'
-import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
+import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, digits, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
 import { emptyWindowRow, loadBoards, loadWindow } from './windows'
 
 /** Everything the admin pages show. */
@@ -198,6 +199,68 @@ export async function setUserRole(ctx: AppContext, admin: UserRow, userId: strin
   await ctx.db.updateTable('users').set({ role, updated_at: nowIso() }).where('id', '=', userId).execute()
   await audit(ctx.db, admin, 'เปลี่ยนสิทธิ์ผู้ใช้', `${user.name} → ${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}`)
   return adminUserDto(ctx, { ...user, role })
+}
+
+export interface UserInfoInput {
+  name: string
+  email: string
+  phone: string
+  /** Empty keeps the citizen ID on file (admins only ever see it masked). */
+  citizenId?: string
+  bio?: string
+  /** Empty keeps the current password. */
+  password?: string
+}
+
+/** Super admin only: edits a user's account details; a new password signs the user out everywhere. */
+export async function updateUserInfo(ctx: AppContext, admin: UserRow, userId: string, input: UserInfoInput) {
+  assertSuperAdmin(ctx, admin)
+  const user = await managedUser(ctx, userId)
+  const name = String(input.name ?? '').trim()
+  const email = String(input.email ?? '').trim().toLowerCase()
+  const phone = digits(String(input.phone ?? '')) || null
+  const citizen = digits(String(input.citizenId ?? ''))
+  const bio = String(input.bio ?? '').trim().slice(0, 500) || null
+  const password = String(input.password ?? '')
+  if (!name) throw badRequest('กรุณากรอกชื่อ')
+  if (name.length > 120) throw badRequest('ชื่อยาวเกินไป')
+  if (!isEmail(email)) throw badRequest('อีเมลไม่ถูกต้อง')
+  if (phone && !isValidThaiMobile(phone)) throw badRequest('เบอร์โทรศัพท์ต้องมี 10 หลักและขึ้นต้นด้วย 06, 08 หรือ 09')
+  if (!phone && user.is_verified) throw badRequest('ผู้ใช้ที่ยืนยันตัวตนแล้วต้องมีเบอร์โทรศัพท์')
+  if (citizen && !isValidCitizenId(citizen)) throw badRequest('เลขประจำตัวประชาชนไม่ถูกต้องตามสูตรคำนวณของกรมการปกครอง')
+  if (password && password.length < MIN_PASSWORD_LENGTH) throw badRequest(`รหัสผ่านต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`)
+
+  const citizenHash = citizen ? ctx.secrets.citizenHash(citizen) : null
+  const taken = await ctx.db
+    .selectFrom('users')
+    .select(['email', 'phone', 'citizen_hash'])
+    .where('id', '!=', user.id)
+    .where((eb) => {
+      const checks = [eb('email', '=', email)]
+      if (phone) checks.push(eb('phone', '=', phone))
+      if (citizenHash) checks.push(eb('citizen_hash', '=', citizenHash))
+      return eb.or(checks)
+    })
+    .execute()
+  if (citizenHash && taken.some((u) => u.citizen_hash === citizenHash)) throw conflict('เลขบัตรประชาชนนี้ผูกกับบัญชีอื่นแล้วในระบบ')
+  if (phone && taken.some((u) => u.phone === phone)) throw conflict('เบอร์โทรศัพท์นี้ผูกกับบัญชีอื่นแล้วในระบบ')
+  if (taken.some((u) => u.email === email)) throw conflict('อีเมลนี้ถูกใช้งานในระบบแล้ว')
+
+  const changes: Partial<UserRow> = { name, email, phone, bio, updated_at: nowIso() }
+  if (citizen) Object.assign(changes, { citizen_hash: citizenHash, citizen_enc: ctx.secrets.encrypt(citizen) })
+  if (password) changes.password_hash = await hashPassword(password)
+  const changed = [
+    name !== user.name && 'ชื่อ',
+    email !== user.email && 'อีเมล',
+    phone !== user.phone && 'เบอร์โทรศัพท์',
+    citizen && citizen !== citizenIdOf(ctx, user) && 'เลขบัตรประชาชน',
+    bio !== user.bio && 'แนะนำตัว',
+    password && 'รหัสผ่าน',
+  ].filter(Boolean)
+  await ctx.db.updateTable('users').set(changes).where('id', '=', user.id).execute()
+  if (password) await ctx.db.deleteFrom('sessions').where('user_id', '=', user.id).execute()
+  if (changed.length) await audit(ctx.db, admin, 'แก้ไขข้อมูลผู้ใช้', `${name} · ${changed.join(', ')}`)
+  return adminUserDto(ctx, { ...user, ...changes })
 }
 
 export async function revokeKyc(ctx: AppContext, admin: UserRow, userId: string) {

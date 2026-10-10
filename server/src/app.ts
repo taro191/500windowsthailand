@@ -308,6 +308,10 @@ export function createApp(ctx: AppContext) {
 
   adminApi.post('/users/:id/verify-kyc', async (c) => ok(c, { user: await admin.verifyUserKyc(ctx, me(c), c.req.param('id')) }))
 
+  adminApi.put('/users/:id', async (c) =>
+    ok(c, { user: await admin.updateUserInfo(ctx, me(c), c.req.param('id'), await body<admin.UserInfoInput>(c)) }),
+  )
+
   adminApi.post('/orders/:id/decide', async (c) => {
     const { decision, note } = await body<{ decision: 'approved' | 'rejected'; note?: string }>(c)
     await purchases.decideOrder(ctx, me(c), c.req.param('id'), decision === 'approved' ? 'approved' : 'rejected', note)

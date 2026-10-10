@@ -565,6 +565,41 @@ describe('user management', () => {
     await admin.post(`/admin/users/${kycUser.id}/revoke-kyc`)
     assert.equal((await other.post(`/admin/users/${kycUser.id}/verify-kyc`, {})).status, 403)
   })
+
+  it('lets only the super admin edit user details and reset the password', async () => {
+    const admin = await adminClient()
+    const { c: user, user: target } = await verifiedUser('ก่อนแก้')
+    const { user: someone } = await verifiedUser()
+    const info = { name: 'หลังแก้', email: 'edited@test.th', phone: '0812345670', citizenId: '', bio: 'สวัสดี', password: '' }
+
+    const saved = await admin.put(`/admin/users/${target.id}`, info)
+    assert.equal(saved.success, true, saved.error)
+    assert.equal(saved.user.name, 'หลังแก้')
+    assert.equal(saved.user.email, 'edited@test.th')
+    assert.equal(saved.user.isVerified, true)
+    // Blank citizen ID keeps the one on file; the session survives without a new password.
+    const me = (await user.get('/session')).user
+    assert.equal(me.citizenId, target.citizenId)
+    assert.equal(me.phone, '081-234-5670')
+
+    // Another account's phone or email, or no phone on a verified user, is refused.
+    assert.equal((await admin.put(`/admin/users/${target.id}`, { ...info, phone: someone.phone })).status, 409)
+    assert.equal((await admin.put(`/admin/users/${target.id}`, { ...info, email: someone.email })).status, 409)
+    assert.equal((await admin.put(`/admin/users/${target.id}`, { ...info, phone: '' })).status, 400)
+    assert.equal((await admin.put(`/admin/users/${target.id}`, { ...info, citizenId: '1234567890123' })).status, 400)
+
+    // A new password signs the user out and works for login.
+    const reset = await admin.put(`/admin/users/${target.id}`, { ...info, password: 'new-pass-123' })
+    assert.equal(reset.success, true, reset.error)
+    assert.equal((await user.get('/session')).user, null)
+    const login = await client().post('/auth/login', { identifier: 'edited@test.th', password: 'new-pass-123' })
+    assert.equal(login.success, true, login.error)
+
+    // Other admins can't.
+    const { c: other, user: otherUser } = await verifiedUser()
+    await admin.post(`/admin/users/${otherUser.id}/role`, { role: 'admin' })
+    assert.equal((await other.put(`/admin/users/${target.id}`, info)).status, 403)
+  })
 })
 
 describe('KYC OTP by SMS', () => {

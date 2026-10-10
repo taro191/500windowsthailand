@@ -62,3 +62,9 @@ export async function decideOrder(orderId: string, decision: 'approved' | 'rejec
   if (result.success) await refreshBoards()
   return result
 }
+
+/** Super admin only. Empty citizenId or password keeps the current one. */
+export const updateUserInfo = (
+  userId: string,
+  info: { name: string; email: string; phone: string; citizenId: string; bio: string; password: string },
+) => put<{ user: User }>(`/admin/users/${userId}`, info)

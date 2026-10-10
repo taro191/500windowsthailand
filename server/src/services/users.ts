@@ -14,7 +14,7 @@ export const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
 export const MIN_PASSWORD_LENGTH = 8
 
-const digits = (value: string) => value.replace(/[^0-9]/g, '')
+export const digits = (value: string) => value.replace(/[^0-9]/g, '')
 const formatPhone = (d: string) => (d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : d)
 export const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 
