@@ -865,6 +865,33 @@ describe('LINE alerts to the finance admin', () => {
     assert.match(calls[0].payload.messages[0].text, /Uabc123/)
   })
 
+  it('tells the finance admin on LINE what changed whenever the settings are saved', async () => {
+    const admin = await adminClient()
+    const { settings } = await client().get('/config')
+    const channels = settings.paymentChannels.map((c: any) => (c.id === 'ch-kbank' ? { ...c, accountNumber: '240-2-76668-1' } : c))
+    let calls: Awaited<ReturnType<typeof withLine>> = []
+    try {
+      calls = await withLine(async () => {
+        const rules = { ...settings.rules, claimPrice: 650, commissionPercent: 7.5 }
+        assert.equal((await admin.put('/admin/settings', { settings: { ...settings, rules }, what: 'กติกาทั่วไป' })).success, true)
+        assert.equal((await admin.put('/admin/settings', { settings: { ...settings, rules, paymentChannels: channels }, what: 'บัญชีรับเงิน' })).success, true)
+        // Saving without any change sends nothing.
+        assert.equal((await admin.put('/admin/settings', { settings: { ...settings, rules, paymentChannels: channels }, what: 'ไม่เปลี่ยน' })).success, true)
+      })
+    } finally {
+      await admin.put('/admin/settings', { settings, what: 'คืนค่าเดิม' })
+    }
+    assert.equal(calls.length, 2)
+    const [rulesText, channelText] = calls.map((call) => call.payload.messages[0].text)
+    assert.match(rulesText, /มีการแก้ไขการตั้งค่า/)
+    assert.match(rulesText, /เรื่อง: กติกาทั่วไป/)
+    assert.match(rulesText, /ราคาจับจองบาน: 500 บาท → 650 บาท/)
+    assert.match(rulesText, /ค่าคอมมิชชั่นขายต่อ: 5% → 7\.5%/)
+    assert.doesNotMatch(rulesText, /ระยะถือครอง/)
+    assert.match(channelText, /เลขบัญชี: 189-2-50012-3 → 240-2-76668-1/)
+    assert.doesNotMatch(channelText, /ราคาจับจอง/)
+  })
+
   it('sends alerts to recipients saved from the admin page, without LINE_ADMIN_TO', async () => {
     const admin = await adminClient()
     const saved = 'U' + 'a'.repeat(32)

@@ -11,6 +11,7 @@ import { toTransaction } from './ledger'
 import { toOrder } from './purchases'
 import { toPromoRequest } from './promo'
 import { getSettings, saveSettings } from './settings'
+import { settingsChanges } from './settingsDiff'
 import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, digits, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
 import { LINE_ID, lineLastFailure, lineRecipients, saveLineRecipients, savedLineRecipients, sendLineAlert } from './notify'
 import { emptyWindowRow, loadBoards, loadWindow } from './windows'
@@ -49,6 +50,13 @@ export async function updateSettings(ctx: AppContext, admin: UserRow, settings: 
       .execute()
   }
   await audit(ctx.db, admin, 'แก้ไขการตั้งค่า', String(what || 'การตั้งค่าระบบ').slice(0, 200))
+  // Tell the finance admin on LINE what changed (in the background; LINE being down never blocks saving).
+  const changes = settingsChanges(before, saved)
+  if (changes.length) {
+    const at = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+    const text = ['⚙️ มีการแก้ไขการตั้งค่า', `เรื่อง: ${String(what || 'การตั้งค่าระบบ').slice(0, 200)}`, `โดย: ${admin.name}`, ...changes, `เวลา: ${at}`]
+    void sendLineAlert(ctx, text.join('\n')).catch((err) => console.error('[line] settings alert failed:', err))
+  }
   return saved
 }
 

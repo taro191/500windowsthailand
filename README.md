@@ -89,12 +89,12 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    · `UPLOAD_DIR` ต้องอยู่นอกโฟลเดอร์ที่ Git deploy เขียนทับ ไม่งั้นรูปและสลิปที่อัปโหลดอาจหาย
    · ไม่ตั้ง `SMTP_HOST` = เมนูลืมรหัสผ่านใช้ไม่ได้ (แจ้งผู้ใช้ให้ติดต่อผู้ดูแล) · พอร์ต 465 ใช้ SSL อัตโนมัติ
 
-   **แจ้งเตือน LINE ถึงแอดมินการเงิน** (ทุกครั้งที่มีสลิปรอตรวจ: เติมเงิน / จับจอง / ซื้อต่อ / โปรโมท) ใช้ LINE Messaging API (LINE Notify ปิดบริการแล้ว)
+   **แจ้งเตือน LINE ถึงแอดมินการเงิน** (ทุกครั้งที่มีสลิปรอตรวจ: เติมเงิน / จับจอง / ซื้อต่อ / โปรโมท และทุกครั้งที่แอดมินแก้ไขการตั้งค่า พร้อมรายละเอียดว่าเปลี่ยนอะไร) ใช้ LINE Messaging API (LINE Notify ปิดบริการแล้ว)
    1. https://developers.line.biz › สร้าง Provider › สร้าง channel แบบ **Messaging API** (จะได้ LINE Official Account)
    2. แท็บ Basic settings คัดลอก **Channel secret** → `LINE_CHANNEL_SECRET` · แท็บ Messaging API กด Issue **Channel access token (long-lived)** → `LINE_CHANNEL_ACCESS_TOKEN`
    3. แท็บ Messaging API ตั้ง **Webhook URL** = `https://500windowsthailand.com/api/line/webhook` แล้วเปิด **Use webhook** · ปิด Auto-reply messages ใน LINE Official Account Manager
    4. Restart App แล้วให้แอดมินการเงินเพิ่ม LINE OA เป็นเพื่อน แล้วพิมพ์ `id` (หรือเชิญ OA เข้ากลุ่ม LINE การเงิน แล้วพิมพ์ `id` ในกลุ่ม) → บอทตอบ User ID / Group ID กลับมา
-   5. ไปที่ Admin › ตรวจสลิปชำระเงิน › การ์ด "แจ้งเตือนสลิปใหม่ทาง LINE" (เฉพาะ super admin) ใส่ ID นั้นแล้วกด **บันทึกผู้รับ** แล้วกด **ส่งข้อความทดสอบ** (ไม่ต้อง Restart App) · หรือใส่ใน env `LINE_ADMIN_TO` ก็ได้
+   5. ไปที่ Admin › ตรวจสลิปชำระเงิน › การ์ด "แจ้งเตือนทาง LINE" (เฉพาะ super admin) ใส่ ID นั้นแล้วกด **บันทึกผู้รับ** แล้วกด **ส่งข้อความทดสอบ** (ไม่ต้อง Restart App) · หรือใส่ใน env `LINE_ADMIN_TO` ก็ได้
 
 4. `npm run deploy` แล้วกด **Restart App** — ตอนเริ่มแอปจะสร้างตารางและบัญชีผู้ดูแลให้เอง
 5. ล็อกอินด้วยบัญชีผู้ดูแล เปลี่ยนรหัสผ่าน แล้วลบ `ADMIN_PASSWORD` ออกจาก env
