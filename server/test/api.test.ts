@@ -11,6 +11,7 @@ import { migrate } from '../src/db/migrations'
 import { seed } from '../src/db/seed'
 import { createSecrets } from '../src/lib/crypto'
 import { createApp } from '../src/app'
+import { pushFinanceFeed } from '../src/services/financeFeed'
 import type { AppContext } from '../src/context'
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -833,6 +834,26 @@ describe('LINE alerts to the finance admin', () => {
     assert.match(text, /฿700/)
     assert.match(text, /https:\/\/shop\.test\/#admin\/payments/)
   })
+
+  it('sends every money movement to LINE once, from committed transactions only', async () => {
+    const calls = await withLine(async () => {
+      await pushFinanceFeed(ctx) // first run only starts from now
+      await new Promise((r) => setTimeout(r, 20))
+      const { c } = await verifiedUser('เคลื่อนไหว')
+      await topUpByCard(c, 800)
+      assert.equal((await c.post('/windows/west/21/claim', { content, payment: wallet(500) })).success, true)
+      assert.equal((await c.post('/windows/west/22/claim', { content, payment: wallet(500) })).status, 403, 'quota: nothing recorded')
+      const later = Date.now() + 10_000
+      assert.equal(await pushFinanceFeed(ctx, later), 2)
+      assert.equal(await pushFinanceFeed(ctx, later), 0, 'each movement is sent once')
+    })
+    assert.equal(calls.length, 1)
+    const text = calls[0].payload.messages[0].text
+    assert.match(text, /ความเคลื่อนไหวทางการเงิน 2 รายการ/)
+    assert.match(text, /🟢 เติมเงิน \+฿800 · เคลื่อนไหว/)
+    assert.match(text, /🔴 จับจองบาน KAP-W-TH-021 ฿500 · เคลื่อนไหว \d+ \(จ่ายด้วย กระเป๋า ฿500\)/)
+  })
+
 
   it('never fails the purchase when LINE is down', async () => {
     const { c } = await verifiedUser()

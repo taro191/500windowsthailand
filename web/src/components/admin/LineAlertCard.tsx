@@ -4,7 +4,7 @@ import { loadLineStatus, saveLineRecipients, sendLineTest, type LineStatus } fro
 import type { AdminPageProps } from './adminData'
 import { Badge, Button, Card, FormRow, inputClass, thaiDateTime } from './ui'
 
-/** Super admin only: who gets LINE alerts (new slips, settings changes), with a test button. */
+/** Super admin only: who gets LINE alerts (new slips, money movements, settings changes), with a test button. */
 export function LineAlertCard({ notify }: Pick<AdminPageProps, 'notify'>) {
   const [status, setStatus] = useState<LineStatus | null>(null)
   const [ids, setIds] = useState('')
@@ -39,7 +39,7 @@ export function LineAlertCard({ notify }: Pick<AdminPageProps, 'notify'>) {
   if (!status) return null
   return (
     <Card
-      title="แจ้งเตือนทาง LINE (สลิปใหม่ / แก้ไขการตั้งค่า)"
+      title="แจ้งเตือนทาง LINE (สลิปใหม่ / ความเคลื่อนไหวทางการเงิน / แก้ไขการตั้งค่า)"
       icon={MessageCircle}
       outline={status.configured ? 'success' : 'secondary'}
       tools={

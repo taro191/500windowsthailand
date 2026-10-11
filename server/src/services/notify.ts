@@ -1,4 +1,4 @@
-// Alerts to the finance admin on LINE (new slips to check, settings changes). Sending never blocks or fails the request that caused it.
+// Alerts to the finance admin on LINE (new slips to check, settings changes; money movements are in financeFeed.ts). Sending never blocks or fails the request that caused it.
 import type { PaymentOrder } from '@shared/types'
 import { pushLine } from '../lib/line'
 import { nowIso, type AppContext } from '../context'

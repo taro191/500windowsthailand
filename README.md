@@ -89,7 +89,7 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    · `UPLOAD_DIR` ต้องอยู่นอกโฟลเดอร์ที่ Git deploy เขียนทับ ไม่งั้นรูปและสลิปที่อัปโหลดอาจหาย
    · ไม่ตั้ง `SMTP_HOST` = เมนูลืมรหัสผ่านใช้ไม่ได้ (แจ้งผู้ใช้ให้ติดต่อผู้ดูแล) · พอร์ต 465 ใช้ SSL อัตโนมัติ
 
-   **แจ้งเตือน LINE ถึงแอดมินการเงิน** (ทุกครั้งที่มีสลิปรอตรวจ: เติมเงิน / จับจอง / ซื้อต่อ / โปรโมท และทุกครั้งที่แอดมินแก้ไขการตั้งค่า พร้อมรายละเอียดว่าเปลี่ยนอะไร) ใช้ LINE Messaging API (LINE Notify ปิดบริการแล้ว)
+   **แจ้งเตือน LINE ถึงแอดมินการเงิน** (ทุกครั้งที่มีสลิปรอตรวจ: เติมเงิน / จับจอง / ซื้อต่อ / โปรโมท, ความเคลื่อนไหวทางการเงินทุกรายการ (สรุปรวมทุก 30 วินาที) และทุกครั้งที่แอดมินแก้ไขการตั้งค่า พร้อมรายละเอียด) ใช้ LINE Messaging API (LINE Notify ปิดบริการแล้ว)
    1. https://developers.line.biz › สร้าง Provider › สร้าง channel แบบ **Messaging API** (จะได้ LINE Official Account)
    2. แท็บ Basic settings คัดลอก **Channel secret** → `LINE_CHANNEL_SECRET` · แท็บ Messaging API กด Issue **Channel access token (long-lived)** → `LINE_CHANNEL_ACCESS_TOKEN`
    3. แท็บ Messaging API ตั้ง **Webhook URL** = `https://500windowsthailand.com/api/line/webhook` แล้วเปิด **Use webhook** · ปิด Auto-reply messages ใน LINE Official Account Manager

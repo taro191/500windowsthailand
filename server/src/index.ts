@@ -9,6 +9,7 @@ import { migrate } from './db/migrations'
 import { seed } from './db/seed'
 import { createSecrets } from './lib/crypto'
 import { createApp } from './app'
+import { startFinanceFeed } from './services/financeFeed'
 import type { AppContext } from './context'
 
 async function main() {
@@ -17,6 +18,7 @@ async function main() {
   await seed(ctx)
 
   const app = createApp(ctx)
+  startFinanceFeed(ctx)
   const indexHtml = config.publicDir && path.join(config.publicDir, 'index.html')
   if (indexHtml && existsSync(indexHtml)) {
     const root = path.relative(process.cwd(), config.publicDir) || '.'
