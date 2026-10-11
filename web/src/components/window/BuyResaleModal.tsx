@@ -1,8 +1,8 @@
 import { Check, CircleAlert, Tag, X } from 'lucide-react'
 import type { AuthMode, Quota, User, WindowItem } from '@shared/types'
 import { maskCitizenId } from '@shared/identity'
-import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
-import { editPolicyLabel, useSettings } from '@/lib/settings'
+import { commissionOf } from '@/lib/ownershipRules'
+import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface BuyResaleModalProps {
@@ -26,6 +26,7 @@ export function BuyResaleModal({
   onOpenKyc,
 }: BuyResaleModalProps) {
   const { editPolicy } = useSettings()
+  const rules = useRules()
   if (!windowItem.resalePrice) return null
 
   const price = windowItem.resalePrice
@@ -36,7 +37,7 @@ export function BuyResaleModal({
   const quotaMessage = isThailand
     ? `คุณมีหน้าต่างบานประเทศไทยครบ 1 บานแล้ว (${quota.thailandWindow?.code})`
     : `คุณมีหน้าต่างบานภูมิภาคครบ 1 บานแล้ว (${quota.regionalWindow?.code})`
-  const commission = Math.round(price * RESALE_COMMISSION_RATE)
+  const commission = commissionOf(price)
   const sellerNet = price - commission
   const code = windowItem.code || `#${windowItem.id.toString().padStart(3, '0')}`
 
@@ -84,15 +85,15 @@ export function BuyResaleModal({
             </div>
             <div className="p-2.5 bg-stone-900/90 rounded-lg border border-purple-500/30 text-xs space-y-1.5 font-mono">
               <div className="flex items-center justify-between text-rose-400 font-sans font-bold">
-                <span>⚡ เงื่อนไขระบบ (หักค่าคอมมิชชั่น 5%):</span>
-                <span className="text-[11px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">Commission 5%</span>
+                <span>⚡ เงื่อนไขระบบ (หักค่าคอมมิชชั่น {rules.commissionLabel}):</span>
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">Commission {rules.commissionLabel}</span>
               </div>
               <div className="flex items-center justify-between text-stone-400 text-[11px]">
-                <span>• ค่าคอมมิชชั่นเข้าระบบ (5%):</span>
+                <span>• ค่าคอมมิชชั่นเข้าระบบ ({rules.commissionLabel}):</span>
                 <span className="text-rose-400 font-bold">฿{commission.toLocaleString()} THB</span>
               </div>
               <div className="flex items-center justify-between text-stone-400 text-[11px]">
-                <span>• ยอดเงินสุทธิโอนเข้ากระเป๋าผู้ขายเดิม (95%):</span>
+                <span>• ยอดเงินสุทธิโอนเข้ากระเป๋าผู้ขายเดิม ({rules.sellerLabel}):</span>
                 <span className="text-emerald-400 font-bold">฿{sellerNet.toLocaleString()} THB</span>
               </div>
             </div>

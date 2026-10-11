@@ -2,9 +2,13 @@
 // dialog preview, and the active ads / booking data loaded from the API.
 import { seededRandom } from '@shared/random'
 import { sixHourBlockIndex } from '@shared/thaiTime'
-import { PROMO_LAYOUTS, PROMO_SLOTS, roundsLeft, safeHttpUrl, type PromoAd, type PromoLayout, type PromoRequest } from '@shared/promo'
+import { PROMO_LAYOUTS, PROMO_SLOTS, promoPrice as sharedPromoPrice, roundsLeft, safeHttpUrl, type PromoAd, type PromoLayout, type PromoRequest } from '@shared/promo'
+import { loadSettings } from './settings'
 
 export * from '@shared/promo'
+
+/** Promotion price at the current per-window price (admin rules page). */
+export const promoPrice = (size: number, rounds: number) => sharedPromoPrice(size, rounds, loadSettings().rules.promoPricePerWindowRound)
 
 /** Window event that opens the promo request dialog from anywhere. */
 export const OPEN_PROMO_EVENT = 'kapsulep:open-promo'

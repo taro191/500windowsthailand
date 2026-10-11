@@ -5,6 +5,7 @@ import { REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES, CATEGORY_IDS } from '@shared/categories'
 import { DEMO_IMAGES } from '@shared/seedWindows'
 import { maskCitizenId } from '@shared/identity'
+import { claimPriceOf } from '@/lib/settings'
 import { compressImage } from '@/lib/browser'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { ContentGuidelines } from './ContentGuidelines'
@@ -43,7 +44,7 @@ export function ClaimWindowModal({
   const [error, setError] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
 
-  const price = windowItem.claimPrice || 500
+  const price = claimPriceOf(windowItem)
   const hasEnoughBalance = currentUser ? currentUser.balance >= price : false
   const isVerified = currentUser?.isVerified
   const canAcquireHere = isThailand ? quota.canAcquireThailand : quota.canAcquireRegional

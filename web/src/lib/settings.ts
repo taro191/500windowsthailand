@@ -2,8 +2,8 @@
 // Defaults, labels and validation are shared with the server (shared/settings.ts);
 // components read the settings through useSettings() so admin changes apply immediately.
 import { useSyncExternalStore } from 'react'
-import type { PaymentChannel, PlatformSettings } from '@shared/types'
-import { DEFAULT_SETTINGS, enabledChannels as sharedEnabledChannels } from '@shared/settings'
+import type { PaymentChannel, PlatformSettings, WindowItem } from '@shared/types'
+import { DEFAULT_SETTINGS, enabledChannels as sharedEnabledChannels, sellerPercent } from '@shared/settings'
 
 export {
   CHANNEL_TYPE_LABELS,
@@ -40,3 +40,27 @@ export function useSettings(): PlatformSettings {
 }
 
 export const enabledChannels = (settings: PlatformSettings = current): PaymentChannel[] => sharedEnabledChannels(settings)
+
+/** The general rules (admin rules page) with ready-made labels for UI text. */
+export function rulesView(rules: PlatformSettings['rules']) {
+  const percent = (n: number) => `${Number(n.toFixed(2))}%`
+  return {
+    ...rules,
+    commissionRate: rules.commissionPercent / 100,
+    sellerPercent: sellerPercent(rules),
+    /** e.g. "5%" */
+    commissionLabel: percent(rules.commissionPercent),
+    /** e.g. "95%" */
+    sellerLabel: percent(sellerPercent(rules)),
+    /** e.g. "500 ฿" */
+    claimPriceLabel: `${rules.claimPrice.toLocaleString()} ฿`,
+  }
+}
+
+/** Current rules; re-renders when an admin changes them. */
+export function useRules() {
+  return rulesView(useSettings().rules)
+}
+
+/** What claiming this window costs: empty windows follow the current claim price, owned ones keep theirs. */
+export const claimPriceOf = (window: WindowItem) => (window.status === 'available' ? current.rules.claimPrice : window.claimPrice || current.rules.claimPrice)

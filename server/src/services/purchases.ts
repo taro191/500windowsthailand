@@ -5,9 +5,8 @@
 // A card payment (simulated until a gateway is chosen) completes immediately; a transfer
 // creates a pending payment order: the window is held for the buyer and the purchase
 // completes when an admin approves the slip. Rejecting returns the wallet part.
-import type { PaymentChannel, PaymentOrder, PaymentOrderKind, RegionId, User } from '@shared/types'
-import { enabledChannels, SLIP_CHANNEL_TYPES } from '@shared/settings'
-import { RESALE_COMMISSION_RATE } from '@shared/ownershipRules'
+import type { PaymentChannel, PaymentOrder, PaymentOrderKind, PlatformSettings, RegionId, User } from '@shared/types'
+import { commissionRate, enabledChannels, resaleCommission, SLIP_CHANNEL_TYPES } from '@shared/settings'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { isPromoSlot } from '@shared/promo'
 import type { DB } from '../db'
@@ -256,7 +255,7 @@ async function applyClaim(
   })
 }
 
-/** Claim an available window (500 ฿ by default) with its first content. */
+/** Claim an available window (at the claim price in settings.rules) with its first content. */
 export async function claimWindow(
   ctx: AppContext,
   user: UserRow,
@@ -315,7 +314,17 @@ export async function claimWindow(
 
 async function applyResale(
   db: DB,
-  args: { buyer: Pick<UserRow, 'id' | 'name'>; sellerId: string; region: RegionId; num: number; price: number; payment: CheckedPayment; orderId?: string | null; heldBy?: string },
+  args: {
+    buyer: Pick<UserRow, 'id' | 'name'>
+    sellerId: string
+    region: RegionId
+    num: number
+    price: number
+    payment: CheckedPayment
+    orderId?: string | null
+    heldBy?: string
+    rules: PlatformSettings['rules']
+  },
 ) {
   const now = nowIso()
   const before = await db.selectFrom('windows').select(['code', 'title']).where('region', '=', args.region).where('num', '=', args.num).executeTakeFirstOrThrow()
@@ -353,7 +362,7 @@ async function applyResale(
     .insertInto('window_owners')
     .values({ id: newId('wo'), region: args.region, num: args.num, owner_id: args.sellerId, transferred_at: now, type: 'resale' })
     .execute()
-  const commission = Math.round(args.price * RESALE_COMMISSION_RATE)
+  const commission = resaleCommission(args.price, args.rules)
   const sellerNet = args.price - commission
   await creditWallet(db, args.sellerId, sellerNet)
   const seller = await db.selectFrom('users').select('name').where('id', '=', args.sellerId).executeTakeFirst()
@@ -367,7 +376,7 @@ async function applyResale(
     toOwner: args.buyer.name,
     toOwnerId: args.buyer.id,
     amount: args.price,
-    commissionRate: RESALE_COMMISSION_RATE,
+    commissionRate: commissionRate(args.rules),
     commissionAmount: commission,
     netSellerAmount: sellerNet,
     type: 'resale',
@@ -376,7 +385,7 @@ async function applyResale(
 }
 
 /**
- * Buy a window listed for resale. The seller receives 95% in their wallet; 5% is the
+ * Buy a window listed for resale. The seller receives the price minus the commission (settings.rules) in their wallet; the commission is the
  * platform commission. `expectedPrice` guards against the seller changing the price meanwhile.
  */
 export async function buyResale(
@@ -399,6 +408,7 @@ export async function buyResale(
   const sellerId = row.owner_id
   const payment = await checkPayment(ctx, price, paymentInput)
   const orderId = payment.externalAmount > 0 ? newId('ord') : null
+  const { rules } = await getSettings(ctx)
   await ctx.db.transaction().execute(async (trx) => {
     await lockUser(trx, user.id)
     await assertQuota(trx, user.id, region)
@@ -420,7 +430,7 @@ export async function buyResale(
       return
     }
     if (orderId) await insertOrder(trx, { id: orderId, user, kind: 'resale', label, amount: price, payment, status: 'approved', region, num })
-    await applyResale(trx, { buyer: user, sellerId, region, num, price, payment, orderId })
+    await applyResale(trx, { buyer: user, sellerId, region, num, price, payment, orderId, rules })
   })
   return result(ctx, user.id, payment.viaSlip, orderId)
 }
@@ -538,6 +548,7 @@ const checkedFromOrder = (order: OrderRow): CheckedPayment => ({
 export async function decideOrder(ctx: AppContext, admin: UserRow, orderId: string, decision: 'approved' | 'rejected', note = '') {
   const reason = String(note ?? '').trim().slice(0, 500)
   if (decision === 'rejected' && !reason) throw badRequest('กรุณาระบุเหตุผลที่ไม่อนุมัติ')
+  const { rules } = await getSettings(ctx)
   await ctx.db.transaction().execute(async (trx) => {
     const order = await trx.selectFrom('payment_orders').selectAll().where('id', '=', orderId).executeTakeFirst()
     if (!order) throw notFound('ไม่พบรายการชำระเงิน')
@@ -560,7 +571,7 @@ export async function decideOrder(ctx: AppContext, admin: UserRow, orderId: stri
         await applyClaim(trx, { buyer, region, num: order.window_num!, price: order.amount, content, payment, orderId, heldBy: orderId })
       } else if (order.kind === 'resale') {
         const { sellerId } = JSON.parse(order.payload_json || '{}') as { sellerId: string }
-        await applyResale(trx, { buyer, sellerId, region, num: order.window_num!, price: order.amount, payment, orderId, heldBy: orderId })
+        await applyResale(trx, { buyer, sellerId, region, num: order.window_num!, price: order.amount, payment, orderId, heldBy: orderId, rules })
       } else if (order.kind === 'promo' && order.promo_request_id) {
         const request = await trx.selectFrom('promo_requests').selectAll().where('id', '=', order.promo_request_id).executeTakeFirstOrThrow()
         const transactionId = await recordPromoPayment(trx, buyer, request, payment, orderId)

@@ -2,6 +2,7 @@ import { Check, ChevronRight, CircleAlert, Compass, Gauge, LogOut, MapPin, Shiel
 import type { AuthMode, HubTab, RegionId, StatusCounts, StatusFilter, User } from '@shared/types'
 import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { maskPhone } from '@shared/identity'
+import { useRules } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface MobileDrawerProps {
@@ -45,6 +46,7 @@ export function MobileDrawer({
   setStatusFilter,
   counts,
 }: MobileDrawerProps) {
+  const rules = useRules()
   if (!isOpen) return null
   const region = REGIONS_BY_ID[activeRegion]
 
@@ -72,7 +74,7 @@ export function MobileDrawer({
   ]
   const hubLinks: { tab: HubTab; icon: typeof Compass; label: string }[] = [
     { tab: 'rules', icon: Compass, label: 'กติกา 5 ข้อ & เงื่อนไขการถือครอง 2 บาน' },
-    { tab: 'wallet', icon: Wallet, label: 'กระเป๋าเงิน & ประวัติธุรกรรม (ค่าคอมมิชชั่น 5%)' },
+    { tab: 'wallet', icon: Wallet, label: `กระเป๋าเงิน & ประวัติธุรกรรม (ค่าคอมมิชชั่น ${rules.commissionLabel})` },
     { tab: 'stats', icon: Sparkles, label: 'สถิติตลาดซื้อขายต่อ & โครงสร้าง 3,500 บาน' },
   ]
 
@@ -195,7 +197,7 @@ export function MobileDrawer({
             <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/50 space-y-2 font-['Prompt',sans-serif]">
               <span className="font-bold text-rose-300 block text-xs">คุณยังไม่ได้เข้าสู่ระบบ</span>
               <p className="text-[11px] text-stone-300 leading-relaxed font-light">
-                เข้าสู่ระบบเพื่อจับจองหน้าต่างส่วนตัว (500 ฿ ตลอดชีพ) และจัดการกระเป๋าเงิน
+                เข้าสู่ระบบเพื่อจับจองหน้าต่างส่วนตัว ({rules.claimPriceLabel} ตลอดชีพ) และจัดการกระเป๋าเงิน
               </p>
               <div className="flex items-center gap-2 pt-1 font-['Prompt',sans-serif]">
                 <button

@@ -3,6 +3,7 @@ import { Building2, Check, CircleCheck, History, QrCode, Sparkles, UserCog, Wall
 import type { AuthMode, PayoutAccount, Transaction, User, WindowItem } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
+import { useRules } from '@/lib/settings'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 
 interface WalletTabProps {
@@ -160,6 +161,7 @@ function PayoutAccountCard({
   user: User
   onUpdatePayoutAccount: (account: PayoutAccount) => void
 }) {
+  const rules = useRules()
   const account = user.payoutAccount
   const [editing, setEditing] = useState(false)
   const [type, setType] = useState<PayoutAccount['type']>(account?.type || 'promptpay')
@@ -240,7 +242,7 @@ function PayoutAccountCard({
                 บัญชีเพื่อรับเงิน (Payout & Receiving Account)
               </h4>
               <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
-                รับสุทธิ 95%
+                รับสุทธิ {rules.sellerLabel}
               </span>
             </div>
             <span className="text-[11px] text-stone-400 block font-light">
@@ -325,7 +327,7 @@ function PayoutAccountCard({
         ) : (
           <div className="p-3.5 rounded-xl bg-[#09080e] border border-dashed border-purple-900/50 text-center space-y-2">
             <p className="text-xs text-stone-400 font-light max-w-sm mx-auto leading-relaxed">
-              ยังไม่ได้ระบุบัญชีเพื่อรับเงิน — เมื่อบานหน้าต่างของคุณถูกซื้อต่อ หรือปล่อยเช่าในตลาด ระบบจะโอนเงินสุทธิ 95% เข้าสู่บัญชีนี้โดยตรง
+              ยังไม่ได้ระบุบัญชีเพื่อรับเงิน — เมื่อบานหน้าต่างของคุณถูกซื้อต่อ หรือปล่อยเช่าในตลาด ระบบจะโอนเงินสุทธิ {rules.sellerLabel} เข้าสู่บัญชีนี้โดยตรง
             </p>
             <button
               type="button"
@@ -482,7 +484,7 @@ function PayoutAccountCard({
               className="mt-0.5 w-4 h-4 accent-rose-500 shrink-0"
             />
             <span className="text-[11px] text-stone-300 font-light leading-relaxed">
-              โอนเงินสุทธิ (95%) เข้าบัญชีนี้อัตโนมัติทันที เมื่อมีการขายต่อหรือปล่อยเช่าสำเร็จ
+              โอนเงินสุทธิ ({rules.sellerLabel}) เข้าบัญชีนี้อัตโนมัติทันที เมื่อมีการขายต่อหรือปล่อยเช่าสำเร็จ
             </span>
           </label>
           <div className="flex gap-2 pt-1">
@@ -568,11 +570,12 @@ const TX_TYPE_STYLES: Record<string, [string, string]> = {
 }
 
 function TransactionHistory({ transactions }: { transactions: Transaction[] }) {
+  const rules = useRules()
   return (
     <div className="space-y-2 pt-2 border-t border-stone-800">
       <div className="flex items-center justify-between text-xs">
         <span className="font-bold text-stone-200">ประวัติการทำธุรกรรม ({transactions.length})</span>
-        <span className="text-[10px] text-amber-400 font-mono">ค่าคอมมิชชั่น 5%</span>
+        <span className="text-[10px] text-amber-400 font-mono">ค่าคอมมิชชั่น {rules.commissionLabel}</span>
       </div>
       {transactions.length === 0 ? (
         <p className="text-xs text-stone-500 italic p-3 bg-stone-950 rounded-lg border border-stone-850">
@@ -583,6 +586,8 @@ function TransactionHistory({ transactions }: { transactions: Transaction[] }) {
           {transactions.map((tx) => {
             const isResale = tx.type === 'resale'
             const [typeLabel, typeClass] = TX_TYPE_STYLES[tx.type] || TX_TYPE_STYLES.claim
+            // The rate charged at the time (older entries were made at 5%).
+            const ratePct = Number(((tx.commissionRate ?? RESALE_COMMISSION_RATE) * 100).toFixed(2))
             const commission = tx.commissionAmount || (isResale ? Math.round(tx.amount * RESALE_COMMISSION_RATE) : 0)
             const sellerNet = tx.netSellerAmount || (isResale ? tx.amount - commission : tx.amount)
             return (
@@ -607,8 +612,8 @@ function TransactionHistory({ transactions }: { transactions: Transaction[] }) {
                 </div>
                 {isResale && (
                   <div className="p-1.5 rounded bg-stone-900 border border-amber-900/40 text-[10px] flex items-center justify-between font-mono">
-                    <span className="text-amber-400">ค่าคอมมิชชั่น 5%: ฿{commission.toLocaleString()}</span>
-                    <span className="text-emerald-400">ผู้ขายรับสุทธิ 95%: ฿{sellerNet.toLocaleString()}</span>
+                    <span className="text-amber-400">ค่าคอมมิชชั่น {ratePct}%: ฿{commission.toLocaleString()}</span>
+                    <span className="text-emerald-400">ผู้ขายรับสุทธิ {100 - ratePct}%: ฿{sellerNet.toLocaleString()}</span>
                   </div>
                 )}
                 {tx.walletAmount !== undefined && tx.type !== 'topup' && tx.type !== 'refund' && (

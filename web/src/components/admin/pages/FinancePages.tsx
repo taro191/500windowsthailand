@@ -84,7 +84,7 @@ export function TransactionsPage({ data }: AdminPageProps) {
         </>
       }
     >
-      <DataTable head={['วันที่', 'ประเภท', 'รหัส', 'จาก → ถึง', 'ยอด', 'การชำระ', 'ค่าคอม 5%', 'สลิป/อ้างอิง']} empty="ยังไม่มีธุรกรรม">
+      <DataTable head={['วันที่', 'ประเภท', 'รหัส', 'จาก → ถึง', 'ยอด', 'การชำระ', 'ค่าคอมมิชชั่น', 'สลิป/อ้างอิง']} empty="ยังไม่มีธุรกรรม">
         {rows.map((t) => (
           <tr key={t.id}>
             <td className="whitespace-nowrap">{thaiDateTime(t.date)}</td>
@@ -176,11 +176,11 @@ export function PayoutsPage({ data }: AdminPageProps) {
   return (
     <>
       <BackendNotice>
-        ตอนนี้เงินสุทธิ 95% จากการขายต่อจะเข้ากระเป๋าเงินของผู้ขายทันที การโอนออกไปยังบัญชีธนาคาร/พร้อมเพย์ของผู้ขายจริง
+        ตอนนี้เงินสุทธิ (หลังหักค่าคอมมิชชั่น) จากการขายต่อจะเข้ากระเป๋าเงินของผู้ขายทันที การโอนออกไปยังบัญชีธนาคาร/พร้อมเพย์ของผู้ขายจริง
         ต้องใช้ระบบโอนเงินอัตโนมัติ (Payout API) หรือให้ทีมบัญชีโอนเองแล้วบันทึกในหน้านี้
       </BackendNotice>
       <Card title={`รายการที่ต้องจ่ายผู้ขาย (${sales.length})`} icon={HandCoins} outline="warning" flush>
-        <DataTable head={['วันที่ขาย', 'บาน', 'ผู้ขาย', 'ราคาขาย', 'ค่าคอม', 'ผู้ขายได้รับ (95%)', 'บัญชีรับเงิน', 'สถานะ']} empty="ยังไม่มีการขายต่อ">
+        <DataTable head={['วันที่ขาย', 'บาน', 'ผู้ขาย', 'ราคาขาย', 'ค่าคอม', 'ผู้ขายได้รับสุทธิ', 'บัญชีรับเงิน', 'สถานะ']} empty="ยังไม่มีการขายต่อ">
           {sales.map((t) => {
             const seller = t.fromOwnerId ? users.get(t.fromOwnerId) : undefined
             const account = seller?.payoutAccount
@@ -233,13 +233,13 @@ export function RevenuePage({ data }: AdminPageProps) {
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
         <InfoBox tone="info" icon={Receipt} label="ค่าจับจองบาน" value={baht(claimTotal)} />
-        <InfoBox tone="warning" icon={HandCoins} label="ค่าคอมมิชชั่นขายต่อ 5%" value={baht(commissionTotal)} />
+        <InfoBox tone="warning" icon={HandCoins} label="ค่าคอมมิชชั่นขายต่อ" value={baht(commissionTotal)} />
         <InfoBox tone="success" icon={ChartColumn} label="ค่าโปรโมท (อนุมัติแล้ว)" value={baht(promoRevenue)} />
         <InfoBox tone="secondary" icon={History} label={`ค่าโปรโมทรอพิจารณา (คืนไปแล้ว ${baht(promoRefunded)})`} value={baht(promoHeld)} />
         <InfoBox tone="primary" icon={ImagePlus} label="ค่าแก้ไขบานเพิ่ม" value={baht(editTotal)} />
       </div>
       <Card title="รายได้รายเดือน" icon={ChartColumn} outline="success" flush>
-        <DataTable head={['เดือน', 'ค่าจับจอง', 'ค่าคอม 5%', 'ค่าแก้ไขบาน', 'รวมรายได้', '', 'เงินเติมเข้ากระเป๋า']} empty="ยังไม่มีรายได้">
+        <DataTable head={['เดือน', 'ค่าจับจอง', 'ค่าคอมมิชชั่น', 'ค่าแก้ไขบาน', 'รวมรายได้', '', 'เงินเติมเข้ากระเป๋า']} empty="ยังไม่มีรายได้">
           {months.map(([month, r]) => (
             <tr key={month}>
               <td className="font-mono">{month}</td>

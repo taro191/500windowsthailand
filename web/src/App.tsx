@@ -18,6 +18,7 @@ import type {
 } from '@shared/types'
 import { REGION_IDS } from '@shared/regions'
 import * as store from '@/lib/store'
+import { claimPriceOf, loadSettings, rulesView } from '@/lib/settings'
 import { isPromoSlot, OPEN_PROMO_EVENT } from '@/lib/promo'
 import { hotLevel, likesToday, matchesEffectFilter } from '@shared/windowBadges'
 import { filterWindows } from '@/lib/boardFilter'
@@ -357,7 +358,7 @@ export default function App() {
     if (!currentUser) return openAuth('login')
     const window = board.find((w) => w.id === windowId) || claimTarget
     if (!window) return
-    setPayment({ mode: 'claim', window, amount: window.claimPrice || 500, claimContent: content })
+    setPayment({ mode: 'claim', window, amount: claimPriceOf(window), claimContent: content })
     setClaimTarget(null)
   }
 
@@ -695,7 +696,7 @@ export default function App() {
         onOpenProfile={() => setProfileOpen(true)}
         onOpenWalletHistory={() => setWalletHistoryOpen(true)}
         onUpdatePayoutAccount={(account: PayoutAccount) =>
-          updateProfile({ payoutAccount: account }, 'บันทึกข้อมูลบัญชีเพื่อรับเงินเรียบร้อยแล้ว (พร้อมรับเงินสุทธิ 95%)')
+          updateProfile({ payoutAccount: account }, `บันทึกข้อมูลบัญชีเพื่อรับเงินเรียบร้อยแล้ว (พร้อมรับเงินสุทธิ ${rulesView(loadSettings().rules).sellerLabel})`)
         }
         onRotateWindows={handleRotate}
         onOpenAuth={openAuth}

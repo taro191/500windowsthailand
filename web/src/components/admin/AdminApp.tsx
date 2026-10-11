@@ -97,7 +97,7 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
           {page === 'topup-settings' && <TopUpSettingsPage {...props} />}
           {page === 'edit-settings' && <EditSettingsPage {...props} />}
           {page === 'signup-bonus' && <SignupBonusPage {...props} />}
-          {page === 'rules' && <RulesPage />}
+          {page === 'rules' && <RulesPage {...props} />}
           {page === 'audit' && <AuditPage {...props} />}
         </>
       )}

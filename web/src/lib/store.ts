@@ -280,7 +280,7 @@ export async function claimWindow(region: RegionId, windowId: number, content: W
   return afterPurchase(await post<PurchaseResponse>(`/windows/${region}/${windowId}/claim`, { content, payment: paymentBody(payment) }))
 }
 
-/** Buy a window listed for resale at `expectedPrice` (the seller receives 95%). */
+/** Buy a window listed for resale at `expectedPrice` (the seller receives it minus the commission in settings.rules). */
 export async function buyResaleWindow(region: RegionId, windowId: number, expectedPrice: number, payment: PaymentBreakdown) {
   return afterPurchase(await post<PurchaseResponse>(`/windows/${region}/${windowId}/buy`, { expectedPrice, payment: paymentBody(payment) }))
 }
@@ -328,7 +328,7 @@ export async function fetchWindow(region: RegionId, windowId: number, view = fal
   return result.window
 }
 
-/** List an owned window for resale (after 30 days, at 100 ฿ up to the price cap). */
+/** List an owned window for resale (after the minimum holding period, at the minimum price up to the cap; see settings.rules). */
 export const listForResale = async (region: RegionId, windowId: number, price: number) =>
   windowAction(await post(`/windows/${region}/${windowId}/listing`, { price }))
 

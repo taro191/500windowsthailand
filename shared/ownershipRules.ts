@@ -1,13 +1,14 @@
-// Time-based ownership rules: daily edit allowance (free, then paid), 30-day minimum holding, resale price caps
+// Time-based ownership rules: daily edit allowance (free, then paid), minimum holding period, resale price caps
 // (caps are configured on the admin page, see settings.ts). Used by the web app and the API.
 import type { PlatformSettings, WindowItem } from './types'
 import { DAY_MS, THAI_OFFSET_MS, thaiDayKey } from './thaiTime'
-import { multiplierLabel, sortTiers, tierAgeLabel } from './settings'
+import { DEFAULT_RULES, multiplierLabel, sortTiers, tierAgeLabel } from './settings'
 
-export const CLAIM_PRICE = 500
-export const MIN_HOLDING_DAYS = 30
-export const MIN_RESALE_PRICE = 100
-export const RESALE_COMMISSION_RATE = 0.05
+/** Values as first launched; the live ones are in settings.rules (admin rules page). */
+export const CLAIM_PRICE = DEFAULT_RULES.claimPrice
+export const MIN_HOLDING_DAYS = DEFAULT_RULES.minHoldingDays
+export const MIN_RESALE_PRICE = DEFAULT_RULES.minResalePrice
+export const RESALE_COMMISSION_RATE = DEFAULT_RULES.commissionPercent / 100
 
 export interface EditStatus {
   /** Edits already made today (Thai calendar day). */
@@ -48,15 +49,15 @@ export interface HoldingPeriod {
   acquiredAt: string
 }
 
-/** A window can be put up for resale only after the owner has held it for 30 days. */
-export function getHoldingPeriod(window: WindowItem): HoldingPeriod {
+/** A window can be put up for resale only after the owner has held it for `minHoldingDays` (settings.rules). */
+export function getHoldingPeriod(window: WindowItem, minHoldingDays = MIN_HOLDING_DAYS): HoldingPeriod {
   if (window.status === 'available') return { isEligible: true, daysHeld: 0, daysRemaining: 0, acquiredAt: '' }
   const acquiredAt = window.ownerChangedAt || window.claimedAt || new Date().toISOString()
   const daysHeld = Math.max(0, Math.floor((Date.now() - new Date(acquiredAt).getTime()) / DAY_MS))
   return {
-    isEligible: daysHeld >= MIN_HOLDING_DAYS,
+    isEligible: daysHeld >= minHoldingDays,
     daysHeld,
-    daysRemaining: Math.max(0, MIN_HOLDING_DAYS - daysHeld),
+    daysRemaining: Math.max(0, minHoldingDays - daysHeld),
     acquiredAt,
   }
 }
@@ -85,7 +86,7 @@ function hasBeenUsed(window: WindowItem): boolean {
 
 /** Cap from the admin settings: one rule for unused windows, age tiers for used ones. */
 function basePriceCap(window: WindowItem, settings: PlatformSettings): PriceCap {
-  const basePrice = window.claimPrice || CLAIM_PRICE
+  const basePrice = window.claimPrice || settings.rules?.claimPrice || CLAIM_PRICE
   const since = window.claimedAt || window.ownerChangedAt || new Date().toISOString()
   const ageDays = Math.floor(Math.max(0, Date.now() - new Date(since).getTime()) / DAY_MS)
   const ageYears = ageDays / 365

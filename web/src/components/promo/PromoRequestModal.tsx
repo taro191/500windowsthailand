@@ -12,6 +12,7 @@ import {
   resizeImageFile,
   type PromoRequest,
 } from '@/lib/promo'
+import { useRules } from '@/lib/settings'
 import { payPromoRequest, type PromoInput } from '@/lib/store'
 import { PaymentPanel } from '../payment/PaymentPanel'
 import { useDialogFocus } from '@/hooks/useDialogFocus'
@@ -41,6 +42,7 @@ const Icon = ({ icon: Component, className = 'promo-icon' }: { icon: LucideIcon;
 
 /** "โปรโมท": request a sponsored placement in windows 481–486 for one or more 6-hour rounds. */
 export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, onPaid }: PromoRequestModalProps) {
+  const rules = useRules()
   const [size, setSize] = useState(3)
   const [rounds, setRounds] = useState(1)
   const [scheduleMode, setScheduleMode] = useState<'today' | 'calendar'>('today')
@@ -334,12 +336,12 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                 </span>
                 <div>
                   <strong>ราคาและเงื่อนไขการโปรโมท</strong>
-                  <p>1 รอบใช้เวลา 6 ชั่วโมง ราคา 30 บาทต่อหน้าต่าง 1 บาน · เลือกแพ็กเกจ 2 / 3 / 4 / 6 บานได้เหมือนเดิม</p>
+                  <p>1 รอบใช้เวลา 6 ชั่วโมง ราคา {rules.promoPricePerWindowRound.toLocaleString()} บาทต่อหน้าต่าง 1 บาน · เลือกแพ็กเกจ 2 / 3 / 4 / 6 บานได้เหมือนเดิม</p>
                 </div>
               </div>
 
               <section className="promo-section">
-                <SectionTitle number="01" title="เลือกแพ็กเกจโปรโมท" hint="30 บาท / บาน / รอบ" />
+                <SectionTitle number="01" title="เลือกแพ็กเกจโปรโมท" hint={`${rules.promoPricePerWindowRound.toLocaleString()} บาท / บาน / รอบ`} />
                 <div className="promo-packages" role="group" aria-label="จำนวนบานที่ต้องการโปรโมท">
                   {PROMO_SIZES.map((count) => (
                     <button

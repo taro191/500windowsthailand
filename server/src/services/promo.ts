@@ -12,6 +12,7 @@ import { requireUserRow, selfDto } from './users'
 import { payForPromo, type PaymentInput } from './purchases'
 import { creditWallet, recordTransaction } from './ledger'
 import { audit } from './audit'
+import { getSettings } from './settings'
 
 export function toPromoRequest(row: PromoRow): PromoRequest {
   const images = JSON.parse(row.images_json || '[]') as string[]
@@ -99,7 +100,7 @@ export async function submitPromoRequest(ctx: AppContext, user: UserRow, input: 
   if (images.length > Math.min(size, PROMO_MAX_IMAGES)) throw badRequest(`อัปโหลดรูปได้ไม่เกิน ${size} รูป`)
   if (input?.termsAccepted !== true) throw badRequest('กรุณายอมรับเงื่อนไขการโปรโมทก่อนส่งคำขอ')
 
-  const price = promoPrice(size, rounds)
+  const price = promoPrice(size, rounds, (await getSettings(ctx)).rules.promoPricePerWindowRound)
   const imageUrls: string[] = []
   for (const image of images) imageUrls.push(await saveImage(ctx.config.uploadDir, String(image), 'promo'))
 

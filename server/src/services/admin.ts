@@ -10,7 +10,7 @@ import { audit, loadAuditLog } from './audit'
 import { toTransaction } from './ledger'
 import { toOrder } from './purchases'
 import { toPromoRequest } from './promo'
-import { saveSettings } from './settings'
+import { getSettings, saveSettings } from './settings'
 import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, digits, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
 import { LINE_ID, lineLastFailure, lineRecipients, saveLineRecipients, savedLineRecipients, sendLineAlert } from './notify'
 import { emptyWindowRow, loadBoards, loadWindow } from './windows'
@@ -37,7 +37,17 @@ export async function adminOverview(ctx: AppContext) {
 }
 
 export async function updateSettings(ctx: AppContext, admin: UserRow, settings: PlatformSettings, what: string) {
+  const before = await getSettings(ctx)
   const saved = await saveSettings(ctx, settings)
+  // A new claim price applies to every window nobody owns yet (owned ones keep what was paid).
+  if (saved.rules.claimPrice !== before.rules.claimPrice) {
+    await ctx.db
+      .updateTable('windows')
+      .set({ claim_price: saved.rules.claimPrice })
+      .where('owner_id', 'is', null)
+      .where('reserved_order_id', 'is', null)
+      .execute()
+  }
   await audit(ctx.db, admin, 'แก้ไขการตั้งค่า', String(what || 'การตั้งค่าระบบ').slice(0, 200))
   return saved
 }
@@ -86,8 +96,9 @@ export async function releaseWindow(ctx: AppContext, admin: UserRow, region: Reg
   if (!row) throw notFound('ไม่พบบานหน้าต่าง')
   if (row.reserved_order_id) throw badRequest('บานนี้มีรายการชำระเงินรอตรวจสอบ กรุณาพิจารณาสลิปก่อน')
   const now = nowIso()
+  const { claimPrice } = (await getSettings(ctx)).rules
   await ctx.db.transaction().execute(async (trx) => {
-    const { region: _r, num: _n, ...empty } = emptyWindowRow(region, num, now)
+    const { region: _r, num: _n, ...empty } = emptyWindowRow(region, num, now, claimPrice)
     await trx
       .updateTable('windows')
       .set({ ...empty, previous_owner_id: row.owner_id || row.previous_owner_id })

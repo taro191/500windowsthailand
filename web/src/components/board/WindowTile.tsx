@@ -2,6 +2,7 @@ import { Heart, Lock, Plus, ShoppingBag, Tag, Users } from 'lucide-react'
 import type { User, WindowItem, ZoomLevel } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { followerCount, highlightClass, highlightLabel, todaysNote } from '@shared/windowBadges'
+import { useRules } from '@/lib/settings'
 import { adForSlot, isPromoSlot, safeHttpUrl, safeImageUrl, type PromoAd } from '@/lib/promo'
 import { HighlightPill, HotSparks, StarBadge } from './WindowBadges'
 
@@ -107,8 +108,9 @@ type TileProps = Omit<WindowTileProps, 'zoomLevel'>
 /** Small square used by the "500 บานเต็มจอ" view. */
 function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion }: TileProps) {
   const t = getTileInfo(windowItem, currentUser)
+  const rules = useRules()
   const status = t.isAvailable
-    ? 'ว่าง 500฿'
+    ? `ว่าง ${rules.claimPrice.toLocaleString()}฿`
     : t.isForResale
       ? `เปิดขายต่อ ฿${windowItem.resalePrice?.toLocaleString()}`
       : t.isMine
@@ -161,6 +163,7 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
 /** Card with header, image and footer used by the "มาตรฐาน" and "ขยาย" views. */
 function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: TileProps & { zoomLevel: ZoomLevel }) {
   const t = getTileInfo(windowItem, currentUser)
+  const rules = useRules()
   const note = todaysNote(windowItem)
   const followers = followerCount(windowItem)
   const borderClass = isSelected
@@ -200,7 +203,7 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
             </span>
           )}
         </div>
-        {t.isAvailable && <span className="text-[11px] text-rose-300 font-medium">ว่าง 500฿</span>}
+        {t.isAvailable && <span className="text-[11px] text-rose-300 font-medium">ว่าง {rules.claimPrice.toLocaleString()}฿</span>}
         {t.isForResale && (
           <span className="text-[11px] text-orange-300 font-mono font-bold flex items-center gap-0.5">
             <Tag className="w-3 h-3 text-orange-400" />
@@ -219,7 +222,7 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
               <Plus className="w-5 h-5" />
             </div>
             <span className="text-xs font-medium text-stone-300 group-hover:text-rose-200">จับจองบานนี้</span>
-            <span className="text-[11px] text-stone-500 font-mono mt-0.5">500 ฿ (ตลอดชีพ)</span>
+            <span className="text-[11px] text-stone-500 font-mono mt-0.5">{rules.claimPriceLabel} (ตลอดชีพ)</span>
           </div>
         ) : (
           <>

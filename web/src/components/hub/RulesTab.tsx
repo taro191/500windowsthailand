@@ -1,13 +1,12 @@
 import { BookOpen, ShieldCheck, Sparkles } from 'lucide-react'
 import { getRotationCycle } from '@shared/thaiTime'
-import { editPolicyLabel, sortTiers, tierAgeLabel, useSettings } from '@/lib/settings'
-import { CLAIM_PRICE } from '@/lib/ownershipRules'
+import { editPolicyLabel, sortTiers, tierAgeLabel, useRules, useSettings } from '@/lib/settings'
 
 /** "ตั้งราคาได้ไม่เกิน 10 เท่า (฿5,000)" or the no-cap text. */
-const capText = (multiplier: number | null) =>
+const capText = (multiplier: number | null, claimPrice: number) =>
   multiplier === null
     ? 'ตั้งราคาตามความต้องการจริงของตลาดได้ (ไม่มีเพดาน)'
-    : `ตั้งราคาได้ไม่เกิน ${multiplier} เท่าของราคาตั้งต้น (ไม่เกิน ฿${(CLAIM_PRICE * multiplier).toLocaleString()})`
+    : `ตั้งราคาได้ไม่เกิน ${multiplier} เท่าของราคาตั้งต้น (ไม่เกิน ฿${(claimPrice * multiplier).toLocaleString()})`
 import { SectionHeading } from './SectionHeading'
 
 interface RulesTabProps {
@@ -59,6 +58,7 @@ function RuleCard({
 export function RulesTab({ onRotateWindows }: RulesTabProps) {
   const cycle = getRotationCycle()
   const settings = useSettings()
+  const rules = useRules()
   const tiers = sortTiers(settings.priceCaps.usedTiers)
 
   return (
@@ -105,7 +105,7 @@ export function RulesTab({ onRotateWindows }: RulesTabProps) {
       <div className="space-y-3">
         <SectionHeading icon={BookOpen} tone="amber" title="กติกา 5 ข้อของระบบ:" />
 
-        <RuleCard n={1} color="bg-cyan-950 text-cyan-300 border-cyan-700/60" title="ซื้อเพื่อเป็นเจ้าของพื้นที่ส่วนตัว (500 ฿ ตลอดชีพ)">
+        <RuleCard n={1} color="bg-cyan-950 text-cyan-300 border-cyan-700/60" title={`ซื้อเพื่อเป็นเจ้าของพื้นที่ส่วนตัว (${rules.claimPriceLabel} ตลอดชีพ)`}>
           <p className="text-[11px] text-stone-400 pl-7 leading-relaxed">
             ชำระครั้งเดียวเพื่อเป็นเจ้าของกรรมสิทธิ์บานหน้าต่างนั้นในหน้าต่างอย่างถาวร
           </p>
@@ -123,7 +123,7 @@ export function RulesTab({ onRotateWindows }: RulesTabProps) {
           title="เงื่อนไขการขายต่อและเปลี่ยนเจ้าของ (ลบข้อมูลเดิม เหลือ ID USER อ้างอิง)"
         >
           <p className="text-[11px] text-stone-400 pl-7 leading-relaxed">
-            เจ้าของหน้าต่างสามารถกำหนดราคาเปิดขายต่อให้ผู้อื่นได้ การเปลี่ยนเจ้าของทุกครั้งต้องผ่านระบบขายต่อและหักค่าคอมมิชชั่น 5%
+            เจ้าของหน้าต่างสามารถกำหนดราคาเปิดขายต่อให้ผู้อื่นได้ การเปลี่ยนเจ้าของทุกครั้งต้องผ่านระบบขายต่อและหักค่าคอมมิชชั่น {rules.commissionLabel}
             (ไม่มีการโอนฟรี) อายุหน้าต่างนับจากวันจับจองครั้งแรก และเพดานราคาจะไม่ต่ำกว่าราคาที่ผู้ขายซื้อมา
           </p>
           <div className="ml-7 p-3 rounded-lg bg-stone-900 border border-amber-500/40 text-[11px] text-stone-200 space-y-2">
@@ -131,15 +131,15 @@ export function RulesTab({ onRotateWindows }: RulesTabProps) {
             <ol className="space-y-1.5 text-[10px] text-stone-300 leading-relaxed list-decimal pl-4">
               <li>
                 <strong>ระยะเวลาถือครองขั้นต่ำ:</strong> การขายต่อ เจ้าของจะต้องถือครองหน้าต่างบานนั้นๆ{' '}
-                <strong>ไม่ต่ำกว่า 1 เดือน ขึ้นไป (30 วัน)</strong>
+                <strong>ไม่ต่ำกว่า {rules.minHoldingDays} วัน</strong>
               </li>
               <li>
                 <strong>เพดานราคา (ยังไม่เคยใช้งาน):</strong> ถ้าหน้าต่างไม่เคยผ่านการนำไปใช้งาน{' '}
-                <strong>{capText(settings.priceCaps.unusedMultiplier)}</strong>
+                <strong>{capText(settings.priceCaps.unusedMultiplier, rules.claimPrice)}</strong>
               </li>
               {tiers.map((tier, index) => (
                 <li key={tier.id}>
-                  <strong>เพดานราคา (ผ่านการใช้งาน {tierAgeLabel(tiers, index)}):</strong> <strong>{capText(tier.multiplier)}</strong>
+                  <strong>เพดานราคา (ผ่านการใช้งาน {tierAgeLabel(tiers, index)}):</strong> <strong>{capText(tier.multiplier, rules.claimPrice)}</strong>
                 </li>
               ))}
             </ol>
@@ -160,11 +160,11 @@ export function RulesTab({ onRotateWindows }: RulesTabProps) {
           <div className="ml-7 p-2 rounded-lg bg-amber-950/40 border border-amber-500/30 text-[11px] text-amber-300 space-y-1">
             <div className="font-bold flex items-center gap-1.5">
               <span>⚡ เงื่อนไขทุกการขายต่อ:</span>
-              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 font-mono text-[10px]">Commission 5%</span>
+              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 font-mono text-[10px]">Commission {rules.commissionLabel}</span>
             </div>
             <p className="text-stone-300 text-[10px] leading-relaxed">
-              ระบบจะต้องได้ค่าคอมมิชชั่น 5% ของราคาขายต่อทุกรายการ เพื่อเป็นกองทุนบำรุงรักษาเซิร์ฟเวอร์ พัฒนาระบบ และรักษาความปลอดภัย
-              โดยผู้ขายเดิมจะได้รับเงินสุทธิ 95%
+              ระบบจะต้องได้ค่าคอมมิชชั่น {rules.commissionLabel} ของราคาขายต่อทุกรายการ เพื่อเป็นกองทุนบำรุงรักษาเซิร์ฟเวอร์ พัฒนาระบบ และรักษาความปลอดภัย
+              โดยผู้ขายเดิมจะได้รับเงินสุทธิ {rules.sellerLabel}
             </p>
           </div>
         </RuleCard>

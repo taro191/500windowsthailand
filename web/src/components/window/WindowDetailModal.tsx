@@ -26,12 +26,11 @@ import {
   getEditStatus,
   getHoldingPeriod,
   getPriceCap,
-  MIN_RESALE_PRICE,
-  RESALE_COMMISSION_RATE,
+  commissionOf,
 } from '@/lib/ownershipRules'
 import { maskCitizenId, maskPhone } from '@shared/identity'
 import { copyToClipboard } from '@/lib/browser'
-import { editPolicyLabel, useSettings } from '@/lib/settings'
+import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import { isDemo } from '@/lib/store'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { STAR_LABELS } from '../board/WindowBadges'
@@ -63,10 +62,10 @@ const CHEERS = [
   { emoji: '✨', label: 'ยอดเยี่ยม' },
 ]
 
-const commissionOf = (price: number) => Math.round(price * RESALE_COMMISSION_RATE)
 
 export function WindowDetailModal(props: WindowDetailModalProps) {
   const { windowItem, currentUser, quota, onClose, onClaim, onBuyResale, onLike, onToggleFollow, onOpenKyc } = props
+  const rules = useRules()
   const [linkCopied, setLinkCopied] = useState(false)
   const [ownerView, setOwnerView] = useState<'manage' | 'preview'>('manage')
   const isOwner = !!currentUser && !!windowItem && windowItem.ownerId === currentUser.id
@@ -270,7 +269,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
                       className="w-full py-3 px-4 text-sm font-bold text-white bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 hover:opacity-95 rounded-xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Sparkles className="w-4 h-4" />
-                      <span>จับจองเป็นเจ้าของบานนี้ (500 ฿)</span>
+                      <span>จับจองเป็นเจ้าของบานนี้ ({rules.claimPriceLabel})</span>
                     </button>
                   ))}
                 {isForResale &&
@@ -563,8 +562,9 @@ function OwnerStudio({
   }, [w.id])
 
   const { editPolicy } = useSettings()
+  const rules = useRules()
   const edit = getEditStatus(w, editPolicy)
-  const holding = getHoldingPeriod(w)
+  const holding = getHoldingPeriod(w, rules.minHoldingDays)
   const isForResale = w.status === 'for_resale'
   const citizenId = w.ownerCitizenId || currentUser?.citizenId
   const contact = w.ownerContact || currentUser?.phone
@@ -614,7 +614,7 @@ function OwnerStudio({
         )}
         <div className="flex items-center justify-between">
           <span className="text-stone-400">ต้นทุนสิทธิ์บานแรกเข้า:</span>
-          <span className="font-mono text-emerald-400 font-bold">500 ฿ (ตลอดชีพ)</span>
+          <span className="font-mono text-emerald-400 font-bold">{w.claimPrice ? `${w.claimPrice.toLocaleString()} ฿` : rules.claimPriceLabel} (ตลอดชีพ)</span>
         </div>
       </div>
 
@@ -622,7 +622,7 @@ function OwnerStudio({
         <div className="p-3.5 rounded-xl bg-gradient-to-r from-orange-950/30 via-[#151025] to-purple-950/30 border border-rose-500/30 space-y-2 text-xs">
           <div className="flex items-center justify-between text-rose-300 font-bold">
             <span>💰 ประมาณการรายได้จากการขายต่อบานนี้:</span>
-            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-200">หักค่าคอม 5%</span>
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-200">หักค่าคอม {rules.commissionLabel}</span>
           </div>
           <div className="space-y-1 font-mono text-[11px]">
             <div className="flex justify-between text-stone-400">
@@ -630,11 +630,11 @@ function OwnerStudio({
               <span className="text-stone-200 font-bold">฿{w.resalePrice.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-rose-400">
-              <span>ค่าคอมมิชชั่นระบบ (5%):</span>
+              <span>ค่าคอมมิชชั่นระบบ ({rules.commissionLabel}):</span>
               <span>-฿{commissionOf(w.resalePrice).toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-emerald-300 font-bold pt-1 border-t border-purple-900/30 text-xs">
-              <span>ยอดเงินโอนเข้ากระเป๋าคุณสุทธิ (95%):</span>
+              <span>ยอดเงินโอนเข้ากระเป๋าคุณสุทธิ ({rules.sellerLabel}):</span>
               <span>฿{(w.resalePrice - commissionOf(w.resalePrice)).toLocaleString()}</span>
             </div>
           </div>
@@ -702,7 +702,7 @@ function OwnerStudio({
           <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/50 text-rose-200 text-xs space-y-1.5">
             <div className="flex items-center gap-1.5 font-bold text-rose-300">
               <Clock className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>เงื่อนไขข้อ 1: ต้องถือครองไม่ต่ำกว่า 1 เดือนขึ้นไป (30 วัน)</span>
+              <span>เงื่อนไขข้อ 1: ต้องถือครองไม่ต่ำกว่า {rules.minHoldingDays} วัน</span>
             </div>
             <p className="text-[11px] leading-relaxed text-stone-300 font-light">
               ปัจจุบันคุณถือครองมาแล้ว <strong className="font-mono text-rose-300 font-bold">{holding.daysHeld} วัน</strong> (ขาดอีก{' '}
@@ -751,7 +751,7 @@ function OwnerStudio({
               >
                 <Tag className="w-3.5 h-3.5" />
                 <span>
-                  {holding.isEligible ? 'ตั้งราคาเปิดขายต่อให้ผู้อื่น' : `เปิดขายต่อ (ถือครอง ${holding.daysHeld}/30 วัน)`}
+                  {holding.isEligible ? 'ตั้งราคาเปิดขายต่อให้ผู้อื่น' : `เปิดขายต่อ (ถือครอง ${holding.daysHeld}/${rules.minHoldingDays} วัน)`}
                 </span>
               </button>
             )}
@@ -804,6 +804,7 @@ function ResaleForm({
   onCancel: () => void
   onSubmit: (price: number) => void
 }) {
+  const rules = useRules()
   const [priceInput, setPriceInput] = useState('1500')
   const cap = getPriceCap(windowItem)
   const price = parseFloat(priceInput) || 0
@@ -814,11 +815,11 @@ function ResaleForm({
       onSubmit={(e) => {
         e.preventDefault()
         if (!isEligible) {
-          alert('ตามเงื่อนไขข้อ 1: เจ้าของจะต้องถือครองหน้าต่างบานนี้ไม่ต่ำกว่า 1 เดือนขึ้นไป (30 วัน) จึงจะสามารถขายต่อได้')
+          alert(`ตามเงื่อนไขข้อ 1: เจ้าของจะต้องถือครองหน้าต่างบานนี้ไม่ต่ำกว่า ${rules.minHoldingDays} วัน จึงจะสามารถขายต่อได้`)
           return
         }
         const value = parseInt(priceInput, 10)
-        if (isNaN(value) || value < MIN_RESALE_PRICE) return
+        if (isNaN(value) || value < rules.minResalePrice) return
         if (cap.maxAllowedPrice !== null && value > cap.maxAllowedPrice) {
           alert(`ไม่สามารถตั้งราคาเกิน ${cap.maxAllowedPrice.toLocaleString()} ฿ ได้ (${cap.ruleDescription})`)
           return
@@ -862,7 +863,7 @@ function ResaleForm({
           <span className="font-mono text-rose-400 font-bold text-sm">฿</span>
           <input
             type="number"
-            min={MIN_RESALE_PRICE}
+            min={rules.minResalePrice}
             max={cap.maxAllowedPrice || undefined}
             step="50"
             value={priceInput}
@@ -877,14 +878,14 @@ function ResaleForm({
         <div className="p-2.5 rounded-lg bg-[#140f21] border border-purple-500/30 text-[11px] space-y-1 font-mono">
           <div className="flex justify-between text-rose-300 font-sans font-medium">
             <span>เงื่อนไขระบบหักค่าคอมมิชชั่น:</span>
-            <span className="font-bold">5%</span>
+            <span className="font-bold">{rules.commissionLabel}</span>
           </div>
           <div className="flex justify-between text-stone-400">
-            <span>• ค่าคอมมิชชั่นเข้าระบบ (5%):</span>
+            <span>• ค่าคอมมิชชั่นเข้าระบบ ({rules.commissionLabel}):</span>
             <span className="text-rose-400 font-bold">฿{commissionOf(price).toLocaleString()}</span>
           </div>
           <div className="flex justify-between text-stone-300 font-medium">
-            <span>• คุณจะได้รับเงินสุทธิ (95%):</span>
+            <span>• คุณจะได้รับเงินสุทธิ ({rules.sellerLabel}):</span>
             <span className="text-emerald-400 font-bold">฿{(price - commissionOf(price)).toLocaleString()}</span>
           </div>
         </div>
@@ -892,7 +893,7 @@ function ResaleForm({
 
       <button
         type="submit"
-        disabled={overCap || price < MIN_RESALE_PRICE || !isEligible}
+        disabled={overCap || price < rules.minResalePrice || !isEligible}
         className="w-full py-2.5 px-3 text-xs font-semibold rounded-xl bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 hover:opacity-95 text-white cursor-pointer shadow-md transition-all"
       >
         ยืนยันเปิดขายต่อบานนี้

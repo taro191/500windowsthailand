@@ -246,6 +246,18 @@ export interface PlatformSettings {
     /** Price of each edit after the free ones, taken from the wallet; 0 = no extra edits. */
     paidEditPrice: number
   }
+  /** General rules, editable on the admin rules page. */
+  rules: {
+    /** Price of claiming an empty window (lifetime ownership). */
+    claimPrice: number
+    /** Share of each resale price kept by the platform, in percent (e.g. 5). */
+    commissionPercent: number
+    /** Days an owner must hold a window before listing it for resale. */
+    minHoldingDays: number
+    minResalePrice: number
+    /** Promotion price per window per 6-hour round. */
+    promoPricePerWindowRound: number
+  }
   /** Wallet credit for accounts that sign up between startsAt and endsAt (ISO; null = open). 0 = off. */
   signupBonus: {
     amount: number

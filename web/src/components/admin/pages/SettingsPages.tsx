@@ -13,8 +13,7 @@ import {
   useSettings,
   validateTiers,
 } from '@/lib/settings'
-import { CLAIM_PRICE, MIN_HOLDING_DAYS, MIN_RESALE_PRICE, RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
-import { PROMO_PRICE_PER_WINDOW_ROUND, PROMO_SLOTS } from '@/lib/promo'
+import { PROMO_SLOTS } from '@/lib/promo'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Callout, Card, DataTable, FormRow, inputClass } from '../ui'
 
@@ -27,7 +26,7 @@ export function PriceCapsPage({ notify }: AdminPageProps) {
   const [unused, setUnused] = useState<number | null>(settings.priceCaps.unusedMultiplier)
   const [tiers, setTiers] = useState<PriceCapTier[]>(sortTiers(settings.priceCaps.usedTiers))
   const [error, setError] = useState('')
-  const base = CLAIM_PRICE
+  const base = settings.rules.claimPrice
 
   const updateTier = (id: string, change: Partial<PriceCapTier>) => setTiers(tiers.map((t) => (t.id === id ? { ...t, ...change } : t)))
 
@@ -533,13 +532,39 @@ export function SignupBonusPage({ notify }: AdminPageProps) {
 
 // ---------------------------------------------------------------- general rules (read-only for now)
 
-export function RulesPage() {
-  const { editPolicy } = useSettings()
-  const rows: [string, string][] = [
-    ['ราคาจับจองบาน', `${baht(CLAIM_PRICE)} (ตลอดชีพ)`],
-    ['ค่าคอมมิชชั่นขายต่อ', `${RESALE_COMMISSION_RATE * 100}% (ผู้ขายได้รับ ${100 - RESALE_COMMISSION_RATE * 100}%)`],
-    ['ระยะถือครองขั้นต่ำก่อนขายต่อ', `${MIN_HOLDING_DAYS} วัน`],
-    ['ราคาขายต่อขั้นต่ำ', baht(MIN_RESALE_PRICE)],
+const RULE_FIELDS: { key: keyof PlatformSettings['rules']; label: string; hint: string; step?: string }[] = [
+  { key: 'claimPrice', label: 'ราคาจับจองบาน (บาท)', hint: 'ใช้กับบานว่างทุกบานทันที · บานที่มีเจ้าของแล้วคงราคาเดิมที่จ่ายไว้' },
+  { key: 'commissionPercent', label: 'ค่าคอมมิชชั่นขายต่อ (%)', hint: 'ผู้ขายได้รับส่วนที่เหลือ · ใช้กับการขายต่อครั้งถัดไป', step: '0.01' },
+  { key: 'minHoldingDays', label: 'ระยะถือครองขั้นต่ำก่อนขายต่อ (วัน)', hint: '0 = ขายต่อได้ทันที' },
+  { key: 'minResalePrice', label: 'ราคาขายต่อขั้นต่ำ (บาท)', hint: 'ราคาสูงสุดยังเป็นไปตามเมนู "เพดานราคาขายต่อ"' },
+  { key: 'promoPricePerWindowRound', label: 'ราคาโปรโมท (บาท / บาน / รอบ 6 ชม.)', hint: 'ใช้กับคำขอโปรโมทใหม่' },
+]
+
+export function RulesPage({ notify }: AdminPageProps) {
+  const settings = useSettings()
+  const [form, setForm] = useState(() =>
+    Object.fromEntries(RULE_FIELDS.map((f) => [f.key, String(settings.rules[f.key])])) as Record<keyof PlatformSettings['rules'], string>,
+  )
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const { editPolicy, rules } = settings
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const next = Object.fromEntries(RULE_FIELDS.map((f) => [f.key, Number(form[f.key])])) as PlatformSettings['rules']
+    const changed = RULE_FIELDS.filter((f) => next[f.key] !== rules[f.key])
+    if (!changed.length) return notify('ไม่มีค่าที่เปลี่ยนแปลง')
+    const summary = changed.map((f) => `${f.label.replace(/ \(.*\)$/, '')} ${rules[f.key]} → ${next[f.key]}`).join(', ')
+    if (!window.confirm(`ยืนยันเปลี่ยนกติกา?\n\n${changed.map((f) => `• ${f.label}: ${rules[f.key]} → ${next[f.key]}`).join('\n')}\n\nมีผลกับผู้ใช้ทุกคนทันที`)) return
+    setError('')
+    setSaving(true)
+    const result = await updateSettings({ ...settings, rules: next }, `กติกาทั่วไป → ${summary}`)
+    setSaving(false)
+    if (!result.success) return setError(result.error)
+    notify('บันทึกกติกาทั่วไปแล้ว')
+  }
+
+  const fixed: [string, string][] = [
     ['โควตาต่อผู้ใช้', 'บานประเทศไทย 1 + บานภูมิภาค 1 (รวม 2)'],
     [
       'สิทธิ์แก้ไขรูป/ข้อความ',
@@ -548,17 +573,43 @@ export function RulesPage() {
         ' (ตั้งค่าที่เมนู "สิทธิ์แก้ไขบาน")',
     ],
     ['สลับตำแหน่ง', 'ทุก 6 ชม. (00/06/12/18 น.) · วันที่ 1, 15, 25 เรียง 1–500'],
-    ['พื้นที่โปรโมท', `บาน ${PROMO_SLOTS[0]}–${PROMO_SLOTS[PROMO_SLOTS.length - 1]} · ${PROMO_PRICE_PER_WINDOW_ROUND} บาท/บาน/รอบ 6 ชม.`],
+    ['บานพื้นที่โปรโมท', `บาน ${PROMO_SLOTS[0]}–${PROMO_SLOTS[PROMO_SLOTS.length - 1]}`],
   ]
+
   return (
-    <>
-      <Callout tone="warning" title="ยังแก้ไขจากหน้านี้ไม่ได้">
-        ค่าเหล่านี้ถูกเขียนไว้ในโค้ดและข้อความหลายหน้าของฝั่งผู้ใช้ การเปิดให้แก้จากหน้า Admin ต้องปรับข้อความทุกจุดให้ดึงค่าจากการตั้งค่า
-        (แนะนำให้ทำพร้อมระบบหลังบ้าน)
-      </Callout>
-      <Card title="กติกาที่ใช้งานอยู่" icon={BookOpen} outline="secondary" flush>
+    <div className="max-w-3xl">
+      <Card title="กติกาที่แก้ไขได้" icon={BookOpen} outline="primary">
+        <form onSubmit={save}>
+          {error && <div className="mb-3 p-2.5 rounded bg-[#f8d7da] text-[#721c24] text-sm border border-[#f5c6cb]">{error}</div>}
+          <div className="grid gap-x-4 sm:grid-cols-2">
+            {RULE_FIELDS.map((f) => (
+              <FormRow key={f.key} label={f.label} hint={f.hint}>
+                <input
+                  type="number"
+                  min={0}
+                  step={f.step ?? '1'}
+                  required
+                  value={form[f.key]}
+                  onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                  className={inputClass}
+                />
+              </FormRow>
+            ))}
+          </div>
+          <p className="mb-3 text-sm text-[#6c757d]">
+            ข้อความกติกาที่ผู้ใช้เห็น (หน้ากติกา, หน้าต่างรายละเอียดบาน, การขายต่อ, โปรโมท) จะเปลี่ยนตามค่าที่บันทึกโดยอัตโนมัติ
+            รายการที่ทำไปแล้วไม่เปลี่ยน (เช่น ค่าคอมมิชชั่นของการขายต่อที่เกิดขึ้นแล้ว)
+          </p>
+          <div className="flex justify-end">
+            <Button tone="primary" type="submit" disabled={saving}>
+              <Save className="w-4 h-4" /> {saving ? 'กำลังบันทึก...' : 'บันทึกกติกา'}
+            </Button>
+          </div>
+        </form>
+      </Card>
+      <Card title="กติกาที่ตั้งไว้ตายตัว" icon={BookOpen} outline="secondary" flush>
         <DataTable head={['กติกา', 'ค่าปัจจุบัน']}>
-          {rows.map(([label, value]) => (
+          {fixed.map(([label, value]) => (
             <tr key={label}>
               <td className="font-bold">{label}</td>
               <td>{value}</td>
@@ -566,6 +617,6 @@ export function RulesPage() {
           ))}
         </DataTable>
       </Card>
-    </>
+    </div>
   )
 }

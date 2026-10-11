@@ -12,6 +12,15 @@ export const CHANNEL_TYPE_LABELS: Record<PaymentChannelType, string> = {
 /** Channels that are confirmed by uploading a transfer slip (card goes through a gateway). */
 export const SLIP_CHANNEL_TYPES: PaymentChannelType[] = ['promptpay', 'bank', 'truemoney']
 
+/** The rules as first launched; the admin rules page changes them. */
+export const DEFAULT_RULES: PlatformSettings['rules'] = {
+  claimPrice: 500,
+  commissionPercent: 5,
+  minHoldingDays: 30,
+  minResalePrice: 100,
+  promoPricePerWindowRound: 30,
+}
+
 export const DEFAULT_SETTINGS: PlatformSettings = {
   priceCaps: {
     unusedMultiplier: 10,
@@ -73,6 +82,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     freeEditsPerDay: 1,
     paidEditPrice: 0,
   },
+  rules: DEFAULT_RULES,
   signupBonus: {
     amount: 0,
     startsAt: null,
@@ -174,6 +184,18 @@ export function validateSettings(settings: PlatformSettings): string | null {
     return 'ค่าแก้ไขเพิ่มต้องเป็นจำนวนเต็ม 0–1,000,000 บาท'
   if (freeEditsPerDay === 0 && paidEditPrice === 0) return 'ต้องให้แก้ไขฟรีอย่างน้อย 1 ครั้งต่อวัน หรือกำหนดค่าแก้ไขเพิ่ม'
 
+  const { rules } = settings
+  if (!rules) return 'ข้อมูลกติกาทั่วไปไม่ครบ'
+  const wholeBaht = (n: number, min: number) => Number.isInteger(n) && n >= min && n <= 1_000_000
+  if (!wholeBaht(rules.claimPrice, 1)) return 'ราคาจับจองต้องเป็นจำนวนเต็ม 1–1,000,000 บาท'
+  if (typeof rules.commissionPercent !== 'number' || !(rules.commissionPercent >= 0 && rules.commissionPercent <= 50))
+    return 'ค่าคอมมิชชั่นต้องอยู่ระหว่าง 0–50%'
+  if (Math.round(rules.commissionPercent * 100) !== rules.commissionPercent * 100) return 'ค่าคอมมิชชั่นใส่ทศนิยมได้ไม่เกิน 2 ตำแหน่ง'
+  if (!Number.isInteger(rules.minHoldingDays) || rules.minHoldingDays < 0 || rules.minHoldingDays > 3650)
+    return 'ระยะถือครองขั้นต่ำต้องเป็นจำนวนเต็ม 0–3,650 วัน'
+  if (!wholeBaht(rules.minResalePrice, 1)) return 'ราคาขายต่อขั้นต่ำต้องเป็นจำนวนเต็ม 1–1,000,000 บาท'
+  if (!wholeBaht(rules.promoPricePerWindowRound, 1)) return 'ราคาโปรโมทต้องเป็นจำนวนเต็ม 1–1,000,000 บาท'
+
   const { signupBonus } = settings
   if (!signupBonus) return 'ข้อมูลโบนัสสมัครสมาชิกไม่ครบ'
   if (!Number.isInteger(signupBonus.amount) || signupBonus.amount < 0 || signupBonus.amount > 1_000_000)
@@ -184,3 +206,10 @@ export function validateSettings(settings: PlatformSettings): string | null {
     return 'วันเวลาสิ้นสุดโบนัสต้องหลังวันเวลาเริ่ม'
   return null
 }
+
+/** The platform's share of a resale price, e.g. 0.05 for 5%. */
+export const commissionRate = (rules: PlatformSettings['rules']) => rules.commissionPercent / 100
+/** The seller's net share of a resale price, in percent. */
+export const sellerPercent = (rules: PlatformSettings['rules']) => Math.round((100 - rules.commissionPercent) * 100) / 100
+/** Commission the platform keeps from a resale at `price`. */
+export const resaleCommission = (price: number, rules: PlatformSettings['rules']) => Math.round(price * commissionRate(rules))

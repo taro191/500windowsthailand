@@ -79,7 +79,8 @@ export interface PromoRequest {
   decisionNote?: string
 }
 
-export const promoPrice = (size: number, rounds: number) => size * rounds * PROMO_PRICE_PER_WINDOW_ROUND
+/** Price of `size` windows for `rounds` rounds; the per-window price comes from settings.rules. */
+export const promoPrice = (size: number, rounds: number, perWindowRound = PROMO_PRICE_PER_WINDOW_ROUND) => size * rounds * perWindowRound
 
 /** Rounds still free on `date`, given the rounds already reserved that day. */
 export const roundsLeft = (reserved: number) => Math.max(0, PROMO_ROUNDS_PER_DAY - reserved)

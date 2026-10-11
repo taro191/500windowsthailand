@@ -2,6 +2,7 @@ import { Building2, ChartNoAxesColumn, Layers, Lock, Tag } from 'lucide-react'
 import type { Region, Transaction } from '@shared/types'
 import { REGIONS } from '@shared/regions'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
+import { useRules } from '@/lib/settings'
 import { SectionHeading } from './SectionHeading'
 import type { BoardCounts } from './SearchFilterTab'
 
@@ -12,6 +13,7 @@ interface StatsTabProps {
 }
 
 export function StatsTab({ region, counts, transactions }: StatsTabProps) {
+  const rules = useRules()
   const resales = transactions.filter((t) => t.type === 'resale')
   const resaleTotal = resales.reduce((sum, t) => sum + t.amount, 0)
   const commissionTotal = resales.reduce(
@@ -32,9 +34,9 @@ export function StatsTab({ region, counts, transactions }: StatsTabProps) {
 
       <div className="p-4 rounded-xl bg-[#09080e] border border-purple-900/30 space-y-3 font-['Prompt',sans-serif]">
         <div className="flex items-center justify-between">
-          <SectionHeading icon={Tag} title="สถิติตลาดซื้อขายต่อ & ค่าคอมมิชชั่น 5%" />
+          <SectionHeading icon={Tag} title={`สถิติตลาดซื้อขายต่อ & ค่าคอมมิชชั่น ${rules.commissionLabel}`} />
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-            Rule 5%
+            Rule {rules.commissionLabel}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -43,12 +45,12 @@ export function StatsTab({ region, counts, transactions }: StatsTabProps) {
             <span className="text-base font-bold font-mono text-stone-100">฿{resaleTotal.toLocaleString()}</span>
           </div>
           <div className="p-2.5 rounded-lg bg-[#140f21] border border-rose-500/30">
-            <span className="text-[10px] text-rose-400 block font-medium">⚡ ค่าคอมมิชชั่นระบบ (5%)</span>
+            <span className="text-[10px] text-rose-400 block font-medium">⚡ ค่าคอมมิชชั่นระบบ ({rules.commissionLabel})</span>
             <span className="text-base font-bold font-mono text-rose-300">฿{commissionTotal.toLocaleString()}</span>
           </div>
         </div>
         <div className="p-2.5 rounded-lg bg-[#140f21]/60 border border-purple-900/20 flex items-center justify-between text-xs font-mono">
-          <span className="text-stone-400">เงินสุทธิส่งถึงผู้ขาย (95%):</span>
+          <span className="text-stone-400">เงินสุทธิส่งถึงผู้ขาย ({rules.sellerLabel}):</span>
           <span className="font-bold text-emerald-400">฿{(resaleTotal - commissionTotal).toLocaleString()}</span>
         </div>
       </div>
@@ -91,10 +93,11 @@ function StatBox({ label, value, labelClass, valueClass }: { label: string; valu
 
 /** Roadmap card for the planned rental market (not functional yet). */
 function RentalMarketTeaser() {
+  const rules = useRules()
   const facts = [
     ['ค่าเช่าแนะนำเฉลี่ย', '฿50 - ฿300', '/ สัปดาห์ (ประมาณการ)', 'text-rose-300'],
     ['รอบสัญญาเช่า', '7 - 90 วัน', 'กำหนดได้ตามใจผู้ถือ', 'text-purple-300'],
-    ['หักค่าบริการระบบ', '5%', 'หักเฉพาะเมื่อมีผู้เช่า', 'text-stone-200'],
+    ['หักค่าบริการระบบ', rules.commissionLabel, 'หักเฉพาะเมื่อมีผู้เช่า', 'text-stone-200'],
   ]
   return (
     <div className="p-4 rounded-xl bg-gradient-to-br from-[#120f1e] via-[#151025] to-[#09080e] border border-purple-500/30 relative overflow-hidden space-y-3 font-['Prompt',sans-serif]">
@@ -144,7 +147,7 @@ function RentalMarketTeaser() {
           <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           <span>รายได้จากการปล่อยเช่าจะถูกโอนเข้า "บัญชีเพื่อรับเงิน" ในแท็บกระเป๋าเงินโดยอัตโนมัติ</span>
         </span>
-        <span className="text-[10px] font-mono text-emerald-400/90 font-bold shrink-0">สุทธิ 95%</span>
+        <span className="text-[10px] font-mono text-emerald-400/90 font-bold shrink-0">สุทธิ {rules.sellerLabel}</span>
       </div>
     </div>
   )

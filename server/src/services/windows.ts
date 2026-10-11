@@ -5,7 +5,7 @@ import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORY_IDS } from '@shared/categories'
 import { createEmptyWindows, DEMO_IMAGES } from '@shared/seedWindows'
 import { thaiDayKey } from '@shared/thaiTime'
-import { getEditStatus, getHoldingPeriod, getPriceCap, MIN_RESALE_PRICE } from '@shared/ownershipRules'
+import { getEditStatus, getHoldingPeriod, getPriceCap } from '@shared/ownershipRules'
 import { isPromoSlot } from '@shared/promo'
 import type { UserRow, WindowRow } from '../db/schema'
 import type { DB } from '../db'
@@ -28,7 +28,7 @@ export function parseWindowRef(region: string, num: string | number): { region: 
 }
 
 /** Row values for a brand-new, empty window (used for seeding and when an admin releases one). */
-export function emptyWindowRow(region: RegionId, num: number, now = nowIso()): WindowRow {
+export function emptyWindowRow(region: RegionId, num: number, now = nowIso(), claimPrice?: number): WindowRow {
   const w = createEmptyWindows(region)[num - 1]
   return {
     region,
@@ -40,7 +40,7 @@ export function emptyWindowRow(region: RegionId, num: number, now = nowIso()): W
     image_url: '',
     category: w.category,
     province: w.province,
-    claim_price: w.claimPrice,
+    claim_price: claimPrice ?? w.claimPrice,
     resale_price: null,
     owner_id: null,
     owner_contact: null,
@@ -340,22 +340,26 @@ export async function editWindow(ctx: AppContext, user: UserRow, region: RegionI
 
 // ---------------------------------------------------------------- resale listing
 
-/** List an owned window for resale (after 30 days, at 100 ฿ up to the price cap). */
+/** List an owned window for resale (after the minimum holding period, at the minimum price up to the cap; see settings.rules). */
 export async function listForResale(ctx: AppContext, user: UserRow, region: RegionId, num: number, price: number) {
   assertCanTrade(user)
   const row = await loadRow(ctx.db, region, num)
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   if (row.reserved_order_id) throw conflict('บานนี้มีผู้ซื้อรอตรวจสอบการชำระเงินอยู่ เปลี่ยนราคาไม่ได้ชั่วคราว')
 
+  const settings = await getSettings(ctx)
+  const { minHoldingDays, minResalePrice } = settings.rules
   const window = await loadWindow(ctx, region, num, user.id)
-  const holding = getHoldingPeriod(window)
+  const holding = getHoldingPeriod(window, minHoldingDays)
   if (!holding.isEligible) {
     throw badRequest(
-      `ตามเงื่อนไขข้อ 1: เจ้าของจะต้องถือครองหน้าต่างบานนี้ไม่ต่ำกว่า 1 เดือนขึ้นไป (30 วัน) จึงจะสามารถเปิดขายต่อได้ (ปัจจุบันถือครองมาแล้ว ${holding.daysHeld} วัน, ขาดอีก ${holding.daysRemaining} วัน)`,
+      `ตามเงื่อนไขข้อ 1: เจ้าของจะต้องถือครองหน้าต่างบานนี้ไม่ต่ำกว่า ${minHoldingDays} วัน จึงจะสามารถเปิดขายต่อได้ (ปัจจุบันถือครองมาแล้ว ${holding.daysHeld} วัน, ขาดอีก ${holding.daysRemaining} วัน)`,
     )
   }
-  if (!Number.isInteger(price) || price < MIN_RESALE_PRICE) throw badRequest(`ราคาขายต่อต้องเป็นจำนวนเต็มและไม่ต่ำกว่า ${MIN_RESALE_PRICE} ฿`)
-  const cap = getPriceCap(window, await getSettings(ctx))
+  if (!Number.isInteger(price) || price < minResalePrice) {
+    throw badRequest(`ราคาขายต่อต้องเป็นจำนวนเต็มและไม่ต่ำกว่า ${minResalePrice.toLocaleString()} ฿`)
+  }
+  const cap = getPriceCap(window, settings)
   if (cap.maxAllowedPrice !== null && price > cap.maxAllowedPrice) {
     throw badRequest(`ไม่สามารถตั้งราคาเกิน ${cap.maxAllowedPrice.toLocaleString()} ฿ ได้ (${cap.ruleDescription})`)
   }

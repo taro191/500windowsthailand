@@ -287,6 +287,40 @@ describe('resale', () => {
     assert.equal(bought.window.ownerId, buyer.user.id)
     assert.equal((await seller.c.get('/session')).user.balance, 950)
   })
+
+  it('follows the rules the admin sets: claim price, holding days, minimum price and commission', async () => {
+    const admin = await adminClient()
+    const { settings } = await client().get('/config')
+    const rules = { claimPrice: 700, commissionPercent: 10, minHoldingDays: 7, minResalePrice: 300, promoPricePerWindowRound: 40 }
+    const invalid = await admin.put('/admin/settings', { settings: { ...settings, rules: { ...rules, commissionPercent: 80 } }, what: 'x' })
+    assert.equal(invalid.status, 400)
+    const saved = await admin.put('/admin/settings', { settings: { ...settings, rules }, what: 'กติกาทั่วไป' })
+    assert.equal(saved.success, true, saved.error)
+    try {
+      assert.deepEqual((await client().get('/config')).settings.rules, rules)
+      assert.equal((await client().get('/windows/north/12')).window.claimPrice, 700)
+
+      const seller = await verifiedUser('ผู้ขายกติกาใหม่')
+      await topUpByCard(seller.c, 700)
+      assert.equal((await seller.c.post('/windows/north/12/claim', { content, payment: wallet(500) })).status, 400)
+      const claimed = await seller.c.post('/windows/north/12/claim', { content, payment: wallet(700) })
+      assert.equal(claimed.success, true, claimed.error)
+
+      await seller.c.post('/demo/windows/north/12/backdate', { days: 8 })
+      assert.equal((await seller.c.post('/windows/north/12/listing', { price: 200 })).status, 400, 'below the minimum price')
+      const listed = await seller.c.post('/windows/north/12/listing', { price: 1000 })
+      assert.equal(listed.success, true, listed.error)
+
+      const buyer = await verifiedUser('ผู้ซื้อกติกาใหม่')
+      await topUpByCard(buyer.c, 1000)
+      const bought = await buyer.c.post('/windows/north/12/buy', { expectedPrice: 1000, payment: wallet(1000) })
+      assert.equal(bought.success, true, bought.error)
+      assert.equal((await seller.c.get('/session')).user.balance, 900, '10% commission')
+    } finally {
+      await admin.put('/admin/settings', { settings, what: 'คืนค่าเดิม' })
+    }
+    assert.equal((await client().get('/windows/north/13')).window.claimPrice, 500)
+  })
 })
 
 describe('promo', () => {
