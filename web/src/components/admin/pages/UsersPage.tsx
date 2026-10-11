@@ -348,11 +348,9 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
                           <ShieldOff className="w-3.5 h-3.5" /> เพิกถอน KYC
                         </Button>
                       ) : (
-                        admin.superAdmin && (
-                          <Button size="sm" tone="success" onClick={() => verifyKyc(u)}>
-                            <ShieldCheck className="w-3.5 h-3.5" /> ยืนยัน KYC
-                          </Button>
-                        )
+                        <Button size="sm" tone="success" onClick={() => verifyKyc(u)}>
+                          <ShieldCheck className="w-3.5 h-3.5" /> ยืนยัน KYC
+                        </Button>
                       )}
                     </div>
                   )}

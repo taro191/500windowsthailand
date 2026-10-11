@@ -40,7 +40,7 @@ export const setUserSuspended = (userId: string, suspended: boolean) => post<{ u
 
 export const revokeKyc = (userId: string) => post<{ user: User }>(`/admin/users/${userId}/revoke-kyc`)
 
-/** Super admin only: verify KYC without OTP, using the citizen ID and phone on file. */
+/** Verify KYC without OTP, using the citizen ID and phone on file (any admin, not for their own account). */
 export const verifyUserKyc = (userId: string) => post<{ user: User }>(`/admin/users/${userId}/verify-kyc`)
 
 /** Disabled accounts cannot log in (suspended ones only cannot trade). */

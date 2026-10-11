@@ -541,7 +541,7 @@ describe('user management', () => {
     assert.equal((await other.post(`/admin/users/${target.id}/disable`, { disabled: true })).success, true, 'other admin tools still work')
   })
 
-  it('lets only the super admin verify KYC for a user, without OTP', async () => {
+  it('lets admins verify KYC for a user without OTP, but not their own', async () => {
     const admin = await adminClient()
     const { c: user, user: kycUser } = await verifiedUser()
 
@@ -560,11 +560,15 @@ describe('user management', () => {
     assert.equal(incomplete.status, 400)
     assert.match(incomplete.error, /ข้อมูลไม่ครบ/)
 
-    // Other admins can't.
+    // Other admins can too, but not for their own account.
     const { c: other, user: otherUser } = await verifiedUser()
     await admin.post(`/admin/users/${otherUser.id}/role`, { role: 'admin' })
     await admin.post(`/admin/users/${kycUser.id}/revoke-kyc`)
-    assert.equal((await other.post(`/admin/users/${kycUser.id}/verify-kyc`, {})).status, 403)
+    const byAdmin = await other.post(`/admin/users/${kycUser.id}/verify-kyc`, {})
+    assert.equal(byAdmin.success, true, byAdmin.error)
+    assert.equal(byAdmin.user.isVerified, true)
+    await admin.post(`/admin/users/${otherUser.id}/revoke-kyc`)
+    assert.equal((await other.post(`/admin/users/${otherUser.id}/verify-kyc`, {})).status, 400)
   })
 
   it('lets only the super admin edit user details and reset the password', async () => {

@@ -318,9 +318,9 @@ export async function revokeKyc(ctx: AppContext, admin: UserRow, userId: string)
   return adminUserDto(ctx, { ...user, is_verified: 0, verified_at: null })
 }
 
-/** Super admin verifies a user's KYC without OTP, using the citizen ID and phone already on the account. */
+/** An admin verifies a user's KYC without OTP, using the citizen ID and phone already on the account. */
 export async function verifyUserKyc(ctx: AppContext, admin: UserRow, userId: string) {
-  assertSuperAdmin(ctx, admin)
+  if (userId === admin.id) throw badRequest('ยืนยันตัวตนให้บัญชีของตัวเองไม่ได้')
   const user = await managedUser(ctx, userId)
   const citizenId = citizenIdOf(ctx, user)
   const phone = user.phone || ''
