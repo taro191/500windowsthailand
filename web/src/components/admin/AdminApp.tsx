@@ -13,6 +13,8 @@ import { PaymentsPage } from './pages/PaymentsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditPage, PayoutsPage, RevenuePage, TopUpsPage, TransactionsPage } from './pages/FinancePages'
 import { ChannelsPage, EditSettingsPage, PriceCapsPage, RulesPage, SignupBonusPage, TopUpSettingsPage } from './pages/SettingsPages'
+import { LineAlertCard } from './LineAlertCard'
+import { Callout } from './ui'
 
 /** The API sends only windows that changed; fill in the empty ones for all 3,500. */
 function allWindows(changed: WindowItem[]): WindowItem[] {
@@ -98,6 +100,7 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
           {page === 'edit-settings' && <EditSettingsPage {...props} />}
           {page === 'signup-bonus' && <SignupBonusPage {...props} />}
           {page === 'rules' && <RulesPage {...props} />}
+          {page === 'line-alerts' && (admin.superAdmin ? <LineAlertCard notify={notify} /> : <Callout tone="warning">เฉพาะ Super Admin</Callout>)}
           {page === 'audit' && <AuditPage {...props} />}
         </>
       )}

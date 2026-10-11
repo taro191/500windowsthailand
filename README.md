@@ -94,7 +94,8 @@ GitHub webhook แจ้ง Plesk ทุกครั้งที่ branch `depl
    2. แท็บ Basic settings คัดลอก **Channel secret** → `LINE_CHANNEL_SECRET` · แท็บ Messaging API กด Issue **Channel access token (long-lived)** → `LINE_CHANNEL_ACCESS_TOKEN`
    3. แท็บ Messaging API ตั้ง **Webhook URL** = `https://500windowsthailand.com/api/line/webhook` แล้วเปิด **Use webhook** · ปิด Auto-reply messages ใน LINE Official Account Manager
    4. Restart App แล้วให้แอดมินการเงินเพิ่ม LINE OA เป็นเพื่อน แล้วพิมพ์ `id` (หรือเชิญ OA เข้ากลุ่ม LINE การเงิน แล้วพิมพ์ `id` ในกลุ่ม) → บอทตอบ User ID / Group ID กลับมา
-   5. ไปที่ Admin › ตรวจสลิปชำระเงิน › การ์ด "แจ้งเตือนทาง LINE" (เฉพาะ super admin) ใส่ ID นั้นแล้วกด **บันทึกผู้รับ** แล้วกด **ส่งข้อความทดสอบ** (ไม่ต้อง Restart App) · หรือใส่ใน env `LINE_ADMIN_TO` ก็ได้
+   5. ไปที่ Admin › เมนู **แจ้งเตือนทาง LINE** (หมวดระบบ เฉพาะ super admin) ใส่ ID นั้นแล้วกด **บันทึกผู้รับ** แล้วกด **ส่งข้อความทดสอบ** (ไม่ต้อง Restart App) · หรือใส่ใน env `LINE_ADMIN_TO` ก็ได้
+   6. ในหน้าเดียวกันเลือกได้ว่าจะส่งข้อความกลุ่มไหน: สลิปรอตรวจ / ความเคลื่อนไหวทางการเงิน / การแก้ไขการตั้งค่า (ติ๊กแล้วมีผลทันที)
 
 4. `npm run deploy` แล้วกด **Restart App** — ตอนเริ่มแอปจะสร้างตารางและบัญชีผู้ดูแลให้เอง
 5. ล็อกอินด้วยบัญชีผู้ดูแล เปลี่ยนรหัสผ่าน แล้วลบ `ADMIN_PASSWORD` ออกจาก env

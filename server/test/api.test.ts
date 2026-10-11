@@ -855,6 +855,30 @@ describe('LINE alerts to the finance admin', () => {
   })
 
 
+  it('lets the super admin switch each kind of alert off, without a backlog when it comes back on', async () => {
+    const admin = await adminClient()
+    const { c } = await verifiedUser('ปิดแจ้งเตือน')
+    let status: any
+    const calls = await withLine(async () => {
+      await pushFinanceFeed(ctx, Date.now())
+      status = await admin.put('/admin/line-groups', { slips: false, finance: false })
+      assert.deepEqual(status.groups, { slips: false, finance: false, settings: true })
+      await c.post('/wallet/topup', { amount: 500, channelId: 'ch-truemoney', slip: { slipUrl: PNG } })
+      await topUpByCard(c, 300)
+      await new Promise((r) => setTimeout(r, 20))
+      assert.equal(await pushFinanceFeed(ctx, Date.now() + 10_000), 0, 'switched off: nothing sent')
+      await admin.put('/admin/line-groups', { slips: true, finance: true })
+      assert.equal(await pushFinanceFeed(ctx, Date.now() + 10_000), 0, 'no backlog after switching back on')
+    })
+    assert.equal(calls.length, 0)
+
+    const { user: other } = await verifiedUser()
+    await admin.post(`/admin/users/${other.id}/role`, { role: 'admin' })
+    const otherAdmin = client()
+    await otherAdmin.post('/auth/login', { identifier: other.email, password: 'secret-pass' })
+    assert.equal((await otherAdmin.put('/admin/line-groups', { slips: false })).status, 403)
+  })
+
   it('never fails the purchase when LINE is down', async () => {
     const { c } = await verifiedUser()
     let res: any

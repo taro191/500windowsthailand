@@ -69,6 +69,8 @@ export const updateUserInfo = (
   info: { name: string; email: string; phone: string; citizenId: string; bio: string; password: string },
 ) => put<{ user: User }>(`/admin/users/${userId}`, info)
 
+export type LineAlertGroup = 'slips' | 'finance' | 'settings'
+
 export interface LineStatus {
   configured: boolean
   hasToken: boolean
@@ -77,6 +79,8 @@ export interface LineStatus {
   /** IDs from LINE_ADMIN_TO (env) and saved from this page. */
   fromEnv: number
   saved: string[]
+  /** Which kinds of alert are sent (super admin switches). */
+  groups: Record<LineAlertGroup, boolean>
   lastFailure: { at: string; error: string } | null
 }
 
@@ -84,3 +88,4 @@ export interface LineStatus {
 export const loadLineStatus = () => get<LineStatus>('/admin/line-status')
 export const sendLineTest = () => post<{ sent: number }>('/admin/line-test')
 export const saveLineRecipients = (ids: string[]) => put<LineStatus>('/admin/line-recipients', { ids })
+export const saveLineGroups = (groups: Partial<Record<LineAlertGroup, boolean>>) => put<LineStatus>('/admin/line-groups', groups)

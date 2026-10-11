@@ -39,8 +39,30 @@ let lastFailure: { at: string; error: string } | null = null
 export const lineLastFailure = () => lastFailure
 
 /** Sends a text to the finance admin(s); resolves with the failures (none when LINE isn't set up). */
-export async function sendLineAlert(ctx: AppContext, text: string) {
-  const to = ctx.config.line.token ? await lineRecipients(ctx) : []
+/** Kinds of alert the super admin can switch on or off (the test message always goes out). */
+export type LineAlertGroup = 'slips' | 'finance' | 'settings'
+export const LINE_ALERT_GROUPS: LineAlertGroup[] = ['slips', 'finance', 'settings']
+const GROUPS_ROW = 'line_alert_groups'
+
+/** Which alert groups are on; every group is on until the super admin turns it off. */
+export async function lineAlertGroups(ctx: AppContext): Promise<Record<LineAlertGroup, boolean>> {
+  const row = await ctx.db.selectFrom('settings').select('value_json').where('id', '=', GROUPS_ROW).executeTakeFirst()
+  const saved = (row ? JSON.parse(row.value_json) : {}) as Partial<Record<LineAlertGroup, unknown>>
+  return Object.fromEntries(LINE_ALERT_GROUPS.map((g) => [g, saved[g] !== false])) as Record<LineAlertGroup, boolean>
+}
+
+export async function saveLineAlertGroups(ctx: AppContext, groups: Record<LineAlertGroup, boolean>) {
+  const value_json = JSON.stringify(groups)
+  const updated_at = nowIso()
+  const updated = await ctx.db.updateTable('settings').set({ value_json, updated_at }).where('id', '=', GROUPS_ROW).executeTakeFirst()
+  if (Number(updated.numUpdatedRows) === 0) await ctx.db.insertInto('settings').values({ id: GROUPS_ROW, value_json, updated_at }).execute()
+}
+
+/** Sends a text to the finance admin(s) unless its group is switched off; resolves with the failures. */
+export async function sendLineAlert(ctx: AppContext, text: string, group?: LineAlertGroup) {
+  if (!ctx.config.line.token) return []
+  if (group && !(await lineAlertGroups(ctx))[group]) return []
+  const to = await lineRecipients(ctx)
   if (!to.length) return []
   const failures = await pushLine({ ...ctx.config.line, to }, text).catch((err) => [{ to: '*', error: String(err) }])
   if (failures.length) {
@@ -69,5 +91,5 @@ export function slipAlertText(order: PaymentOrder, siteUrl: string) {
 /** Fire-and-forget alert for a slip that now waits for an admin. */
 export function notifyPendingSlip(ctx: AppContext, order: PaymentOrder | undefined, siteUrl: string) {
   if (!order || order.status !== 'pending' || !ctx.config.line.token) return
-  void sendLineAlert(ctx, slipAlertText(order, siteUrl)).catch((err) => console.error('[line] alert failed:', err))
+  void sendLineAlert(ctx, slipAlertText(order, siteUrl), 'slips').catch((err) => console.error('[line] alert failed:', err))
 }

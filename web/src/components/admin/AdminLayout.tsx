@@ -16,6 +16,7 @@ import {
   LayoutGrid,
   LogOut,
   Megaphone,
+  MessageCircle,
   Menu,
   Receipt,
   Scale,
@@ -44,6 +45,7 @@ export type AdminPage =
   | 'edit-settings'
   | 'signup-bonus'
   | 'rules'
+  | 'line-alerts'
   | 'audit'
 
 interface NavItem {
@@ -75,6 +77,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   'edit-settings': 'สิทธิ์แก้ไขบาน',
   'signup-bonus': 'โบนัสสมัครสมาชิก',
   rules: 'กติกาทั่วไป',
+  'line-alerts': 'แจ้งเตือนทาง LINE',
   audit: 'บันทึกการใช้งาน',
 }
 
@@ -126,7 +129,13 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'rules', label: PAGE_TITLES.rules, icon: BookOpen },
       ],
     },
-    { header: 'ระบบ', items: [{ id: 'audit', label: PAGE_TITLES.audit, icon: History }] },
+    {
+      header: 'ระบบ',
+      items: [
+        ...(admin.superAdmin ? [{ id: 'line-alerts' as const, label: PAGE_TITLES['line-alerts'], icon: MessageCircle }] : []),
+        { id: 'audit', label: PAGE_TITLES.audit, icon: History },
+      ],
+    },
   ]
 
   const navigate = (next: AdminPage) => {

@@ -4,7 +4,7 @@
 import type { Transaction } from '@shared/types'
 import { nowIso, type AppContext } from '../context'
 import { toTransaction } from './ledger'
-import { sendLineAlert } from './notify'
+import { lineAlertGroups, sendLineAlert } from './notify'
 
 const CURSOR_ROW = 'finance_feed_cursor'
 /** Rows younger than this are left for the next run, in case an older transaction commits late. */
@@ -61,7 +61,7 @@ async function readCursor(ctx: AppContext): Promise<{ raw: string; cursor: Curso
 }
 
 /**
- * Sends the money movements since the last run as one LINE message. Returns how many were sent.
+ * Sends the money movements since the last run as one LINE message. Returns how many were sent (0 when switched off).
  * The first run only sets the cursor to now, so past transactions are not replayed.
  */
 export async function pushFinanceFeed(ctx: AppContext, now = Date.now()): Promise<number> {
@@ -96,9 +96,11 @@ export async function pushFinanceFeed(ctx: AppContext, now = Date.now()): Promis
     .executeTakeFirst()
   if (Number(claimed.numUpdatedRows) === 0) return 0
 
+  // Switched off: the cursor still moves, so turning it back on doesn't replay a backlog.
+  if (!(await lineAlertGroups(ctx)).finance) return 0
   const lines = rows.map((row) => describeTransaction(toTransaction(row)))
   const title = `💰 ความเคลื่อนไหวทางการเงิน ${rows.length} รายการ`
-  await sendLineAlert(ctx, [title, ...lines].join('\n'))
+  await sendLineAlert(ctx, [title, ...lines].join('\n'), 'finance')
   return rows.length
 }
 

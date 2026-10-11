@@ -13,7 +13,18 @@ import { toPromoRequest } from './promo'
 import { getSettings, saveSettings } from './settings'
 import { settingsChanges } from './settingsDiff'
 import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, digits, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
-import { LINE_ID, lineLastFailure, lineRecipients, saveLineRecipients, savedLineRecipients, sendLineAlert } from './notify'
+import {
+  LINE_ALERT_GROUPS,
+  LINE_ID,
+  lineAlertGroups,
+  lineLastFailure,
+  lineRecipients,
+  saveLineAlertGroups,
+  saveLineRecipients,
+  savedLineRecipients,
+  sendLineAlert,
+  type LineAlertGroup,
+} from './notify'
 import { emptyWindowRow, loadBoards, loadWindow } from './windows'
 
 /** Everything the admin pages show. */
@@ -55,7 +66,7 @@ export async function updateSettings(ctx: AppContext, admin: UserRow, settings: 
   if (changes.length) {
     const at = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
     const text = ['⚙️ มีการแก้ไขการตั้งค่า', `เรื่อง: ${String(what || 'การตั้งค่าระบบ').slice(0, 200)}`, `โดย: ${admin.name}`, ...changes, `เวลา: ${at}`]
-    void sendLineAlert(ctx, text.join('\n')).catch((err) => console.error('[line] settings alert failed:', err))
+    void sendLineAlert(ctx, text.join('\n'), 'settings').catch((err) => console.error('[line] settings alert failed:', err))
   }
   return saved
 }
@@ -142,8 +153,25 @@ export async function lineStatus(ctx: AppContext, admin: UserRow) {
     recipients: recipients.length,
     fromEnv: to.length,
     saved,
+    groups: await lineAlertGroups(ctx),
     lastFailure: lineLastFailure(),
   }
+}
+
+const GROUP_LABELS: Record<LineAlertGroup, string> = { slips: 'สลิปรอตรวจ', finance: 'ความเคลื่อนไหวทางการเงิน', settings: 'การแก้ไขการตั้งค่า' }
+
+/** Super admin only: switches each kind of LINE alert on or off. */
+export async function setLineAlertGroups(ctx: AppContext, admin: UserRow, input: unknown) {
+  assertSuperAdmin(ctx, admin)
+  const given = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
+  const before = await lineAlertGroups(ctx)
+  const groups = Object.fromEntries(LINE_ALERT_GROUPS.map((g) => [g, typeof given[g] === 'boolean' ? given[g] : before[g]])) as Record<LineAlertGroup, boolean>
+  await saveLineAlertGroups(ctx, groups)
+  const changed = LINE_ALERT_GROUPS.filter((g) => groups[g] !== before[g])
+  if (changed.length) {
+    await audit(ctx.db, admin, 'ตั้งค่าแจ้งเตือน LINE', changed.map((g) => `${GROUP_LABELS[g]}: ${groups[g] ? 'เปิด' : 'ปิด'}`).join(', '))
+  }
+  return lineStatus(ctx, admin)
 }
 
 /** Super admin only: the LINE IDs (from the bot's reply to "id") that receive alerts. */

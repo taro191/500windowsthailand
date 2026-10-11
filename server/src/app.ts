@@ -332,6 +332,8 @@ export function createApp(ctx: AppContext) {
     return ok(c, await admin.setLineRecipients(ctx, me(c), ids))
   })
 
+  adminApi.put('/line-groups', async (c) => ok(c, await admin.setLineAlertGroups(ctx, me(c), await body(c))))
+
   adminApi.post('/line-test', async (c) => ok(c, await admin.testLineAlert(ctx, me(c))))
 
   adminApi.put('/settings', async (c) => {
