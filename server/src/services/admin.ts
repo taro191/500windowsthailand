@@ -1,4 +1,5 @@
 // Admin-only reads and actions. Every change is written to the audit log.
+import { isLineAlertTopic, LINE_ALERT_GROUPS, LINE_ALERT_TOPICS, type LineAlertTopics } from '@shared/lineAlerts'
 import type { PlatformSettings, RegionId } from '@shared/types'
 import { isValidCitizenId, isValidThaiMobile } from '@shared/identity'
 import type { UserRow } from '../db/schema'
@@ -7,6 +8,7 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { smsStatus } from '../lib/sms'
 import { nowIso, type AppContext } from '../context'
 import { audit, loadAuditLog } from './audit'
+import { listContactMessages } from './contact'
 import { toTransaction } from './ledger'
 import { toOrder } from './purchases'
 import { toPromoRequest } from './promo'
@@ -14,28 +16,28 @@ import { getSettings, saveSettings } from './settings'
 import { settingsChanges } from './settingsDiff'
 import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, digits, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
 import {
-  LINE_ALERT_GROUPS,
   LINE_ID,
-  lineAlertGroups,
+  lineAlertTopics,
   lineLastFailure,
   lineRecipients,
-  saveLineAlertGroups,
+  notifyAdminAction,
+  saveLineAlertTopics,
   saveLineRecipients,
   savedLineRecipients,
   sendLineAlert,
-  type LineAlertGroup,
 } from './notify'
 import { emptyWindowRow, loadBoards, loadWindow } from './windows'
 
 /** Everything the admin pages show. */
 export async function adminOverview(ctx: AppContext) {
-  const [users, windows, transactions, promoRequests, orders, auditLog] = await Promise.all([
+  const [users, windows, transactions, promoRequests, orders, auditLog, contactMessages] = await Promise.all([
     ctx.db.selectFrom('users').selectAll().orderBy('created_at', 'asc').execute(),
     loadBoards(ctx, null),
     ctx.db.selectFrom('transactions').selectAll().orderBy('date', 'desc').limit(1000).execute(),
     ctx.db.selectFrom('promo_requests').selectAll().orderBy('created_at', 'desc').execute(),
     ctx.db.selectFrom('payment_orders').selectAll().orderBy('created_at', 'desc').limit(1000).execute(),
     loadAuditLog(ctx.db),
+    listContactMessages(ctx),
   ])
   const names = new Map(users.map((u) => [u.id, u.name]))
   return {
@@ -45,6 +47,7 @@ export async function adminOverview(ctx: AppContext) {
     promoRequests: promoRequests.map(toPromoRequest),
     orders: orders.map((o) => toOrder(o, names.get(o.user_id) ?? '')),
     auditLog,
+    contactMessages,
   }
 }
 
@@ -61,12 +64,15 @@ export async function updateSettings(ctx: AppContext, admin: UserRow, settings: 
       .execute()
   }
   await audit(ctx.db, admin, 'แก้ไขการตั้งค่า', String(what || 'การตั้งค่าระบบ').slice(0, 200))
-  // Tell the finance admin on LINE what changed (in the background; LINE being down never blocks saving).
-  const changes = settingsChanges(before, saved)
-  if (changes.length) {
-    const at = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
-    const text = ['⚙️ มีการแก้ไขการตั้งค่า', `เรื่อง: ${String(what || 'การตั้งค่าระบบ').slice(0, 200)}`, `โดย: ${admin.name}`, ...changes, `เวลา: ${at}`]
-    void sendLineAlert(ctx, text.join('\n'), 'settings').catch((err) => console.error('[line] settings alert failed:', err))
+  // Tell the finance admin on LINE what changed, leaving out the kinds switched off (in the background).
+  if (ctx.config.line.token) {
+    const on = await lineAlertTopics(ctx)
+    const changes = settingsChanges(before, saved).filter((c) => on[c.topic])
+    if (changes.length) {
+      const at = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+      const text = ['⚙️ มีการแก้ไขการตั้งค่า', `เรื่อง: ${String(what || 'การตั้งค่าระบบ').slice(0, 200)}`, `โดย: ${admin.name}`, ...changes.map((c) => c.line), `เวลา: ${at}`]
+      void sendLineAlert(ctx, text.join('\n')).catch((err) => console.error('[line] settings alert failed:', err))
+    }
   }
   return saved
 }
@@ -153,23 +159,25 @@ export async function lineStatus(ctx: AppContext, admin: UserRow) {
     recipients: recipients.length,
     fromEnv: to.length,
     saved,
-    groups: await lineAlertGroups(ctx),
+    topics: await lineAlertTopics(ctx),
     lastFailure: lineLastFailure(),
   }
 }
 
-const GROUP_LABELS: Record<LineAlertGroup, string> = { slips: 'สลิปรอตรวจ', finance: 'ความเคลื่อนไหวทางการเงิน', settings: 'การแก้ไขการตั้งค่า' }
+const groupLabel = (id: string) => LINE_ALERT_GROUPS.find((g) => g.id === id)?.label ?? id
 
-/** Super admin only: switches each kind of LINE alert on or off. */
-export async function setLineAlertGroups(ctx: AppContext, admin: UserRow, input: unknown) {
+/** Super admin only: switches each kind of LINE alert on or off ({ "slips.topup": false, ... }). */
+export async function setLineAlertTopics(ctx: AppContext, admin: UserRow, input: unknown) {
   assertSuperAdmin(ctx, admin)
-  const given = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
-  const before = await lineAlertGroups(ctx)
-  const groups = Object.fromEntries(LINE_ALERT_GROUPS.map((g) => [g, typeof given[g] === 'boolean' ? given[g] : before[g]])) as Record<LineAlertGroup, boolean>
-  await saveLineAlertGroups(ctx, groups)
-  const changed = LINE_ALERT_GROUPS.filter((g) => groups[g] !== before[g])
+  const given = Object.entries(input && typeof input === 'object' ? input : {}).filter(
+    (e): e is [keyof LineAlertTopics, boolean] => isLineAlertTopic(e[0]) && typeof e[1] === 'boolean',
+  )
+  const before = await lineAlertTopics(ctx)
+  const topics: LineAlertTopics = { ...before, ...Object.fromEntries(given) }
+  await saveLineAlertTopics(ctx, topics)
+  const changed = LINE_ALERT_TOPICS.filter((t) => topics[t.id] !== before[t.id])
   if (changed.length) {
-    await audit(ctx.db, admin, 'ตั้งค่าแจ้งเตือน LINE', changed.map((g) => `${GROUP_LABELS[g]}: ${groups[g] ? 'เปิด' : 'ปิด'}`).join(', '))
+    await audit(ctx.db, admin, 'ตั้งค่าแจ้งเตือน LINE', changed.map((t) => `${groupLabel(t.group)} › ${t.label}: ${topics[t.id] ? 'เปิด' : 'ปิด'}`).join(', ').slice(0, 500))
   }
   return lineStatus(ctx, admin)
 }
@@ -254,6 +262,7 @@ export async function createUser(ctx: AppContext, admin: UserRow, input: NewUser
   }
   await ctx.db.insertInto('users').values(row).execute()
   await audit(ctx.db, admin, 'สร้างผู้ใช้', `${name} (${email})${role === 'admin' ? ' · ผู้ดูแลระบบ' : ''}`)
+  notifyAdminAction(ctx, 'security.userEdit', admin, 'สร้างผู้ใช้', `${name} (${email})${role === 'admin' ? ' · ผู้ดูแลระบบ' : ''}`)
   return adminUserDto(ctx, row)
 }
 
@@ -263,6 +272,7 @@ export async function setUserSuspended(ctx: AppContext, admin: UserRow, userId: 
   await ctx.db.updateTable('users').set({ suspended: suspended ? 1 : 0, updated_at: nowIso() }).where('id', '=', userId).execute()
   if (suspended) await ctx.db.deleteFrom('sessions').where('user_id', '=', userId).execute()
   await audit(ctx.db, admin, suspended ? 'ระงับบัญชี' : 'ยกเลิกการระงับบัญชี', user.name)
+  notifyAdminAction(ctx, 'security.suspend', admin, suspended ? 'ระงับบัญชี' : 'ยกเลิกการระงับบัญชี', `ผู้ใช้: ${user.name}`)
   return adminUserDto(ctx, { ...user, suspended: suspended ? 1 : 0 })
 }
 
@@ -273,6 +283,7 @@ export async function setUserDisabled(ctx: AppContext, admin: UserRow, userId: s
   await ctx.db.updateTable('users').set({ disabled: disabled ? 1 : 0, updated_at: nowIso() }).where('id', '=', userId).execute()
   if (disabled) await ctx.db.deleteFrom('sessions').where('user_id', '=', userId).execute()
   await audit(ctx.db, admin, disabled ? 'ปิดใช้งานบัญชี' : 'เปิดใช้งานบัญชี', user.name)
+  notifyAdminAction(ctx, 'security.suspend', admin, disabled ? 'ปิดใช้งานบัญชี' : 'เปิดใช้งานบัญชี', `ผู้ใช้: ${user.name}`)
   return adminUserDto(ctx, { ...user, disabled: disabled ? 1 : 0 })
 }
 
@@ -292,6 +303,7 @@ export async function setUserRole(ctx: AppContext, admin: UserRow, userId: strin
   }
   await ctx.db.updateTable('users').set({ role, updated_at: nowIso() }).where('id', '=', userId).execute()
   await audit(ctx.db, admin, 'เปลี่ยนสิทธิ์ผู้ใช้', `${user.name} → ${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}`)
+  notifyAdminAction(ctx, 'security.role', admin, 'เปลี่ยนสิทธิ์ผู้ใช้', `${user.name} → ${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}`)
   return adminUserDto(ctx, { ...user, role })
 }
 
@@ -353,7 +365,10 @@ export async function updateUserInfo(ctx: AppContext, admin: UserRow, userId: st
   ].filter(Boolean)
   await ctx.db.updateTable('users').set(changes).where('id', '=', user.id).execute()
   if (password) await ctx.db.deleteFrom('sessions').where('user_id', '=', user.id).execute()
-  if (changed.length) await audit(ctx.db, admin, 'แก้ไขข้อมูลผู้ใช้', `${name} · ${changed.join(', ')}`)
+  if (changed.length) {
+    await audit(ctx.db, admin, 'แก้ไขข้อมูลผู้ใช้', `${name} · ${changed.join(', ')}`)
+    notifyAdminAction(ctx, 'security.userEdit', admin, 'แก้ไขข้อมูลผู้ใช้', `ผู้ใช้: ${name}\nแก้ไข: ${changed.join(', ')}`)
+  }
   return adminUserDto(ctx, { ...user, ...changes })
 }
 
@@ -362,6 +377,7 @@ export async function revokeKyc(ctx: AppContext, admin: UserRow, userId: string)
   if (!user) throw notFound('ไม่พบบัญชีผู้ใช้')
   await ctx.db.updateTable('users').set({ is_verified: 0, verified_at: null, updated_at: nowIso() }).where('id', '=', userId).execute()
   await audit(ctx.db, admin, 'เพิกถอนการยืนยันตัวตน (KYC)', user.name)
+  notifyAdminAction(ctx, 'security.kyc', admin, 'เพิกถอนการยืนยันตัวตน (KYC)', `ผู้ใช้: ${user.name}`)
   return adminUserDto(ctx, { ...user, is_verified: 0, verified_at: null })
 }
 
@@ -375,6 +391,7 @@ export async function verifyUserKyc(ctx: AppContext, admin: UserRow, userId: str
   if (missing.length) throw badRequest(`ข้อมูลไม่ครบ (ไม่มี${missing.join('และ')}) ยืนยันตัวตนไม่ได้`)
   const verified = await markVerified(ctx, user, citizenId, phone)
   await audit(ctx.db, admin, 'ยืนยันตัวตน (KYC) ให้ผู้ใช้', user.name)
+  notifyAdminAction(ctx, 'security.kyc', admin, 'ยืนยันตัวตน (KYC) ให้ผู้ใช้', `ผู้ใช้: ${user.name}`)
   return adminUserDto(ctx, verified)
 }
 

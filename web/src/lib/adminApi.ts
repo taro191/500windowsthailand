@@ -1,5 +1,6 @@
 // Admin-only API calls (server/src/services/admin.ts). Every change is audit-logged on the server.
-import type { AuditEntry, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowItem } from '@shared/types'
+import type { AuditEntry, ContactMessageEntry, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowItem } from '@shared/types'
+import type { LineAlertTopics } from '@shared/lineAlerts'
 import type { PromoRequest } from '@shared/promo'
 import { get, post, put } from './api'
 import { refreshBoards, refreshConfig } from './store'
@@ -12,6 +13,7 @@ export interface AdminOverview {
   promoRequests: PromoRequest[]
   orders: PaymentOrder[]
   auditLog: AuditEntry[]
+  contactMessages: ContactMessageEntry[]
 }
 
 export const loadAdminOverview = () => get<AdminOverview>('/admin/overview')
@@ -57,6 +59,10 @@ export const decidePromoRequest = (requestId: string, decision: 'approved' | 're
   post<{ refunded?: number }>(`/admin/promo/${requestId}/decide`, { decision, note })
 
 /** Approving a slip completes the purchase or top-up; rejecting returns the wallet part. */
+/** Marks a contact form message done (with a note) or back to new. */
+export const updateContactMessage = (id: string, status: ContactMessageEntry['status'], note: string) =>
+  post(`/admin/contact-messages/${id}`, { status, note })
+
 export async function decideOrder(orderId: string, decision: 'approved' | 'rejected', note = ''): Promise<Result> {
   const result = await post(`/admin/orders/${orderId}/decide`, { decision, note })
   if (result.success) await refreshBoards()
@@ -69,8 +75,6 @@ export const updateUserInfo = (
   info: { name: string; email: string; phone: string; citizenId: string; bio: string; password: string },
 ) => put<{ user: User }>(`/admin/users/${userId}`, info)
 
-export type LineAlertGroup = 'slips' | 'finance' | 'settings'
-
 export interface LineStatus {
   configured: boolean
   hasToken: boolean
@@ -80,12 +84,12 @@ export interface LineStatus {
   fromEnv: number
   saved: string[]
   /** Which kinds of alert are sent (super admin switches). */
-  groups: Record<LineAlertGroup, boolean>
+  topics: LineAlertTopics
   lastFailure: { at: string; error: string } | null
 }
 
-/** Super admin only: LINE alerts to the finance admin (new slips to check). */
+/** Super admin only: LINE alerts to the finance admin. */
 export const loadLineStatus = () => get<LineStatus>('/admin/line-status')
 export const sendLineTest = () => post<{ sent: number }>('/admin/line-test')
 export const saveLineRecipients = (ids: string[]) => put<LineStatus>('/admin/line-recipients', { ids })
-export const saveLineGroups = (groups: Partial<Record<LineAlertGroup, boolean>>) => put<LineStatus>('/admin/line-groups', groups)
+export const saveLineTopics = (topics: Partial<LineAlertTopics>) => put<LineStatus>('/admin/line-topics', topics)

@@ -1,4 +1,6 @@
-// Alerts to the finance admin on LINE (new slips to check, settings changes; money movements are in financeFeed.ts). Sending never blocks or fails the request that caused it.
+// Alerts to the finance admin on LINE (slips to check, settings changes, users, admin actions on accounts;
+// money movements are in financeFeed.ts). Sending never blocks or fails the request that caused it.
+import { lineAlertTopicsFrom, type LineAlertTopic, type LineAlertTopics } from '@shared/lineAlerts'
 import type { PaymentOrder } from '@shared/types'
 import { pushLine } from '../lib/line'
 import { nowIso, type AppContext } from '../context'
@@ -12,8 +14,17 @@ const KIND_LABELS: Record<PaymentOrder['kind'], string> = {
 
 /** Settings row holding the recipient IDs saved from the admin page (kept out of the public config). */
 const RECIPIENTS_ROW = 'line_recipients'
+/** Settings row holding which alert topics are on (named before topics replaced the groups). */
+const TOPICS_ROW = 'line_alert_groups'
 /** A LINE user (U…), group (C…) or room (R…) ID. */
 export const LINE_ID = /^[UCR][0-9a-f]{32}$/
+
+async function saveRow(ctx: AppContext, id: string, value: unknown) {
+  const value_json = JSON.stringify(value)
+  const updated_at = nowIso()
+  const updated = await ctx.db.updateTable('settings').set({ value_json, updated_at }).where('id', '=', id).executeTakeFirst()
+  if (Number(updated.numUpdatedRows) === 0) await ctx.db.insertInto('settings').values({ id, value_json, updated_at }).execute()
+}
 
 /** Recipient IDs saved by the super admin. */
 export async function savedLineRecipients(ctx: AppContext): Promise<string[]> {
@@ -22,46 +33,29 @@ export async function savedLineRecipients(ctx: AppContext): Promise<string[]> {
   return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string' && LINE_ID.test(id)) : []
 }
 
-export async function saveLineRecipients(ctx: AppContext, ids: string[]) {
-  const value_json = JSON.stringify(ids)
-  const updated_at = nowIso()
-  const updated = await ctx.db.updateTable('settings').set({ value_json, updated_at }).where('id', '=', RECIPIENTS_ROW).executeTakeFirst()
-  if (Number(updated.numUpdatedRows) === 0) await ctx.db.insertInto('settings').values({ id: RECIPIENTS_ROW, value_json, updated_at }).execute()
-}
+export const saveLineRecipients = (ctx: AppContext, ids: string[]) => saveRow(ctx, RECIPIENTS_ROW, ids)
 
 /** Everyone who gets alerts: LINE_ADMIN_TO plus the IDs saved from the admin page. */
 export async function lineRecipients(ctx: AppContext) {
   return [...new Set([...ctx.config.line.to, ...(await savedLineRecipients(ctx))])]
 }
 
+/** Which alert topics are on; every topic is on until the super admin turns it off. */
+export async function lineAlertTopics(ctx: AppContext): Promise<LineAlertTopics> {
+  const row = await ctx.db.selectFrom('settings').select('value_json').where('id', '=', TOPICS_ROW).executeTakeFirst()
+  return lineAlertTopicsFrom(row ? JSON.parse(row.value_json) : {})
+}
+
+export const saveLineAlertTopics = (ctx: AppContext, topics: LineAlertTopics) => saveRow(ctx, TOPICS_ROW, topics)
+
 /** The last LINE failure, so a super admin can see why alerts don't arrive. */
 let lastFailure: { at: string; error: string } | null = null
 export const lineLastFailure = () => lastFailure
 
-/** Sends a text to the finance admin(s); resolves with the failures (none when LINE isn't set up). */
-/** Kinds of alert the super admin can switch on or off (the test message always goes out). */
-export type LineAlertGroup = 'slips' | 'finance' | 'settings'
-export const LINE_ALERT_GROUPS: LineAlertGroup[] = ['slips', 'finance', 'settings']
-const GROUPS_ROW = 'line_alert_groups'
-
-/** Which alert groups are on; every group is on until the super admin turns it off. */
-export async function lineAlertGroups(ctx: AppContext): Promise<Record<LineAlertGroup, boolean>> {
-  const row = await ctx.db.selectFrom('settings').select('value_json').where('id', '=', GROUPS_ROW).executeTakeFirst()
-  const saved = (row ? JSON.parse(row.value_json) : {}) as Partial<Record<LineAlertGroup, unknown>>
-  return Object.fromEntries(LINE_ALERT_GROUPS.map((g) => [g, saved[g] !== false])) as Record<LineAlertGroup, boolean>
-}
-
-export async function saveLineAlertGroups(ctx: AppContext, groups: Record<LineAlertGroup, boolean>) {
-  const value_json = JSON.stringify(groups)
-  const updated_at = nowIso()
-  const updated = await ctx.db.updateTable('settings').set({ value_json, updated_at }).where('id', '=', GROUPS_ROW).executeTakeFirst()
-  if (Number(updated.numUpdatedRows) === 0) await ctx.db.insertInto('settings').values({ id: GROUPS_ROW, value_json, updated_at }).execute()
-}
-
-/** Sends a text to the finance admin(s) unless its group is switched off; resolves with the failures. */
-export async function sendLineAlert(ctx: AppContext, text: string, group?: LineAlertGroup) {
+/** Sends a text to the finance admin(s) unless its topic is switched off; resolves with the failures. */
+export async function sendLineAlert(ctx: AppContext, text: string, topic?: LineAlertTopic) {
   if (!ctx.config.line.token) return []
-  if (group && !(await lineAlertGroups(ctx))[group]) return []
+  if (topic && !(await lineAlertTopics(ctx))[topic]) return []
   const to = await lineRecipients(ctx)
   if (!to.length) return []
   const failures = await pushLine({ ...ctx.config.line, to }, text).catch((err) => [{ to: '*', error: String(err) }])
@@ -70,6 +64,24 @@ export async function sendLineAlert(ctx: AppContext, text: string, group?: LineA
     console.error('[line] alert not sent:', lastFailure.error)
   }
   return failures
+}
+
+/** Fire-and-forget alert; LINE being down never blocks or fails the request. */
+export function notifyLine(ctx: AppContext, text: string, topic: LineAlertTopic) {
+  if (!ctx.config.line.token) return
+  void sendLineAlert(ctx, text, topic).catch((err) => console.error('[line] alert failed:', err))
+}
+
+const thaiNow = () => new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+
+/** "🔐 ระงับบัญชี" alert for something an admin did to an account. */
+export function notifyAdminAction(ctx: AppContext, topic: LineAlertTopic, admin: { name: string }, title: string, detail: string) {
+  notifyLine(ctx, [`🔐 ${title}`, detail, `โดย: ${admin.name}`, `เวลา: ${thaiNow()}`].join('\n'), topic)
+}
+
+/** "👤 สมัครสมาชิกใหม่" alert for something a user did. */
+export function notifyUserEvent(ctx: AppContext, topic: LineAlertTopic, title: string, user: { name: string; email: string | null }) {
+  notifyLine(ctx, [`👤 ${title}`, `ผู้ใช้: ${user.name}${user.email ? ` (${user.email})` : ''}`, `เวลา: ${thaiNow()}`].join('\n'), topic)
 }
 
 export function slipAlertText(order: PaymentOrder, siteUrl: string) {
@@ -90,6 +102,6 @@ export function slipAlertText(order: PaymentOrder, siteUrl: string) {
 
 /** Fire-and-forget alert for a slip that now waits for an admin. */
 export function notifyPendingSlip(ctx: AppContext, order: PaymentOrder | undefined, siteUrl: string) {
-  if (!order || order.status !== 'pending' || !ctx.config.line.token) return
-  void sendLineAlert(ctx, slipAlertText(order, siteUrl), 'slips').catch((err) => console.error('[line] alert failed:', err))
+  if (!order || order.status !== 'pending') return
+  notifyLine(ctx, slipAlertText(order, siteUrl), `slips.${order.kind}`)
 }

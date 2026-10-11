@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS, enabledChannels as sharedEnabledChannels, sellerPerce
 
 export {
   CHANNEL_TYPE_LABELS,
+  CONTACT_SUBJECTS,
   DEFAULT_SETTINGS,
   activeSignupBonus,
   editPolicyLabel,

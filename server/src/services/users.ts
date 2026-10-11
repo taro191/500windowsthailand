@@ -10,6 +10,7 @@ import { sendSms } from '../lib/sms'
 import { ApiError, badRequest, conflict, forbidden } from '../lib/errors'
 import { nowIso, type AppContext } from '../context'
 import { creditWallet, recordTransaction } from './ledger'
+import { notifyUserEvent } from './notify'
 import { getSettings } from './settings'
 
 export const DEFAULT_AVATAR_URL =
@@ -141,6 +142,7 @@ export async function signup(ctx: AppContext, input: SignupInput): Promise<UserR
       externalAmount: 0,
     })
   })
+  notifyUserEvent(ctx, 'users.signup', 'สมัครสมาชิกใหม่', row)
   return { ...row, balance: bonus }
 }
 
@@ -397,7 +399,9 @@ export async function verifyKyc(ctx: AppContext, user: UserRow, input: { citizen
     await ctx.db.updateTable('otp_codes').set({ attempts: otp.attempts + 1 }).where('user_id', '=', user.id).execute()
     throw badRequest('รหัส OTP ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง')
   }
-  return markVerified(ctx, user, input.citizenId, input.phone)
+  const verified = await markVerified(ctx, user, input.citizenId, input.phone)
+  notifyUserEvent(ctx, 'users.kyc', 'ยืนยันตัวตน (KYC) ด้วย OTP สำเร็จ', verified)
+  return verified
 }
 
 /** Throws unless the user may buy, sell or claim (not suspended, KYC done). */

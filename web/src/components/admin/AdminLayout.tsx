@@ -5,6 +5,7 @@ import {
   BookOpen,
   ChartColumn,
   ChevronRight,
+  Contact,
   CreditCard,
   ExternalLink,
   FileCheck2,
@@ -12,6 +13,7 @@ import {
   Gift,
   HandCoins,
   History,
+  Inbox,
   ImageOff,
   LayoutGrid,
   LogOut,
@@ -34,6 +36,7 @@ export type AdminPage =
   | 'moderation'
   | 'promo'
   | 'users'
+  | 'messages'
   | 'payments'
   | 'transactions'
   | 'topups'
@@ -45,6 +48,7 @@ export type AdminPage =
   | 'edit-settings'
   | 'signup-bonus'
   | 'rules'
+  | 'contact'
   | 'line-alerts'
   | 'audit'
 
@@ -66,6 +70,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   moderation: 'ตรวจสอบเนื้อหา',
   promo: 'พื้นที่โปรโมท',
   users: 'ผู้ใช้งาน & KYC',
+  messages: 'ข้อความติดต่อ',
   payments: 'ตรวจสลิปชำระเงิน',
   transactions: 'ธุรกรรมทั้งหมด',
   topups: 'การเติมเงิน',
@@ -77,6 +82,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   'edit-settings': 'สิทธิ์แก้ไขบาน',
   'signup-bonus': 'โบนัสสมัครสมาชิก',
   rules: 'กติกาทั่วไป',
+  contact: 'ติดต่อเรา',
   'line-alerts': 'แจ้งเตือนทาง LINE',
   audit: 'บันทึกการใช้งาน',
 }
@@ -107,7 +113,13 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'promo', label: PAGE_TITLES.promo, icon: Megaphone, badge: badges.promo },
       ],
     },
-    { header: 'ผู้ใช้งาน', items: [{ id: 'users', label: PAGE_TITLES.users, icon: Users, badge: badges.users }] },
+    {
+      header: 'ผู้ใช้งาน',
+      items: [
+        { id: 'users', label: PAGE_TITLES.users, icon: Users, badge: badges.users },
+        { id: 'messages', label: PAGE_TITLES.messages, icon: Inbox, badge: badges.messages },
+      ],
+    },
     {
       header: 'การเงิน',
       items: [
@@ -127,6 +139,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'edit-settings', label: PAGE_TITLES['edit-settings'], icon: ImagePlus },
         { id: 'signup-bonus', label: PAGE_TITLES['signup-bonus'], icon: Gift },
         { id: 'rules', label: PAGE_TITLES.rules, icon: BookOpen },
+        { id: 'contact', label: PAGE_TITLES.contact, icon: Contact },
       ],
     },
     {

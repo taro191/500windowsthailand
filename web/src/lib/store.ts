@@ -239,6 +239,19 @@ export const requestPasswordReset = (email: string) => post<{ devCode?: string }
 
 export const resetPassword = (email: string, code: string, password: string) => post('/auth/password/reset', { email, code, password })
 
+export interface ContactMessage {
+  name: string
+  email: string
+  phone: string
+  subject: string
+  message: string
+  /** Honeypot: stays empty for people. */
+  website: string
+}
+
+/** Sends the contact form to the admins (LINE). */
+export const sendContactMessage = (input: ContactMessage) => post<{ sent: boolean }>('/contact', input)
+
 /** Sends a KYC OTP; in dev mode the server returns the code. */
 export const requestOtp = (phone: string) => post<{ devCode?: string }>('/kyc/otp', { phone })
 

@@ -44,6 +44,7 @@ import { AuthModal } from '@/components/auth/AuthModal'
 import { KycModal } from '@/components/auth/KycModal'
 import { ProfileModal } from '@/components/auth/ProfileModal'
 import { WalletHistoryModal } from '@/components/payment/WalletHistoryModal'
+import { ContactModal } from '@/components/layout/ContactModal'
 import { AdminApp } from '@/components/admin/AdminApp'
 
 const EMPTY_QUOTA: Quota = {
@@ -105,6 +106,7 @@ export default function App() {
   const [kycReason, setKycReason] = useState('')
   const [profileOpen, setProfileOpen] = useState(false)
   const [walletHistoryOpen, setWalletHistoryOpen] = useState(false)
+  const [contactOpen, setContactOpen] = useState(() => window.location.hash === '#contact')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(true)
   const [topUpOpen, setTopUpOpen] = useState(false)
@@ -211,6 +213,7 @@ export default function App() {
   useEffect(() => {
     const openFromHash = () => {
       const hash = window.location.hash
+      if (hash === '#contact') setContactOpen(true)
       if (!hash.startsWith('#window-')) return
       const parts = hash.replace('#window-', '').split('-')
       if (parts.length === 2 && REGION_IDS.includes(parts[0] as RegionId)) {
@@ -594,7 +597,13 @@ export default function App() {
         />
       </main>
 
-      <Footer currentUser={currentUser} onBackToWelcome={() => setView('welcome')} onOpenHub={openHub} onOpenAuth={openAuth} />
+      <Footer
+        currentUser={currentUser}
+        onBackToWelcome={() => setView('welcome')}
+        onOpenHub={openHub}
+        onOpenAuth={openAuth}
+        onOpenContact={() => setContactOpen(true)}
+      />
 
       <WindowDetailModal
         windowItem={selectedWindow}
@@ -742,6 +751,16 @@ export default function App() {
         <WalletHistoryModal key={currentUser.id} currentUser={currentUser} onClose={() => setWalletHistoryOpen(false)} onRefreshed={syncAccount} />
       )}
 
+      {contactOpen && (
+        <ContactModal
+          currentUser={currentUser}
+          onClose={() => {
+            setContactOpen(false)
+            if (window.location.hash === '#contact') window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          }}
+        />
+      )}
+
       <MobileDrawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -754,6 +773,7 @@ export default function App() {
         onOpenWalletHistory={() => setWalletHistoryOpen(true)}
         onLogout={handleLogout}
         onOpenHub={openHub}
+        onOpenContact={() => setContactOpen(true)}
         onBackToWelcome={() => setView('welcome')}
         onOpenTopUp={openTopUp}
         onOpenAdmin={isAdmin ? () => setView('admin') : undefined}

@@ -1,16 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MessageCircle, Save, Send } from 'lucide-react'
-import { loadLineStatus, saveLineGroups, saveLineRecipients, sendLineTest, type LineAlertGroup, type LineStatus } from '@/lib/adminApi'
+import { LINE_ALERT_GROUPS, LINE_ALERT_TOPICS, type LineAlertTopic, type LineAlertTopics } from '@shared/lineAlerts'
+import { loadLineStatus, saveLineRecipients, saveLineTopics, sendLineTest, type LineStatus } from '@/lib/adminApi'
 import type { AdminPageProps } from './adminData'
 import { Badge, Button, Card, FormRow, inputClass, thaiDateTime } from './ui'
 
-const GROUPS: { id: LineAlertGroup; label: string; hint: string }[] = [
-  { id: 'slips', label: 'สลิปรอตรวจ', hint: 'ทันทีที่ลูกค้าส่งสลิป (เติมเงิน / จับจอง / ซื้อต่อ / โปรโมท)' },
-  { id: 'finance', label: 'ความเคลื่อนไหวทางการเงิน', hint: 'เงินเข้า-ออกทุกรายการ สรุปทุก 30 วินาที' },
-  { id: 'settings', label: 'การแก้ไขการตั้งค่า', hint: 'กติกา, ช่องทางชำระเงิน, เพดานราคา ฯลฯ พร้อมค่าก่อน-หลัง' },
-]
+/** A checkbox that also shows "some on" (indeterminate) for a whole group. */
+function GroupCheckbox({ on, some, onChange }: { on: boolean; some: boolean; onChange: (on: boolean) => void }) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = some && !on
+  }, [on, some])
+  return <input ref={ref} type="checkbox" className="mt-1" checked={on} onChange={(e) => onChange(e.target.checked)} />
+}
 
-/** Super admin only: who gets LINE alerts and which kinds (slips, money movements, settings changes), with a test button. */
+/** Super admin only: who gets LINE alerts and which kinds (each topic of each group), with a test button. */
 export function LineAlertCard({ notify }: Pick<AdminPageProps, 'notify'>) {
   const [status, setStatus] = useState<LineStatus | null>(null)
   const [ids, setIds] = useState('')
@@ -34,11 +38,12 @@ export function LineAlertCard({ notify }: Pick<AdminPageProps, 'notify'>) {
     notify('บันทึกผู้รับแจ้งเตือน LINE แล้ว')
   }
 
-  const toggle = async (group: LineAlertGroup, on: boolean) => {
-    const result = await saveLineGroups({ [group]: on })
+  /** Saves the switches at once; label names what changed for the toast. */
+  const toggle = async (ids: LineAlertTopic[], on: boolean, label: string) => {
+    const result = await saveLineTopics(Object.fromEntries(ids.map((id) => [id, on])) as Partial<LineAlertTopics>)
     if (!result.success) return notify(result.error || 'บันทึกไม่สำเร็จ', 'error')
     setStatus(result) // keeps any IDs being typed
-    notify(`${on ? 'เปิด' : 'ปิด'}แจ้งเตือน "${GROUPS.find((g) => g.id === group)?.label}" แล้ว`)
+    notify(`${on ? 'เปิด' : 'ปิด'}แจ้งเตือน "${label}" แล้ว`)
   }
 
   const test = async () => {
@@ -76,19 +81,36 @@ export function LineAlertCard({ notify }: Pick<AdminPageProps, 'notify'>) {
         </div>
         <div>
           <div className="font-bold mb-1">ข้อความที่ส่งทาง LINE</div>
-          <div className="grid gap-1.5 sm:grid-cols-3">
-            {GROUPS.map((g) => (
-              <label
-                key={g.id}
-                className={`flex items-start gap-2 p-2 rounded border cursor-pointer ${status.groups[g.id] ? 'border-[#28a745] bg-[#28a745]/5' : 'border-[#dee2e6] bg-[#f8f9fa]'}`}
-              >
-                <input type="checkbox" className="mt-1" checked={status.groups[g.id]} onChange={(e) => toggle(g.id, e.target.checked)} />
-                <span>
-                  <span className="font-bold block">{g.label}</span>
-                  <span className="text-[0.8rem] text-[#6c757d]">{g.hint}</span>
-                </span>
-              </label>
-            ))}
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {LINE_ALERT_GROUPS.map((g) => {
+              const topics = LINE_ALERT_TOPICS.filter((t) => t.group === g.id)
+              const onCount = topics.filter((t) => status.topics[t.id]).length
+              return (
+                <div key={g.id} className={`p-2 rounded border ${onCount ? 'border-[#28a745] bg-[#28a745]/5' : 'border-[#dee2e6] bg-[#f8f9fa]'}`}>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <GroupCheckbox
+                      on={onCount === topics.length}
+                      some={onCount > 0}
+                      onChange={(on) => toggle(topics.map((t) => t.id), on, g.label)}
+                    />
+                    <span>
+                      <span className="font-bold">{g.label}</span>{' '}
+                      <span className="text-[0.75rem] text-[#6c757d]">
+                        ({onCount}/{topics.length}) · {g.hint}
+                      </span>
+                    </span>
+                  </label>
+                  <div className="mt-1 ml-6 space-y-0.5">
+                    {topics.map((t) => (
+                      <label key={t.id} className="flex items-center gap-2 cursor-pointer text-[0.85rem]">
+                        <input type="checkbox" checked={status.topics[t.id]} onChange={(e) => toggle([t.id], e.target.checked, t.label)} />
+                        {t.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
         <FormRow label="LINE ID ผู้รับแจ้งเตือน" hint="ให้แอดมินการเงินพิมพ์ id ในแชทกับ LINE OA แล้วนำ ID ที่บอทตอบมาใส่ (หลายคนขึ้นบรรทัดใหม่)">

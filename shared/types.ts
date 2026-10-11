@@ -226,6 +226,22 @@ export interface PriceCapTier {
   multiplier: number | null
 }
 
+/** "Contact us" details shown in the footer and on the contact page; blank fields are hidden. */
+export interface ContactInfo {
+  companyName: string
+  address: string
+  phone: string
+  email: string
+  /** e.g. "@370lknmk" */
+  lineId: string
+  /** Add-friend link, e.g. https://line.me/R/ti/p/@370lknmk */
+  lineUrl: string
+  facebookUrl: string
+  openHours: string
+  /** Shows the contact form, whose messages go to the admins' LINE. */
+  formEnabled: boolean
+}
+
 export interface PlatformSettings {
   priceCaps: {
     /** Cap for windows never used (no content, history, notes or likes); null = no cap. */
@@ -264,6 +280,7 @@ export interface PlatformSettings {
     startsAt: string | null
     endsAt: string | null
   }
+  contact: ContactInfo
   updatedAt?: string
 }
 
@@ -339,6 +356,23 @@ export interface PaymentOrder {
   region?: RegionId
   windowId?: number
   promoRequestId?: string
+}
+
+/** A message from the "contact us" form, as admins see it. */
+export interface ContactMessageEntry {
+  id: string
+  createdAt: string
+  name: string
+  email: string
+  phone: string
+  subject: string
+  message: string
+  userId: string | null
+  userName: string | null
+  status: 'new' | 'done'
+  adminNote: string
+  handledBy: string | null
+  handledAt: string | null
 }
 
 export interface AuditEntry {

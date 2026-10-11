@@ -1,6 +1,6 @@
 // Platform settings edited on the admin page: resale price caps, payment channels, top-up
 // limits and the owner edit policy. Defaults and validation are shared by the web app and the API.
-import type { PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from './types'
+import type { ContactInfo, PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from './types'
 
 export const CHANNEL_TYPE_LABELS: Record<PaymentChannelType, string> = {
   promptpay: 'พร้อมเพย์ (PromptPay QR)',
@@ -20,6 +20,21 @@ export const DEFAULT_RULES: PlatformSettings['rules'] = {
   minResalePrice: 100,
   promoPricePerWindowRound: 30,
 }
+
+export const DEFAULT_CONTACT: ContactInfo = {
+  companyName: 'บจก. แคปซูลเลพ 500 หน้าต่างประเทศไทย',
+  address: '',
+  phone: '',
+  email: '500windowsthailand@gmail.com',
+  lineId: '@370lknmk',
+  lineUrl: 'https://line.me/R/ti/p/@370lknmk',
+  facebookUrl: '',
+  openHours: '',
+  formEnabled: true,
+}
+
+/** Subjects offered on the contact form. */
+export const CONTACT_SUBJECTS = ['สอบถามทั่วไป', 'การจับจอง / ซื้อขายหน้าต่าง', 'การชำระเงิน / เติมเงิน', 'บัญชีผู้ใช้ / ยืนยันตัวตน', 'โฆษณา / โปรโมท', 'แจ้งปัญหาการใช้งาน', 'อื่นๆ']
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
   priceCaps: {
@@ -88,6 +103,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     startsAt: null,
     endsAt: null,
   },
+  contact: DEFAULT_CONTACT,
 }
 
 /** The bonus a new account gets right now (0 when off or outside the period). */
@@ -204,6 +220,33 @@ export function validateSettings(settings: PlatformSettings): string | null {
   if (!isDate(signupBonus.startsAt) || !isDate(signupBonus.endsAt)) return 'วันเวลาเริ่ม/สิ้นสุดโบนัสไม่ถูกต้อง'
   if (signupBonus.startsAt && signupBonus.endsAt && Date.parse(signupBonus.endsAt) <= Date.parse(signupBonus.startsAt))
     return 'วันเวลาสิ้นสุดโบนัสต้องหลังวันเวลาเริ่ม'
+
+  return validateContact(settings.contact)
+}
+
+const TEXT_LIMITS: [keyof ContactInfo, string, number][] = [
+  ['companyName', 'ชื่อบริษัท', 200],
+  ['address', 'ที่อยู่', 500],
+  ['phone', 'เบอร์โทรศัพท์', 100],
+  ['email', 'อีเมล', 200],
+  ['lineId', 'LINE ID', 100],
+  ['lineUrl', 'ลิงก์ LINE', 300],
+  ['facebookUrl', 'ลิงก์ Facebook', 300],
+  ['openHours', 'เวลาทำการ', 200],
+]
+
+function validateContact(contact: ContactInfo | undefined): string | null {
+  if (!contact) return 'ข้อมูลติดต่อเราไม่ครบ'
+  for (const [key, label, max] of TEXT_LIMITS) {
+    const value = contact[key]
+    if (typeof value !== 'string') return `ข้อมูล${label}ไม่ถูกต้อง`
+    if (value.length > max) return `${label}ยาวเกิน ${max} ตัวอักษร`
+  }
+  if (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) return 'อีเมลติดต่อไม่ถูกต้อง'
+  for (const [key, label] of [['lineUrl', 'ลิงก์ LINE'], ['facebookUrl', 'ลิงก์ Facebook']] as const) {
+    if (contact[key] && !/^https:\/\/\S+$/.test(contact[key])) return `${label}ต้องขึ้นต้นด้วย https://`
+  }
+  if (typeof contact.formEnabled !== 'boolean') return 'ข้อมูลการเปิดฟอร์มติดต่อไม่ถูกต้อง'
   return null
 }
 

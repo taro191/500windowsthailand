@@ -1,6 +1,7 @@
 // Human-readable list of what changed between two versions of the platform settings,
 // for the LINE alert sent to the finance admin when an admin saves a settings page.
-import type { PaymentChannel, PlatformSettings } from '@shared/types'
+import type { LineAlertTopic } from '@shared/lineAlerts'
+import type { ContactInfo, PaymentChannel, PlatformSettings } from '@shared/types'
 import { multiplierLabel, sortTiers, tierAgeLabel } from '@shared/settings'
 
 const baht = (n: number) => `${n.toLocaleString()} บาท`
@@ -59,33 +60,68 @@ function capLines(before: PlatformSettings['priceCaps'], after: PlatformSettings
   return lines
 }
 
-/** Every change between the two settings, one line each (empty when nothing changed). */
-export function settingsChanges(before: PlatformSettings, after: PlatformSettings): string[] {
-  const lines: string[] = []
+const CONTACT_FIELDS: [keyof ContactInfo, string][] = [
+  ['companyName', 'ชื่อบริษัท'],
+  ['address', 'ที่อยู่'],
+  ['phone', 'เบอร์โทร'],
+  ['email', 'อีเมล'],
+  ['lineId', 'LINE ID'],
+  ['lineUrl', 'ลิงก์ LINE'],
+  ['facebookUrl', 'Facebook'],
+  ['openHours', 'เวลาทำการ'],
+]
+
+function contactLines(before: ContactInfo, after: ContactInfo): string[] {
+  const lines = CONTACT_FIELDS.filter(([key]) => before[key] !== after[key]).map(
+    ([key, label]) => `• ติดต่อเรา ${label}: ${before[key] || '-'} → ${after[key] || '-'}`,
+  )
+  if (before.formEnabled !== after.formEnabled) lines.push(`• ${after.formEnabled ? 'เปิด' : 'ปิด'}ฟอร์มติดต่อเรา`)
+  return lines
+}
+
+export interface SettingsChange {
+  topic: LineAlertTopic
+  line: string
+}
+
+/** Every change between the two settings, one line each with its LINE alert topic (empty when nothing changed). */
+export function settingsChanges(before: PlatformSettings, after: PlatformSettings): SettingsChange[] {
+  const changes: SettingsChange[] = []
+  const add = (topic: LineAlertTopic, lines: string[]) => changes.push(...lines.map((line) => ({ topic, line })))
+
+  const rules: string[] = []
   for (const [key, label, show] of RULES) {
-    if (before.rules[key] !== after.rules[key]) lines.push(`• ${label}: ${show(before.rules[key])} → ${show(after.rules[key])}`)
+    if (before.rules[key] !== after.rules[key]) rules.push(`• ${label}: ${show(before.rules[key])} → ${show(after.rules[key])}`)
   }
-  lines.push(...channelLines(before.paymentChannels, after.paymentChannels))
-  lines.push(...capLines(before.priceCaps, after.priceCaps))
+  add('settings.rules', rules)
+  add('settings.channels', channelLines(before.paymentChannels, after.paymentChannels))
+  add('settings.priceCaps', capLines(before.priceCaps, after.priceCaps))
 
-  if (before.topUp.min !== after.topUp.min) lines.push(`• ยอดเติมเงินขั้นต่ำ: ${baht(before.topUp.min)} → ${baht(after.topUp.min)}`)
-  if (before.topUp.max !== after.topUp.max) lines.push(`• ยอดเติมเงินสูงสุด: ${baht(before.topUp.max)} → ${baht(after.topUp.max)}`)
+  const topUp: string[] = []
+  if (before.topUp.min !== after.topUp.min) topUp.push(`• ยอดเติมเงินขั้นต่ำ: ${baht(before.topUp.min)} → ${baht(after.topUp.min)}`)
+  if (before.topUp.max !== after.topUp.max) topUp.push(`• ยอดเติมเงินสูงสุด: ${baht(before.topUp.max)} → ${baht(after.topUp.max)}`)
   if (!same(before.topUp.presets, after.topUp.presets)) {
-    lines.push(`• ปุ่มยอดเติมเงิน: ${before.topUp.presets.join(', ') || '-'} → ${after.topUp.presets.join(', ') || '-'}`)
+    topUp.push(`• ปุ่มยอดเติมเงิน: ${before.topUp.presets.join(', ') || '-'} → ${after.topUp.presets.join(', ') || '-'}`)
   }
+  add('settings.topUp', topUp)
 
+  const edit: string[] = []
   if (before.editPolicy.freeEditsPerDay !== after.editPolicy.freeEditsPerDay) {
-    lines.push(`• แก้ไขบานฟรีต่อวัน: ${before.editPolicy.freeEditsPerDay} → ${after.editPolicy.freeEditsPerDay} ครั้ง`)
+    edit.push(`• แก้ไขบานฟรีต่อวัน: ${before.editPolicy.freeEditsPerDay} → ${after.editPolicy.freeEditsPerDay} ครั้ง`)
   }
   if (before.editPolicy.paidEditPrice !== after.editPolicy.paidEditPrice) {
-    lines.push(`• ค่าแก้ไขบานเพิ่ม: ${baht(before.editPolicy.paidEditPrice)} → ${baht(after.editPolicy.paidEditPrice)}`)
+    edit.push(`• ค่าแก้ไขบานเพิ่ม: ${baht(before.editPolicy.paidEditPrice)} → ${baht(after.editPolicy.paidEditPrice)}`)
   }
+  add('settings.editPolicy', edit)
 
+  const bonus: string[] = []
   const b0 = before.signupBonus
   const b1 = after.signupBonus
-  if (b0.amount !== b1.amount) lines.push(`• โบนัสสมัครสมาชิก: ${baht(b0.amount)} → ${baht(b1.amount)}`)
+  if (b0.amount !== b1.amount) bonus.push(`• โบนัสสมัครสมาชิก: ${baht(b0.amount)} → ${baht(b1.amount)}`)
   if (b0.startsAt !== b1.startsAt || b0.endsAt !== b1.endsAt) {
-    lines.push(`• ช่วงเวลาโบนัส: ${when(b0.startsAt)} – ${when(b0.endsAt)} → ${when(b1.startsAt)} – ${when(b1.endsAt)}`)
+    bonus.push(`• ช่วงเวลาโบนัส: ${when(b0.startsAt)} – ${when(b0.endsAt)} → ${when(b1.startsAt)} – ${when(b1.endsAt)}`)
   }
-  return lines
+  add('settings.signupBonus', bonus)
+  add('settings.contact', contactLines(before.contact, after.contact))
+  return changes
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { BadgeDollarSign, BookOpen, CreditCard, Gift, ImagePlus, Pencil, Plus, RotateCcw, Save, Scale, Trash2 } from 'lucide-react'
-import type { PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from '@shared/types'
+import { BadgeDollarSign, BookOpen, Contact, CreditCard, Gift, ImagePlus, Pencil, Plus, RotateCcw, Save, Scale, Trash2 } from 'lucide-react'
+import type { ContactInfo, PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { updateSettings } from '@/lib/adminApi'
 import {
@@ -616,6 +616,89 @@ export function RulesPage({ notify }: AdminPageProps) {
             </tr>
           ))}
         </DataTable>
+      </Card>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- contact us
+
+const CONTACT_FIELDS: { key: Exclude<keyof ContactInfo, 'formEnabled'>; label: string; hint?: string; placeholder?: string; rows?: number }[] = [
+  { key: 'companyName', label: 'ชื่อบริษัท / ชื่อที่แสดง' },
+  { key: 'phone', label: 'เบอร์โทรศัพท์', placeholder: '02-123-4567' },
+  { key: 'email', label: 'อีเมล', placeholder: 'contact@example.com' },
+  { key: 'lineId', label: 'LINE ID', placeholder: '@370lknmk' },
+  { key: 'lineUrl', label: 'ลิงก์เพิ่มเพื่อน LINE', hint: 'กดชื่อ LINE แล้วเปิดลิงก์นี้', placeholder: 'https://line.me/R/ti/p/@370lknmk' },
+  { key: 'facebookUrl', label: 'ลิงก์ Facebook', placeholder: 'https://www.facebook.com/...' },
+  { key: 'openHours', label: 'เวลาทำการ', placeholder: 'จันทร์–ศุกร์ 09:00–18:00' },
+  { key: 'address', label: 'ที่อยู่', rows: 3 },
+]
+
+export function ContactPage({ notify }: AdminPageProps) {
+  const settings = useSettings()
+  const [form, setForm] = useState<ContactInfo>(settings.contact)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const contact = Object.fromEntries(
+      Object.entries(form).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]),
+    ) as unknown as ContactInfo
+    const changed = CONTACT_FIELDS.filter((f) => contact[f.key] !== settings.contact[f.key]).map((f) => f.label)
+    if (contact.formEnabled !== settings.contact.formEnabled) changed.push(contact.formEnabled ? 'เปิดฟอร์ม' : 'ปิดฟอร์ม')
+    if (!changed.length) return notify('ไม่มีการเปลี่ยนแปลง')
+    setBusy(true)
+    const result = await updateSettings({ ...settings, contact }, `ติดต่อเรา → ${changed.join(', ')}`)
+    setBusy(false)
+    if (!result.success) return setError(result.error)
+    setError('')
+    setForm(contact)
+    notify('บันทึกข้อมูลติดต่อเราแล้ว')
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <Callout tone="info">
+        แสดงที่ท้ายเว็บและหน้า <b>ติดต่อเรา</b> (ลิงก์ตรง: <code>/#contact</code>) · ช่องที่เว้นว่างจะไม่แสดง · ข้อความจากฟอร์มเก็บไว้ที่เมนู <b>ข้อความติดต่อ</b>
+        และแจ้งเข้า LINE ของแอดมิน (เลือกผู้รับได้ที่เมนู แจ้งเตือนทาง LINE)
+      </Callout>
+      <Card title="ข้อมูลติดต่อเรา" icon={Contact} outline="primary">
+        <form onSubmit={save}>
+          {error && <div className="mb-3 p-2.5 rounded bg-[#f8d7da] text-[#721c24] text-sm border border-[#f5c6cb]">{error}</div>}
+          <div className="grid sm:grid-cols-2 gap-x-3">
+            {CONTACT_FIELDS.map((f) => (
+              <div key={f.key} className={f.rows ? 'sm:col-span-2' : ''}>
+                <FormRow label={f.label} hint={f.hint}>
+                  {f.rows ? (
+                    <textarea
+                      rows={f.rows}
+                      value={form[f.key]}
+                      onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                      className={inputClass}
+                    />
+                  ) : (
+                    <input
+                      value={form[f.key]}
+                      placeholder={f.placeholder}
+                      onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                      className={inputClass}
+                    />
+                  )}
+                </FormRow>
+              </div>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 mb-3 text-sm cursor-pointer">
+            <input type="checkbox" checked={form.formEnabled} onChange={(e) => setForm({ ...form, formEnabled: e.target.checked })} />
+            เปิดฟอร์มส่งข้อความ (เก็บในเมนู ข้อความติดต่อ และแจ้งเข้า LINE ของแอดมิน)
+          </label>
+          <div className="flex justify-end">
+            <Button tone="primary" type="submit" disabled={busy}>
+              <Save className="w-4 h-4" /> {busy ? 'กำลังบันทึก...' : 'บันทึก'}
+            </Button>
+          </div>
+        </form>
       </Card>
     </div>
   )

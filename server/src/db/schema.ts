@@ -204,6 +204,24 @@ export interface AuditLogTable {
   detail: string
 }
 
+/** Messages sent from the "contact us" form. */
+export interface ContactMessagesTable {
+  id: string
+  created_at: string
+  name: string
+  email: string | null
+  phone: string | null
+  subject: string
+  message: string
+  /** The account that was signed in when sending, if any. */
+  user_id: string | null
+  /** 'new' until an admin marks it done. */
+  status: string
+  admin_note: string | null
+  handled_by: string | null
+  handled_at: string | null
+}
+
 export interface Database {
   users: UsersTable
   sessions: SessionsTable
@@ -219,6 +237,7 @@ export interface Database {
   promo_requests: PromoRequestsTable
   settings: SettingsTable
   audit_log: AuditLogTable
+  contact_messages: ContactMessagesTable
 }
 
 export type UserRow = Selectable<UsersTable>
@@ -229,3 +248,4 @@ export type WindowUpdate = Updateable<WindowsTable>
 export type TransactionRow = Selectable<TransactionsTable>
 export type OrderRow = Selectable<PaymentOrdersTable>
 export type PromoRow = Selectable<PromoRequestsTable>
+export type ContactMessageRow = Selectable<ContactMessagesTable>

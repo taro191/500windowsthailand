@@ -12,7 +12,8 @@ import { PromoPage } from './pages/PromoPage'
 import { PaymentsPage } from './pages/PaymentsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditPage, PayoutsPage, RevenuePage, TopUpsPage, TransactionsPage } from './pages/FinancePages'
-import { ChannelsPage, EditSettingsPage, PriceCapsPage, RulesPage, SignupBonusPage, TopUpSettingsPage } from './pages/SettingsPages'
+import { MessagesPage } from './pages/MessagesPage'
+import { ChannelsPage, ContactPage, EditSettingsPage, PriceCapsPage, RulesPage, SignupBonusPage, TopUpSettingsPage } from './pages/SettingsPages'
 import { LineAlertCard } from './LineAlertCard'
 import { Callout } from './ui'
 
@@ -59,6 +60,7 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
         payments: data.orders.filter((o) => o.status === 'pending' && o.slipUrl).length,
         promo: data.promoRequests.filter((r) => r.status === 'pending').length,
         users: data.users.filter((u) => u.role !== 'admin' && !u.isVerified).length,
+        messages: data.contactMessages.filter((m) => m.status === 'new').length,
       }
     : {}
   const props: AdminPageProps | null = data ? { admin, data, refresh, notify } : null
@@ -100,6 +102,8 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
           {page === 'edit-settings' && <EditSettingsPage {...props} />}
           {page === 'signup-bonus' && <SignupBonusPage {...props} />}
           {page === 'rules' && <RulesPage {...props} />}
+          {page === 'contact' && <ContactPage {...props} />}
+          {page === 'messages' && <MessagesPage {...props} />}
           {page === 'line-alerts' && (admin.superAdmin ? <LineAlertCard notify={notify} /> : <Callout tone="warning">เฉพาะ Super Admin</Callout>)}
           {page === 'audit' && <AuditPage {...props} />}
         </>

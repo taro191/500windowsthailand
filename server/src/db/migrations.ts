@@ -255,6 +255,28 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+  '005_contact_messages': {
+    // Messages from the "contact us" form, kept so admins can follow them up (LINE only alerts).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('contact_messages')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('name', varchar(100), (c) => c.notNull())
+        .addColumn('email', varchar(200))
+        .addColumn('phone', varchar(30))
+        .addColumn('subject', varchar(100), (c) => c.notNull())
+        .addColumn('message', 'text', (c) => c.notNull())
+        .addColumn('user_id', id)
+        .addColumn('status', varchar(10), (c) => c.notNull().defaultTo('new'))
+        .addColumn('admin_note', varchar(500))
+        .addColumn('handled_by', varchar(120))
+        .addColumn('handled_at', time)
+        .execute()
+      await db.schema.createIndex('contact_messages_created').on('contact_messages').column('created_at').execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

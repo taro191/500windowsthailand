@@ -836,10 +836,10 @@ describe('LINE alerts to the finance admin', () => {
   })
 
   it('sends every money movement to LINE once, from committed transactions only', async () => {
+    const { c } = await verifiedUser('เคลื่อนไหว')
     const calls = await withLine(async () => {
       await pushFinanceFeed(ctx) // first run only starts from now
       await new Promise((r) => setTimeout(r, 20))
-      const { c } = await verifiedUser('เคลื่อนไหว')
       await topUpByCard(c, 800)
       assert.equal((await c.post('/windows/west/21/claim', { content, payment: wallet(500) })).success, true)
       assert.equal((await c.post('/windows/west/22/claim', { content, payment: wallet(500) })).status, 403, 'quota: nothing recorded')
@@ -854,29 +854,128 @@ describe('LINE alerts to the finance admin', () => {
     assert.match(text, /🔴 จับจองบาน KAP-W-TH-021 ฿500 · เคลื่อนไหว \d+ \(จ่ายด้วย กระเป๋า ฿500\)/)
   })
 
-
   it('lets the super admin switch each kind of alert off, without a backlog when it comes back on', async () => {
     const admin = await adminClient()
     const { c } = await verifiedUser('ปิดแจ้งเตือน')
     let status: any
     const calls = await withLine(async () => {
       await pushFinanceFeed(ctx, Date.now())
-      status = await admin.put('/admin/line-groups', { slips: false, finance: false })
-      assert.deepEqual(status.groups, { slips: false, finance: false, settings: true })
+      status = await admin.put('/admin/line-topics', { 'slips.topup': false, 'finance.topup': false, 'not.a.topic': false })
+      assert.equal(status.topics['slips.topup'], false)
+      assert.equal(status.topics['finance.topup'], false)
+      assert.equal(status.topics['slips.claim'], true)
+      assert.equal(status.topics['finance.claim'], true)
+      assert.equal('not.a.topic' in status.topics, false)
       await c.post('/wallet/topup', { amount: 500, channelId: 'ch-truemoney', slip: { slipUrl: PNG } })
       await topUpByCard(c, 300)
       await new Promise((r) => setTimeout(r, 20))
       assert.equal(await pushFinanceFeed(ctx, Date.now() + 10_000), 0, 'switched off: nothing sent')
-      await admin.put('/admin/line-groups', { slips: true, finance: true })
+      await admin.put('/admin/line-topics', { 'slips.topup': true, 'finance.topup': true })
       assert.equal(await pushFinanceFeed(ctx, Date.now() + 10_000), 0, 'no backlog after switching back on')
+
+      // Only the kinds still on are listed.
+      await admin.put('/admin/line-topics', { 'finance.topup': false })
+      await topUpByCard(c, 500)
+      assert.equal((await c.post('/windows/west/31/claim', { content, payment: wallet(500) })).success, true)
+      await new Promise((r) => setTimeout(r, 20))
+      assert.equal(await pushFinanceFeed(ctx, Date.now() + 10_000), 1)
+      await admin.put('/admin/line-topics', { 'finance.topup': true })
     })
-    assert.equal(calls.length, 0)
+    assert.equal(calls.length, 1)
+    assert.match(calls[0].payload.messages[0].text, /🔴 จับจองบาน KAP-W-TH-031/)
+    assert.doesNotMatch(calls[0].payload.messages[0].text, /เติมเงิน/)
 
     const { user: other } = await verifiedUser()
     await admin.post(`/admin/users/${other.id}/role`, { role: 'admin' })
     const otherAdmin = client()
     await otherAdmin.post('/auth/login', { identifier: other.email, password: 'secret-pass' })
-    assert.equal((await otherAdmin.put('/admin/line-groups', { slips: false })).status, 403)
+    assert.equal((await otherAdmin.put('/admin/line-topics', { 'slips.topup': false })).status, 403)
+  })
+
+  it('still honours the switches saved per group before topics existed', async () => {
+    await ctx.db.deleteFrom('settings').where('id', '=', 'line_alert_groups').execute()
+    await ctx.db.insertInto('settings').values({ id: 'line_alert_groups', value_json: JSON.stringify({ slips: false }), updated_at: new Date().toISOString() }).execute()
+    const status = await (await adminClient()).get('/admin/line-status')
+    assert.equal(status.topics['slips.topup'], false)
+    assert.equal(status.topics['slips.promo'], false)
+    assert.equal(status.topics['finance.topup'], true)
+    await ctx.db.deleteFrom('settings').where('id', '=', 'line_alert_groups').execute()
+  })
+
+  it('tells LINE about new users, KYC and what admins do to accounts', async () => {
+    const admin = await adminClient()
+    let user: any
+    const calls = await withLine(async () => {
+      ;({ user } = await verifiedUser('แจ้งผู้ใช้'))
+      await admin.post(`/admin/users/${user.id}/suspend`, { suspended: true })
+      await admin.put('/admin/line-topics', { 'security.suspend': false })
+      await admin.post(`/admin/users/${user.id}/suspend`, { suspended: false })
+      await admin.put('/admin/line-topics', { 'security.suspend': true })
+    })
+    const texts = calls.map((call) => call.payload.messages[0].text)
+    assert.equal(texts.length, 3, texts.join('\n---\n'))
+    assert.match(texts[0], /👤 สมัครสมาชิกใหม่\nผู้ใช้: แจ้งผู้ใช้ \d+ \(user\d+@test\.th\)/)
+    assert.match(texts[1], /👤 ยืนยันตัวตน \(KYC\) ด้วย OTP สำเร็จ/)
+    assert.match(texts[2], /🔐 ระงับบัญชี\nผู้ใช้: แจ้งผู้ใช้ \d+\nโดย: /)
+  })
+
+  it('keeps every contact form message for the admins and sends it to LINE', async () => {
+    const admin = await adminClient()
+    const message = { name: 'คุณติดต่อ', email: 'ask@test.th', phone: '', subject: 'การชำระเงิน / เติมเงิน', message: 'โอนแล้วยอดยังไม่เข้า' }
+    const withoutLine = await client().post('/contact', { ...message, message: 'ส่งตอน LINE ยังไม่พร้อม' })
+    assert.equal(withoutLine.success, true, 'stored even when LINE is not set up')
+    const { c: member, user } = await verifiedUser('สมาชิกติดต่อ')
+    let missing: any
+    let sent: any
+    let bot: any
+    const calls = await withLine(async () => {
+      missing = await client().post('/contact', { ...message, email: '', phone: '' })
+      sent = await member.post('/contact', message, { host: 'shop.test' })
+      bot = await client().post('/contact', { ...message, website: 'http://spam' })
+    })
+    assert.equal(missing.status, 400)
+    assert.equal(sent.success, true, sent.error)
+    assert.equal(bot.success, true)
+    assert.equal(calls.length, 1)
+    const text = calls[0].payload.messages[0].text
+    assert.match(text, /📨 ข้อความจากฟอร์มติดต่อเรา\nเรื่อง: การชำระเงิน \/ เติมเงิน\nชื่อ: คุณติดต่อ\nอีเมล: ask@test\.th\nบัญชีผู้ใช้: สมาชิกติดต่อ \d+/)
+    assert.match(text, /https:\/\/shop\.test\/#admin\/messages/)
+
+    const { contactMessages } = await admin.get('/admin/overview')
+    assert.equal(contactMessages.length, 2, 'the bot message is not kept')
+    const [latest, first] = contactMessages
+    assert.equal(first.message, 'ส่งตอน LINE ยังไม่พร้อม')
+    assert.equal(first.userId, null)
+    assert.equal(latest.userName, user.name)
+    assert.equal(latest.status, 'new')
+    assert.equal((await member.post(`/admin/contact-messages/${latest.id}`, { status: 'done' })).status, 403)
+    assert.equal((await admin.post(`/admin/contact-messages/${latest.id}`, { status: 'done', note: 'โทรกลับแล้ว' })).success, true)
+    const after = (await admin.get('/admin/overview')).contactMessages[0]
+    assert.equal(after.status, 'done')
+    assert.equal(after.adminNote, 'โทรกลับแล้ว')
+    assert.ok(after.handledBy && after.handledAt)
+  })
+
+  it('lets admins edit the contact details, which the public config shows, and tells LINE', async () => {
+    const admin = await adminClient()
+    const { settings } = await client().get('/config')
+    assert.equal(settings.contact.lineId, '@370lknmk')
+    const contact = { ...settings.contact, phone: '02-123-4567', email: 'hello@500windows.test' }
+    let calls: Awaited<ReturnType<typeof withLine>> = []
+    try {
+      assert.equal((await admin.put('/admin/settings', { settings: { ...settings, contact: { ...contact, lineUrl: 'line.me/x' } }, what: 'ติดต่อเรา' })).status, 400)
+      calls = await withLine(async () => {
+        assert.equal((await admin.put('/admin/settings', { settings: { ...settings, contact }, what: 'ติดต่อเรา' })).success, true)
+      })
+      assert.equal((await client().get('/config')).settings.contact.phone, '02-123-4567')
+      const closed = await admin.put('/admin/settings', { settings: { ...settings, contact: { ...contact, formEnabled: false } }, what: 'ปิดฟอร์ม' })
+      assert.equal(closed.success, true)
+      assert.equal((await client().post('/contact', { name: 'x', email: 'x@test.th', subject: 'อื่นๆ', message: 'ทดสอบข้อความ' })).status, 403)
+    } finally {
+      await admin.put('/admin/settings', { settings, what: 'คืนค่าเดิม' })
+    }
+    assert.equal(calls.length, 1)
+    assert.match(calls[0].payload.messages[0].text, /• ติดต่อเรา เบอร์โทร: - → 02-123-4567\n• ติดต่อเรา อีเมล: 500windowsthailand@gmail\.com → hello@500windows\.test/)
   })
 
   it('never fails the purchase when LINE is down', async () => {

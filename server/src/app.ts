@@ -22,6 +22,7 @@ import * as promo from './services/promo'
 import * as admin from './services/admin'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
+import { sendContactMessage, updateContactMessage } from './services/contact'
 
 type Env = { Variables: { user: UserRow | null } }
 
@@ -32,6 +33,7 @@ export function createApp(ctx: AppContext) {
   const app = new Hono<Env>()
   const authLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 20 })
   const otpLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 5 })
+  const contactLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 10 })
 
   app.use('*', secureHeaders({ crossOriginResourcePolicy: 'same-origin', contentSecurityPolicy: undefined }))
   app.use('/api/*', compress())
@@ -163,6 +165,11 @@ export function createApp(ctx: AppContext) {
     const user = await users.login(ctx, identifier, password)
     await startSession(c, user)
     return ok(c, await sessionPayload(user))
+  })
+
+  api.post('/contact', async (c) => {
+    contactLimiter.hit(`contact:${ip(c)}`)
+    return ok(c, await sendContactMessage(ctx, await body(c), c.get('user') ?? null, siteUrl(c)))
   })
 
   api.post('/auth/password/forgot', async (c) => {
@@ -332,7 +339,7 @@ export function createApp(ctx: AppContext) {
     return ok(c, await admin.setLineRecipients(ctx, me(c), ids))
   })
 
-  adminApi.put('/line-groups', async (c) => ok(c, await admin.setLineAlertGroups(ctx, me(c), await body(c))))
+  adminApi.put('/line-topics', async (c) => ok(c, await admin.setLineAlertTopics(ctx, me(c), await body(c))))
 
   adminApi.post('/line-test', async (c) => ok(c, await admin.testLineAlert(ctx, me(c))))
 
@@ -377,6 +384,8 @@ export function createApp(ctx: AppContext) {
   adminApi.put('/users/:id', async (c) =>
     ok(c, { user: await admin.updateUserInfo(ctx, me(c), c.req.param('id'), await body<admin.UserInfoInput>(c)) }),
   )
+
+  adminApi.post('/contact-messages/:id', async (c) => ok(c, await updateContactMessage(ctx, me(c), c.req.param('id'), await body(c))))
 
   adminApi.post('/orders/:id/decide', async (c) => {
     const { decision, note } = await body<{ decision: 'approved' | 'rejected'; note?: string }>(c)

@@ -1,3 +1,4 @@
+import { Mail, MessageCircle, Phone } from 'lucide-react'
 import type { AuthMode, HubTab, User } from '@shared/types'
 import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
@@ -7,10 +8,11 @@ interface FooterProps {
   onBackToWelcome: () => void
   onOpenHub: (tab: HubTab) => void
   onOpenAuth: (mode: AuthMode) => void
+  onOpenContact: () => void
 }
 
-export function Footer({ currentUser, onBackToWelcome, onOpenHub, onOpenAuth }: FooterProps) {
-  const { editPolicy } = useSettings()
+export function Footer({ currentUser, onBackToWelcome, onOpenHub, onOpenAuth, onOpenContact }: FooterProps) {
+  const { editPolicy, contact } = useSettings()
   const rules = useRules()
   return (
     <footer className="border-t border-purple-900/30 bg-[#09080e] px-4 py-8 text-center text-xs text-stone-400 space-y-3 font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
@@ -32,6 +34,10 @@ export function Footer({ currentUser, onBackToWelcome, onOpenHub, onOpenAuth }: 
         <button onClick={() => onOpenHub('wallet')} className="hover:text-rose-300 cursor-pointer font-['Prompt',sans-serif]">
           กระเป๋าเงิน & บัญชี
         </button>
+        <span>·</span>
+        <button onClick={onOpenContact} className="hover:text-rose-300 cursor-pointer font-['Prompt',sans-serif]">
+          ติดต่อเรา
+        </button>
         {!currentUser && (
           <>
             <span>·</span>
@@ -50,6 +56,25 @@ export function Footer({ currentUser, onBackToWelcome, onOpenHub, onOpenAuth }: 
         ผู้ใช้งานอ้างอิงเลขบัตรประชาชน 13 หลักและเบอร์โทรศัพท์ สามารถมีหน้าต่างได้ไม่เกิน 2 บาน (ไทย 1 บาน + ภูมิภาค 1 บาน)
         และหากจะทำการซื้อหรือขายต่อ ต้องยืนยันตัวตน (KYC) เท่านั้น
       </p>
+      {(contact.phone || contact.email || contact.lineId) && (
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-stone-400 font-['Prompt',sans-serif]">
+          {contact.phone && (
+            <a href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`} className="flex items-center gap-1 hover:text-rose-300">
+              <Phone className="w-3 h-3" /> {contact.phone}
+            </a>
+          )}
+          {contact.email && (
+            <a href={`mailto:${contact.email}`} className="flex items-center gap-1 hover:text-rose-300">
+              <Mail className="w-3 h-3" /> {contact.email}
+            </a>
+          )}
+          {contact.lineId && (
+            <a href={contact.lineUrl || undefined} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-rose-300">
+              <MessageCircle className="w-3 h-3" /> LINE {contact.lineId}
+            </a>
+          )}
+        </div>
+      )}
       <div className="pt-2 text-xs text-stone-400 flex items-center justify-center gap-2">
         <span className="text-[11px] text-stone-400 tracking-wider uppercase font-mono">Power by</span>
         <div className="flex items-center gap-1.5">

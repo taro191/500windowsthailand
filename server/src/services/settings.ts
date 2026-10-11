@@ -1,4 +1,4 @@
-// Platform settings (price caps, payment channels, top-up limits, edit policy, rules, signup bonus), stored as one JSON row.
+// Platform settings (price caps, payment channels, top-up limits, edit policy, rules, signup bonus, contact), stored as one JSON row.
 // Cached briefly because several server processes may run behind Passenger.
 import type { PlatformSettings } from '@shared/types'
 import { DEFAULT_SETTINGS, validateSettings } from '@shared/settings'
@@ -13,6 +13,7 @@ const withDefaults = (stored: Partial<PlatformSettings>, updatedAt: string): Pla
   ...DEFAULT_SETTINGS,
   ...stored,
   rules: { ...DEFAULT_SETTINGS.rules, ...stored.rules },
+  contact: { ...DEFAULT_SETTINGS.contact, ...stored.contact },
   updatedAt,
 })
 
@@ -30,8 +31,8 @@ export async function getSettings(ctx: AppContext): Promise<PlatformSettings> {
 export async function saveSettings(ctx: AppContext, settings: PlatformSettings): Promise<PlatformSettings> {
   const error = validateSettings(settings)
   if (error) throw badRequest(error)
-  const { priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus } = settings
-  const value_json = JSON.stringify({ priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus })
+  const { priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact } = settings
+  const value_json = JSON.stringify({ priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact })
   const updated_at = nowIso()
   const updated = await ctx.db.updateTable('settings').set({ value_json, updated_at }).where('id', '=', 'platform').executeTakeFirst()
   if (Number(updated.numUpdatedRows) === 0) {

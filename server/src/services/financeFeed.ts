@@ -1,10 +1,11 @@
 // LINE feed of every money movement (top-ups, claims, resales, promotions, edit fees, refunds, bonuses).
 // Reads committed rows of the transactions table, so a purchase that rolled back is never reported,
 // and moves a cursor kept in the settings table so that only one server process sends each batch.
+import { isLineAlertTopic } from '@shared/lineAlerts'
 import type { Transaction } from '@shared/types'
 import { nowIso, type AppContext } from '../context'
 import { toTransaction } from './ledger'
-import { lineAlertGroups, sendLineAlert } from './notify'
+import { lineAlertTopics, sendLineAlert } from './notify'
 
 const CURSOR_ROW = 'finance_feed_cursor'
 /** Rows younger than this are left for the next run, in case an older transaction commits late. */
@@ -61,7 +62,8 @@ async function readCursor(ctx: AppContext): Promise<{ raw: string; cursor: Curso
 }
 
 /**
- * Sends the money movements since the last run as one LINE message. Returns how many were sent (0 when switched off).
+ * Sends the money movements since the last run as one LINE message, leaving out the kinds switched off.
+ * Returns how many were sent.
  * The first run only sets the cursor to now, so past transactions are not replayed.
  */
 export async function pushFinanceFeed(ctx: AppContext, now = Date.now()): Promise<number> {
@@ -96,12 +98,16 @@ export async function pushFinanceFeed(ctx: AppContext, now = Date.now()): Promis
     .executeTakeFirst()
   if (Number(claimed.numUpdatedRows) === 0) return 0
 
-  // Switched off: the cursor still moves, so turning it back on doesn't replay a backlog.
-  if (!(await lineAlertGroups(ctx)).finance) return 0
-  const lines = rows.map((row) => describeTransaction(toTransaction(row)))
-  const title = `💰 ความเคลื่อนไหวทางการเงิน ${rows.length} รายการ`
-  await sendLineAlert(ctx, [title, ...lines].join('\n'), 'finance')
-  return rows.length
+  // Kinds switched off are skipped, but the cursor still moves, so turning them back on doesn't replay a backlog.
+  const on = await lineAlertTopics(ctx)
+  const sent = rows.map(toTransaction).filter((tx) => {
+    const topic = `finance.${tx.type}`
+    return !isLineAlertTopic(topic) || on[topic]
+  })
+  if (!sent.length) return 0
+  const title = `💰 ความเคลื่อนไหวทางการเงิน ${sent.length} รายการ`
+  await sendLineAlert(ctx, [title, ...sent.map(describeTransaction)].join('\n'))
+  return sent.length
 }
 
 /** Runs the feed every 30 seconds while LINE is set up. */
