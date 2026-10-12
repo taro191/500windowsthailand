@@ -1,7 +1,7 @@
 // Uploaded images arrive as data URLs (the browser downscales them first) and are stored
 // as files under UPLOAD_DIR/<folder>/. Public folders are served at /uploads/<folder>/...;
 // transfer slips are served only to admins and the payer (see routes/files.ts).
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { badRequest } from './errors'
 import { newId } from './crypto'
@@ -39,4 +39,10 @@ export async function saveImage(uploadDir: string, dataUrl: string, folder: Uplo
 export function uploadFilePath(uploadDir: string, publicPath: string): string | null {
   const match = publicPath.match(/^\/uploads\/(windows|promo|slips|avatars)\/(img_[A-Za-z0-9_-]+\.(jpg|png|webp|gif))$/)
   return match ? path.join(uploadDir, match[1], match[2]) : null
+}
+
+/** Deletes a stored upload; anything that is not an upload path (e.g. an external URL) is left alone. */
+export async function deleteUpload(uploadDir: string, publicPath: string | null | undefined) {
+  const file = publicPath ? uploadFilePath(uploadDir, publicPath) : null
+  if (file) await rm(file, { force: true }).catch(() => {})
 }

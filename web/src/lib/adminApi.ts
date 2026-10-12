@@ -45,6 +45,9 @@ export const revokeKyc = (userId: string) => post<{ user: User }>(`/admin/users/
 /** Verify KYC without OTP, using the citizen ID and phone on file (any admin, not for their own account). */
 export const verifyUserKyc = (userId: string) => post<{ user: User }>(`/admin/users/${userId}/verify-kyc`)
 
+/** Takes down a user's profile photo; they go back to the default avatar. */
+export const removeUserAvatar = (userId: string) => post<{ user: User }>(`/admin/users/${userId}/remove-avatar`)
+
 /** Disabled accounts cannot log in (suspended ones only cannot trade). */
 export const setUserDisabled = (userId: string, disabled: boolean) => post<{ user: User }>(`/admin/users/${userId}/disable`, { disabled })
 

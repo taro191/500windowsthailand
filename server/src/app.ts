@@ -381,6 +381,8 @@ export function createApp(ctx: AppContext) {
 
   adminApi.post('/users/:id/verify-kyc', async (c) => ok(c, { user: await admin.verifyUserKyc(ctx, me(c), c.req.param('id')) }))
 
+  adminApi.post('/users/:id/remove-avatar', async (c) => ok(c, { user: await admin.removeUserAvatar(ctx, me(c), c.req.param('id')) }))
+
   adminApi.put('/users/:id', async (c) =>
     ok(c, { user: await admin.updateUserInfo(ctx, me(c), c.req.param('id'), await body<admin.UserInfoInput>(c)) }),
   )

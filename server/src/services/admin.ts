@@ -5,6 +5,7 @@ import { isValidCitizenId, isValidThaiMobile } from '@shared/identity'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
+import { deleteUpload } from '../lib/files'
 import { smsStatus } from '../lib/sms'
 import { nowIso, type AppContext } from '../context'
 import { audit, loadAuditLog } from './audit'
@@ -369,6 +370,18 @@ export async function updateUserInfo(ctx: AppContext, admin: UserRow, userId: st
     await audit(ctx.db, admin, 'แก้ไขข้อมูลผู้ใช้', `${name} · ${changed.join(', ')}`)
     notifyAdminAction(ctx, 'security.userEdit', admin, 'แก้ไขข้อมูลผู้ใช้', `ผู้ใช้: ${name}\nแก้ไข: ${changed.join(', ')}`)
   }
+  return adminUserDto(ctx, { ...user, ...changes })
+}
+
+/** Takes down an unsuitable profile photo; the user goes back to the default avatar. */
+export async function removeUserAvatar(ctx: AppContext, admin: UserRow, userId: string) {
+  const user = await managedUser(ctx, userId)
+  if (user.avatar_url === DEFAULT_AVATAR_URL) throw badRequest('ผู้ใช้นี้ใช้รูปโปรไฟล์เริ่มต้นอยู่แล้ว')
+  const changes = { avatar_url: DEFAULT_AVATAR_URL, updated_at: nowIso() }
+  await ctx.db.updateTable('users').set(changes).where('id', '=', user.id).execute()
+  await deleteUpload(ctx.config.uploadDir, user.avatar_url)
+  await audit(ctx.db, admin, 'ลบรูปโปรไฟล์ผู้ใช้', user.name)
+  notifyAdminAction(ctx, 'security.userEdit', admin, 'ลบรูปโปรไฟล์ผู้ใช้', `ผู้ใช้: ${user.name}`)
   return adminUserDto(ctx, { ...user, ...changes })
 }
 

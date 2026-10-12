@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import type { User } from '@shared/types'
 import { KapsulepLogo } from '../KapsulepLogo'
+import { Avatar } from '../Avatar'
 
 export type AdminPage =
   | 'dashboard'
@@ -170,7 +171,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
       </button>
 
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[#4b545c] shrink-0">
-        <img src={admin.avatarUrl} alt="" className="w-[34px] h-[34px] rounded-full object-cover shadow" />
+        <Avatar user={admin} className="w-[34px] h-[34px] shadow" />
         <div className="min-w-0">
           <span className="block text-white text-sm truncate">{admin.name}</span>
           <span className="flex items-center gap-1 text-[0.75rem] text-[#c2c7d0]">

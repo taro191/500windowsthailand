@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Ban, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users, X } from 'lucide-react'
+import { Ban, ImageOff, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users, X } from 'lucide-react'
 import type { User } from '@shared/types'
-import { createUser, revokeKyc, setUserDisabled, setUserRole, setUserSuspended, updateUserInfo, verifyUserKyc } from '@/lib/adminApi'
+import { createUser, removeUserAvatar, revokeKyc, setUserDisabled, setUserRole, setUserSuspended, updateUserInfo, verifyUserKyc } from '@/lib/adminApi'
 import { maskCitizenId, maskPhone } from '@shared/identity'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Card, DataTable, FormRow, inputClass, thaiDateTime } from '../ui'
+import { Avatar } from '../../Avatar'
 
 type RoleFilter = 'all' | 'admin' | 'user'
 type StatusFilter = 'all' | 'active' | 'suspended' | 'disabled'
@@ -223,6 +224,8 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
     setAdding(false)
     setEditing(u)
   }
+  const removeAvatar = (u: User) =>
+    act(`ลบรูปโปรไฟล์ของ ${u.name}? ผู้ใช้จะกลับไปใช้รูปเริ่มต้น (อัปโหลดรูปใหม่เองได้)`, () => removeUserAvatar(u.id), `ลบรูปโปรไฟล์ของ ${u.name} แล้ว`)
   const revoke = (u: User) =>
     act(`เพิกถอนการยืนยันตัวตนของ ${u.name}? ผู้ใช้จะต้องยืนยันใหม่ก่อนซื้อขาย`, () => revokeKyc(u.id), `เพิกถอน KYC ของ ${u.name} แล้ว`)
 
@@ -277,7 +280,13 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
               <tr key={u.id} className={u.disabled ? 'opacity-60' : ''}>
                 <td className="whitespace-nowrap">
                   <div className="flex items-center gap-2">
-                    <img src={u.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    {u.avatarUrl ? (
+                      <a href={u.avatarUrl} target="_blank" rel="noreferrer" title="ดูรูปโปรไฟล์">
+                        <Avatar user={u} className="w-8 h-8" />
+                      </a>
+                    ) : (
+                      <Avatar user={u} className="w-8 h-8" />
+                    )}
                     <div>
                       <div className="font-bold">{u.name}</div>
                       <div className="text-[0.75rem] text-[#6c757d] font-mono">{u.id}</div>
@@ -350,6 +359,11 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
                       ) : (
                         <Button size="sm" tone="success" onClick={() => verifyKyc(u)}>
                           <ShieldCheck className="w-3.5 h-3.5" /> ยืนยัน KYC
+                        </Button>
+                      )}
+                      {u.avatarUrl && (
+                        <Button size="sm" tone="secondary" onClick={() => removeAvatar(u)}>
+                          <ImageOff className="w-3.5 h-3.5" /> ลบรูปโปรไฟล์
                         </Button>
                       )}
                     </div>

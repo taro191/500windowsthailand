@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { Bell, House, Map as MapIcon, Megaphone, UserRound } from 'lucide-react'
 import type { User } from '@shared/types'
+import { Avatar } from '../Avatar'
 
 interface BottomNavProps {
   currentUser: User | null
@@ -38,7 +39,7 @@ export function BottomNav(props: BottomNavProps) {
             {active && <span className="absolute top-0 inset-x-4 h-0.5 rounded-full bg-gradient-to-r from-orange-400 via-rose-500 to-purple-600" />}
             <span className="relative">
               {label === 'โปรไฟล์' && currentUser ? (
-                <img src={currentUser.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover border border-amber-400" />
+                <Avatar user={currentUser} className="w-5 h-5 border border-amber-400" />
               ) : (
                 <Icon className="w-5 h-5" />
               )}

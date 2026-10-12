@@ -277,6 +277,17 @@ const migrations: Record<string, Migration> = {
       await db.schema.createIndex('contact_messages_created').on('contact_messages').column('created_at').execute()
     },
   },
+  '006_default_avatar': {
+    // The shared stock photo becomes an empty avatar, which the web shows as the name's initial.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db
+        .updateTable('users')
+        .set({ avatar_url: '' })
+        .where('avatar_url', '=', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80')
+        .execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

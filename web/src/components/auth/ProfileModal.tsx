@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { Check, CircleAlert, CreditCard, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, Phone, Save, ShieldCheck, UserRound, X } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Camera, Check, CircleAlert, CreditCard, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, Phone, Save, ShieldCheck, UserRound, X } from 'lucide-react'
 import type { User } from '@shared/types'
 import { changePassword, getAppConfig, updateProfile } from '@/lib/store'
 import { maskCitizenId, maskPhone } from '@shared/identity'
+import { compressImage } from '@/lib/browser'
+import { Avatar } from '../Avatar'
 import { KapsulepLogo } from '../KapsulepLogo'
 
 interface ProfileModalProps {
@@ -17,6 +19,9 @@ const inputClass =
   'w-full bg-stone-950 border border-stone-700 text-stone-100 rounded-xl focus:outline-none focus:border-amber-400 text-xs px-3 py-2 disabled:opacity-60'
 const submitClass =
   'w-full py-2.5 px-4 rounded-xl font-bold text-stone-950 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 text-xs sm:text-sm disabled:opacity-60 disabled:cursor-wait'
+
+/** Phone photos can be big; they are shrunk to 400px before upload. */
+const MAX_PICK_BYTES = 20 * 1024 * 1024
 
 /** The signed-in user's own details: name, bio, email and password. ID and phone change through KYC. */
 export function ProfileModal({ currentUser, onClose, onSaved, onOpenKyc }: ProfileModalProps) {
@@ -39,7 +44,7 @@ export function ProfileModal({ currentUser, onClose, onSaved, onOpenKyc }: Profi
             <KapsulepLogo size={34} showGlow />
             <div>
               <h2 className="font-bold text-stone-100 text-base font-['Prompt',sans-serif]">ข้อมูลส่วนตัว</h2>
-              <p className="text-xs text-stone-400 font-['Prompt',sans-serif]">แก้ไขชื่อ อีเมล และรหัสผ่านของคุณ</p>
+              <p className="text-xs text-stone-400 font-['Prompt',sans-serif]">แก้ไขรูปโปรไฟล์ ชื่อ อีเมล และรหัสผ่านของคุณ</p>
             </div>
           </div>
           <button
@@ -89,6 +94,67 @@ function SectionTitle({ icon: Icon, children }: { icon: typeof UserRound; childr
   )
 }
 
+/** The profile photo: tap to pick a new one (cropped square in the browser), saved straight away. */
+function AvatarPicker({ user, onError, onSaved }: { user: User; onError: (message: string) => void; onSaved: (message: string) => void }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+
+  const save = async (avatar: string, message: string) => {
+    setBusy(true)
+    const result = await updateProfile({ avatar })
+    setBusy(false)
+    if (!result.success) return onError(result.error || 'บันทึกรูปโปรไฟล์ไม่สำเร็จ')
+    onSaved(message)
+  }
+
+  const pick = async (file?: File) => {
+    if (input.current) input.current.value = ''
+    if (!file) return
+    onError('')
+    if (!file.type.startsWith('image/')) return onError('กรุณาเลือกไฟล์รูปภาพ')
+    if (file.size > MAX_PICK_BYTES) return onError('กรุณาเลือกไฟล์ภาพขนาดไม่เกิน 20MB')
+    let dataUrl: string
+    try {
+      dataUrl = await compressImage(file, 400, 0.85, true)
+    } catch {
+      return onError('ไม่สามารถอ่านรูปนี้ได้ กรุณาเลือกไฟล์ JPG/PNG อื่น')
+    }
+    await save(dataUrl, 'เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว')
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-1 shrink-0">
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        disabled={busy}
+        className="relative group rounded-full cursor-pointer disabled:cursor-wait"
+        aria-label="เปลี่ยนรูปโปรไฟล์"
+        title="เปลี่ยนรูปโปรไฟล์"
+      >
+        <Avatar user={user} className="w-14 h-14 border-2 border-amber-400" />
+        <span className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <Camera className="w-5 h-5 text-white" />
+        </span>
+        <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center border-2 border-[#0e0b17]">
+          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+        </span>
+      </button>
+      <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      {user.avatarUrl && (
+        <button
+          type="button"
+          onClick={() => save('', 'กลับไปใช้รูปโปรไฟล์เริ่มต้นแล้ว')}
+          disabled={busy}
+          className="text-[10px] text-stone-500 hover:text-rose-300 cursor-pointer"
+        >
+          ใช้รูปเริ่มต้น
+        </button>
+      )}
+    </div>
+  )
+}
+
 function DetailsForm({ user, onError, onSaved }: { user: User; onError: (message: string) => void; onSaved: (message: string) => void }) {
   const [name, setName] = useState(user.name)
   const [bio, setBio] = useState(user.bio ?? '')
@@ -115,7 +181,7 @@ function DetailsForm({ user, onError, onSaved }: { user: User; onError: (message
     <form onSubmit={submit} className="space-y-3">
       <SectionTitle icon={UserRound}>ข้อมูลทั่วไป</SectionTitle>
       <div className="flex items-center gap-3">
-        <img src={user.avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-amber-400 shrink-0" />
+        <AvatarPicker user={user} onError={onError} onSaved={onSaved} />
         <div className="flex-1">
           <label className="block text-stone-300 font-medium mb-1">ชื่อที่แสดง</label>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="name" className={inputClass} required />

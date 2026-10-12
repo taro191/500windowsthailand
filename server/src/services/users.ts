@@ -5,6 +5,7 @@ import { formatCitizenId, isValidCitizenId, isValidThaiMobile, maskCitizenId } f
 import { activeSignupBonus } from '@shared/settings'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId, newToken, sha256, verifyPassword } from '../lib/crypto'
+import { deleteUpload, isDataUrl, saveImage } from '../lib/files'
 import { sendMail } from '../lib/mail'
 import { sendSms } from '../lib/sms'
 import { ApiError, badRequest, conflict, forbidden } from '../lib/errors'
@@ -13,8 +14,8 @@ import { creditWallet, recordTransaction } from './ledger'
 import { notifyUserEvent } from './notify'
 import { getSettings } from './settings'
 
-export const DEFAULT_AVATAR_URL =
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
+/** No photo: the web shows the first letter of the name instead. */
+export const DEFAULT_AVATAR_URL = ''
 export const MIN_PASSWORD_LENGTH = 8
 
 export const digits = (value: string) => value.replace(/[^0-9]/g, '')
@@ -280,6 +281,8 @@ export interface ProfileInput {
   email?: string
   currentPassword?: string
   payoutAccount?: PayoutAccount
+  /** A new photo as an image data URL, or '' to go back to the default. */
+  avatar?: string
 }
 
 export async function updateProfile(ctx: AppContext, user: UserRow, input: ProfileInput): Promise<UserRow> {
@@ -303,7 +306,13 @@ export async function updateProfile(ctx: AppContext, user: UserRow, input: Profi
     }
   }
   if (input.payoutAccount !== undefined) changes.payout_json = JSON.stringify(cleanPayoutAccount(input.payoutAccount))
+  if (input.avatar !== undefined) {
+    const avatar = String(input.avatar)
+    if (avatar && !isDataUrl(avatar)) throw badRequest('กรุณาเลือกไฟล์รูปโปรไฟล์ใหม่')
+    changes.avatar_url = avatar ? await saveImage(ctx.config.uploadDir, avatar, 'avatars') : DEFAULT_AVATAR_URL
+  }
   await ctx.db.updateTable('users').set(changes).where('id', '=', user.id).execute()
+  if (changes.avatar_url !== undefined && changes.avatar_url !== user.avatar_url) await deleteUpload(ctx.config.uploadDir, user.avatar_url)
   return { ...user, ...changes }
 }
 

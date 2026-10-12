@@ -1,7 +1,7 @@
 // End-to-end API tests against an in-memory SQLite database: npm test
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { before, describe, it } from 'node:test'
@@ -785,6 +785,45 @@ describe('forgot password and personal info', () => {
     assert.equal((await client().post('/auth/login', { identifier: 'mine@test.th', password: 'secret-pass' })).success, true)
     // Unchanged email needs no password.
     assert.equal((await c.patch('/me', { name: 'อีกชื่อ', email: 'mine@test.th' })).success, true)
+  })
+
+  it('lets users upload their own profile photo, replacing the old file, and go back to the default', async () => {
+    const { c, user } = await verifiedUser()
+    assert.equal(user.avatarUrl, '')
+    assert.equal((await c.patch('/me', { avatar: 'https://example.com/me.jpg' })).status, 400)
+    assert.equal((await c.patch('/me', { avatar: 'data:text/plain;base64,aGVsbG8=' })).status, 400)
+
+    const first = await c.patch('/me', { avatar: PNG })
+    assert.equal(first.success, true, first.error)
+    assert.match(first.user.avatarUrl, /^\/uploads\/avatars\/img_.+\.png$/)
+    const firstFile = path.join(ctx.config.uploadDir, first.user.avatarUrl.replace('/uploads/', ''))
+    assert.equal(existsSync(firstFile), true)
+
+    const second = await c.patch('/me', { avatar: PNG })
+    assert.notEqual(second.user.avatarUrl, first.user.avatarUrl)
+    assert.equal(existsSync(firstFile), false)
+    assert.equal((await app.request(second.user.avatarUrl)).status, 200)
+
+    const reset = await c.patch('/me', { avatar: '' })
+    assert.equal(reset.user.avatarUrl, '')
+    assert.equal(existsSync(path.join(ctx.config.uploadDir, second.user.avatarUrl.replace('/uploads/', ''))), false)
+  })
+
+  it('lets admins take down a profile photo, with an audit entry', async () => {
+    const { c, user } = await verifiedUser()
+    const { user: other } = await verifiedUser()
+    const uploaded = await c.patch('/me', { avatar: PNG })
+    assert.equal((await c.post(`/admin/users/${other.id}/remove-avatar`)).status, 403)
+
+    const admin = await adminClient()
+    const removed = await admin.post(`/admin/users/${user.id}/remove-avatar`)
+    assert.equal(removed.success, true, removed.error)
+    assert.equal(removed.user.avatarUrl, '')
+    assert.equal((await c.get('/session')).user.avatarUrl, '')
+    assert.equal(existsSync(path.join(ctx.config.uploadDir, uploaded.user.avatarUrl.replace('/uploads/', ''))), false)
+    assert.equal((await admin.post(`/admin/users/${user.id}/remove-avatar`)).status, 400)
+    const overview = await admin.get('/admin/overview')
+    assert.ok(overview.auditLog.some((e: { action: string; detail: string }) => e.action === 'ลบรูปโปรไฟล์ผู้ใช้' && e.detail === user.name))
   })
 
   it('changes the password with the current one', async () => {

@@ -5,6 +5,7 @@ import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
 import { useRules } from '@/lib/settings'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
+import { Avatar } from '../Avatar'
 
 interface WalletTabProps {
   currentUser: User | null
@@ -76,7 +77,7 @@ function ProfileCard({
     <div className="p-4 rounded-xl bg-stone-950 border border-stone-800 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src={user.avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-amber-400" />
+          <Avatar user={user} className="w-12 h-12 border-2 border-amber-400" />
           <div>
             {editing ? (
               <form

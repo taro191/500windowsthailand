@@ -24,8 +24,8 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** Decodes an image file and re-encodes it as a JPEG data URL no larger than `maxSize` px. */
-export async function compressImage(file: File, maxSize = 800, quality = 0.8): Promise<string> {
+/** Decodes an image file and re-encodes it as a JPEG data URL no larger than `maxSize` px; `square` crops the centre. */
+export async function compressImage(file: File, maxSize = 800, quality = 0.8, square = false): Promise<string> {
   const objectUrl = URL.createObjectURL(file)
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -34,9 +34,13 @@ export async function compressImage(file: File, maxSize = 800, quality = 0.8): P
       image.onerror = () => reject(new Error('decode-failed'))
       image.src = objectUrl
     })
-    const scale = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight))
-    const width = Math.max(1, Math.round(img.naturalWidth * scale))
-    const height = Math.max(1, Math.round(img.naturalHeight * scale))
+    const side = Math.min(img.naturalWidth, img.naturalHeight)
+    const [sx, sy, sw, sh] = square
+      ? [(img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side]
+      : [0, 0, img.naturalWidth, img.naturalHeight]
+    const scale = Math.min(1, maxSize / Math.max(sw, sh))
+    const width = Math.max(1, Math.round(sw * scale))
+    const height = Math.max(1, Math.round(sh * scale))
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
@@ -45,7 +49,7 @@ export async function compressImage(file: File, maxSize = 800, quality = 0.8): P
     // White background so transparent PNGs don't turn black in JPEG.
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, width, height)
-    ctx.drawImage(img, 0, 0, width, height)
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height)
     return canvas.toDataURL('image/jpeg', quality)
   } finally {
     URL.revokeObjectURL(objectUrl)

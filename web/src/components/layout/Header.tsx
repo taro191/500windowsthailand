@@ -4,6 +4,7 @@ import type { AuthMode, HubTab, Quota, RegionId, User, ZoomLevel } from '@shared
 import { REGIONS_BY_ID } from '@shared/regions'
 import { maskPhone } from '@shared/identity'
 import { KapsulepLogo } from '../KapsulepLogo'
+import { Avatar } from '../Avatar'
 
 interface HeaderProps {
   activeRegion: RegionId
@@ -222,11 +223,7 @@ export function Header({
                 className="flex items-center gap-2 p-1 pl-2 sm:pl-2.5 pr-2 rounded-xl bg-[#140f21] hover:bg-[#1c162e] border border-rose-500/30 hover:border-rose-400/60 text-stone-200 transition-all cursor-pointer text-xs"
               >
                 <div className="relative">
-                  <img
-                    src={currentUser.avatarUrl}
-                    alt={currentUser.name}
-                    className="w-7 h-7 rounded-full object-cover border border-purple-500/50"
-                  />
+                  <Avatar user={currentUser} alt={currentUser.name} className="w-7 h-7 border border-purple-500/50" />
                   {currentUser.isVerified ? (
                     <span
                       className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border border-stone-900 flex items-center justify-center text-[8px] text-white"
@@ -266,11 +263,7 @@ export function Header({
                 <div className="fixed inset-0 z-30" onClick={() => setAccountMenuOpen(false)} />
                 <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-[#120f1e] border border-purple-900/50 p-3 shadow-2xl z-40 space-y-2.5 text-xs animate-in fade-in zoom-in-95">
                   <div className="flex items-center gap-2.5 p-2 rounded-xl bg-[#19142b] border border-purple-900/30">
-                    <img
-                      src={currentUser.avatarUrl}
-                      alt={currentUser.name}
-                      className="w-10 h-10 rounded-full object-cover border border-rose-400"
-                    />
+                    <Avatar user={currentUser} alt={currentUser.name} className="w-10 h-10 border border-rose-400" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-stone-100 truncate font-['Prompt',sans-serif]">{currentUser.name}</span>

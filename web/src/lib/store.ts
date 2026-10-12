@@ -224,6 +224,8 @@ export interface ProfileChanges {
   email?: string
   currentPassword?: string
   payoutAccount?: PayoutAccount
+  /** A new photo as a data URL, or '' for the default avatar. */
+  avatar?: string
 }
 
 export async function updateProfile(changes: ProfileChanges): Promise<Result<{ user: User }>> {

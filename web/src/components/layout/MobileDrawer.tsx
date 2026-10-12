@@ -4,6 +4,7 @@ import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { maskPhone } from '@shared/identity'
 import { useRules } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
+import { Avatar } from '../Avatar'
 
 interface MobileDrawerProps {
   isOpen: boolean
@@ -131,7 +132,7 @@ export function MobileDrawer({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="relative shrink-0">
-                    <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-10 h-10 rounded-full object-cover border border-rose-400/80" />
+                    <Avatar user={currentUser} alt={currentUser.name} className="w-10 h-10 border border-rose-400/80" />
                     {currentUser.isVerified && (
                       <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 text-stone-950 flex items-center justify-center text-[9px] font-bold">
                         ✓
