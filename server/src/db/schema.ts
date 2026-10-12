@@ -82,6 +82,8 @@ export interface WindowsTable {
   previous_owner_id: string | null
   /** Pending payment order holding this window (claim or resale waiting for slip check). */
   reserved_order_id: string | null
+  /** The owner's public page (WindowProfile as JSON); cleared when the window changes hands. */
+  profile_json: string | null
   updated_at: string
 }
 
@@ -108,6 +110,19 @@ export interface WindowFollowsTable {
   num: number
   user_id: string
   created_at: string
+}
+
+/** One review per user for each owner of a window (a new owner starts with none). */
+export interface WindowReviewsTable {
+  id: string
+  region: string
+  num: number
+  owner_id: string
+  user_id: string
+  rating: number
+  text: string
+  created_at: string
+  updated_at: string
 }
 
 export interface WindowLikesTable {
@@ -232,6 +247,7 @@ export interface Database {
   window_owners: WindowOwnersTable
   window_follows: WindowFollowsTable
   window_likes: WindowLikesTable
+  window_reviews: WindowReviewsTable
   transactions: TransactionsTable
   payment_orders: PaymentOrdersTable
   promo_requests: PromoRequestsTable

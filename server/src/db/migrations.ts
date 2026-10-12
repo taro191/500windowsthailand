@@ -288,6 +288,26 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+  '007_window_profiles': {
+    // The owner's public page for a window, and reviews from visitors.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('windows').addColumn('profile_json', 'text').execute()
+      await db.schema
+        .createTable('window_reviews')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('region', varchar(20), (c) => c.notNull())
+        .addColumn('num', 'integer', (c) => c.notNull())
+        .addColumn('owner_id', id, (c) => c.notNull())
+        .addColumn('user_id', id, (c) => c.notNull())
+        .addColumn('rating', 'integer', (c) => c.notNull())
+        .addColumn('text', varchar(500), (c) => c.notNull())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('updated_at', time, (c) => c.notNull())
+        .addUniqueConstraint('window_reviews_one_per_user', ['region', 'num', 'owner_id', 'user_id'])
+        .execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

@@ -96,3 +96,6 @@ export const loadLineStatus = () => get<LineStatus>('/admin/line-status')
 export const sendLineTest = () => post<{ sent: number }>('/admin/line-test')
 export const saveLineRecipients = (ids: string[]) => put<LineStatus>('/admin/line-recipients', { ids })
 export const saveLineTopics = (topics: Partial<LineAlertTopics>) => put<LineStatus>('/admin/line-topics', topics)
+
+/** Moderation: removes an unsuitable review from a window. */
+export const deleteReviewAsAdmin = (reviewId: string) => post<{ window: WindowItem }>(`/admin/reviews/${reviewId}/delete`)

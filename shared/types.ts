@@ -105,6 +105,44 @@ export interface OwnerHistoryEntry {
   type: 'resale' | 'transfer'
 }
 
+/** A product, service or piece of work the owner presents on the window. */
+export interface WindowOffering {
+  imageUrl: string
+  name: string
+  note: string
+}
+
+/** The owner's public page for the window (detail popup); every field is optional to fill in. */
+export interface WindowProfile {
+  logoUrl: string
+  tags: string[]
+  /** Extra photos after the main window image. */
+  gallery: string[]
+  offerings: WindowOffering[]
+  phone: string
+  lineId: string
+  email: string
+  website: string
+  facebook: string
+  instagram: string
+  tiktok: string
+  youtube: string
+  about: string
+  highlights: string[]
+  serviceArea: string
+  shipping: string
+}
+
+export interface WindowReview {
+  id: string
+  userId: string
+  userName: string
+  userAvatarUrl: string
+  rating: number
+  text: string
+  createdAt: string
+}
+
 /** A note shown on the window for the current Thai calendar day only. */
 export interface DailyNote {
   day: string
@@ -151,6 +189,10 @@ export interface WindowItem {
   slotPosition: number
   /** Held for a buyer whose transfer slip is waiting for an admin; nobody else can buy it meanwhile. */
   reserved?: boolean
+  /** Detail only (not on the boards): the owner's public page, and reviews from the current owner's time. */
+  profile?: WindowProfile
+  reviews?: WindowReview[]
+  reviewStats?: { average: number; count: number }
 }
 
 export type TransactionType = 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund' | 'edit_fee' | 'bonus'

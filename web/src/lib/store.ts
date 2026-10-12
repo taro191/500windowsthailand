@@ -15,13 +15,14 @@ import type {
   User,
   WindowContentInput,
   WindowItem,
+  WindowProfile,
 } from '@shared/types'
 import { REGION_IDS } from '@shared/regions'
 import { createEmptyWindows } from '@shared/seedWindows'
 import { getRotationCycle } from '@shared/thaiTime'
 import { orderWindowsForCycle } from '@shared/boardOrder'
 import type { PromoAd, PromoRequest } from '@shared/promo'
-import { get, patch, post, type ApiResult } from './api'
+import { get, patch, post, put, type ApiResult } from './api'
 import { enabledChannels, setSettings } from './settings'
 import { setPromoData } from './promo'
 
@@ -57,11 +58,18 @@ export const isDemo = () => appConfig.demoTools
 function applyBoards(changed: WindowItem[]) {
   for (const region of REGION_IDS) {
     const overlay = new Map(changed.filter((w) => w.region === region).map((w) => [w.id, w]))
+    const before = new Map((windowsByRegion.get(region) ?? []).map((w) => [w.id, w]))
     windowsByRegion.set(
       region,
-      createEmptyWindows(region).map((w) => overlay.get(w.id) || w),
+      createEmptyWindows(region).map((w) => withDetail(overlay.get(w.id) || w, before.get(w.id))),
     )
   }
+}
+
+/** Boards don't carry the detail-only fields: keep the ones already loaded while the owner is the same. */
+function withDetail(next: WindowItem, prev: WindowItem | undefined): WindowItem {
+  if (!prev?.profile || next.profile || prev.ownerId !== next.ownerId) return next
+  return { ...next, profile: prev.profile, reviews: prev.reviews, reviewStats: prev.reviewStats }
 }
 
 function putWindow(window: WindowItem) {
@@ -377,6 +385,26 @@ export async function editWindow(
   putWindow(result.window)
   if (result.charged > 0) await refreshSession()
   return { success: true, updatedWindow: result.window, charged: result.charged }
+}
+
+/** The owner's public page for the window (free, any time). */
+export async function saveWindowProfile(region: RegionId, windowId: number, profile: WindowProfile): Promise<Result<{ window: WindowItem }>> {
+  const result = await put<{ window: WindowItem }>(`/windows/${region}/${windowId}/profile`, profile)
+  if (result.success) putWindow(result.window)
+  return result
+}
+
+/** One review per user for the current owner; sending again replaces it. */
+export async function saveReview(region: RegionId, windowId: number, rating: number, text: string): Promise<Result<{ window: WindowItem }>> {
+  const result = await post<{ window: WindowItem }>(`/windows/${region}/${windowId}/review`, { rating, text })
+  if (result.success) putWindow(result.window)
+  return result
+}
+
+export async function deleteReview(region: RegionId, windowId: number): Promise<Result<{ window: WindowItem }>> {
+  const result = await post<{ window: WindowItem }>(`/windows/${region}/${windowId}/review/delete`)
+  if (result.success) putWindow(result.window)
+  return result
 }
 
 /** One like per visitor per day; returns the updated window. */

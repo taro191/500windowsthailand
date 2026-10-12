@@ -2,6 +2,7 @@
 import { isLineAlertTopic, LINE_ALERT_GROUPS, LINE_ALERT_TOPICS, type LineAlertTopics } from '@shared/lineAlerts'
 import type { PlatformSettings, RegionId } from '@shared/types'
 import { isValidCitizenId, isValidThaiMobile } from '@shared/identity'
+import { profileImages } from '@shared/windowProfile'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
@@ -27,7 +28,7 @@ import {
   savedLineRecipients,
   sendLineAlert,
 } from './notify'
-import { emptyWindowRow, loadBoards, loadWindow } from './windows'
+import { emptyWindowRow, loadBoards, loadWindow, parseProfile } from './windows'
 
 /** Everything the admin pages show. */
 export async function adminOverview(ctx: AppContext) {
@@ -87,7 +88,7 @@ const requireReason = (reason: unknown) => {
 /** Content moderation: removes the image and text (rule 5) but keeps the owner. */
 export async function takeDownContent(ctx: AppContext, admin: UserRow, region: RegionId, num: number, reasonInput: string) {
   const reason = requireReason(reasonInput)
-  const row = await ctx.db.selectFrom('windows').select(['code', 'owner_id']).where('region', '=', region).where('num', '=', num).executeTakeFirst()
+  const row = await ctx.db.selectFrom('windows').select(['code', 'owner_id', 'profile_json']).where('region', '=', region).where('num', '=', num).executeTakeFirst()
   if (!row) throw notFound('ไม่พบบานหน้าต่าง')
   if (!row.owner_id) throw badRequest('บานนี้ยังไม่มีเจ้าของ')
   await ctx.db
@@ -97,6 +98,7 @@ export async function takeDownContent(ctx: AppContext, admin: UserRow, region: R
       title: `เนื้อหาถูกระงับโดยผู้ดูแลระบบ (${row.code})`,
       description: `เนื้อหาของบานนี้ถูกถอดออกเนื่องจากขัดต่อเงื่อนไขการใช้งาน: ${reason}`,
       external_link: null,
+      profile_json: null,
       note_day: null,
       note_text: null,
       note_at: null,
@@ -105,6 +107,7 @@ export async function takeDownContent(ctx: AppContext, admin: UserRow, region: R
     .where('region', '=', region)
     .where('num', '=', num)
     .execute()
+  for (const image of profileImages(parseProfile(row.profile_json))) await deleteUpload(ctx.config.uploadDir, image)
   await audit(ctx.db, admin, 'ถอดเนื้อหาบาน', `${row.code} · ${reason}`)
   return loadWindow(ctx, region, num, null)
 }

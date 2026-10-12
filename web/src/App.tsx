@@ -627,6 +627,9 @@ export default function App() {
           setStatusFilter('follow')
         }}
         onOpenKyc={() => openKyc('การทำธุรกรรมเปิดขายต่อหรือโอนสิทธิ์ต้องยืนยันตัวตนก่อน')}
+        onOpenAuth={() => openAuth('login')}
+        onWindowChanged={() => refreshBoard()}
+        onNotify={showToast}
       />
 
       {claimTarget && (

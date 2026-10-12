@@ -834,6 +834,108 @@ describe('forgot password and personal info', () => {
   })
 })
 
+describe('window profile and reviews', () => {
+  async function owner(path: string) {
+    const o = await verifiedUser('เจ้าของร้าน')
+    await topUpByCard(o.c, 1000)
+    const claim = await o.c.post(`${path}/claim`, { content, payment: wallet(500) })
+    assert.equal(claim.success, true, claim.error)
+    return o
+  }
+
+  it('lets the owner fill in a public page with photos, offerings and contacts, only in the detail', async () => {
+    const { c } = await owner('/windows/east/40')
+    const empty = await client().get('/windows/east/40')
+    assert.equal(empty.window.profile.logoUrl, '')
+    assert.deepEqual(empty.window.reviews, [])
+
+    const profile = {
+      logoUrl: PNG,
+      tags: ['#สินค้าเกษตร', 'ของฝาก', 'ของฝาก'],
+      gallery: [PNG, PNG],
+      offerings: [{ imageUrl: PNG, name: 'ผักออร์แกนิก', note: 'สด สะอาด' }, { imageUrl: '', name: '', note: '' }],
+      phone: '081-234-5678',
+      lineId: '@baansuan',
+      email: 'Shop@Test.th',
+      website: 'https://baansuan.example.com',
+      facebook: 'https://www.facebook.com/baansuan',
+      about: 'ร้านของครอบครัว',
+      highlights: ['ปลอดสาร', ''],
+      serviceArea: 'ทั่วประเทศ',
+      shipping: '2-5 วัน',
+    }
+    assert.equal((await client().put('/windows/east/40/profile', profile)).status, 401)
+    const other = await verifiedUser()
+    assert.equal((await other.c.put('/windows/east/40/profile', profile)).status, 403)
+    assert.equal((await c.put('/windows/east/40/profile', { ...profile, facebook: 'https://evil.example.com/fb' })).status, 400)
+    assert.equal((await c.put('/windows/east/40/profile', { ...profile, website: 'javascript:alert(1)' })).status, 400)
+    assert.equal((await c.put('/windows/east/40/profile', { ...profile, gallery: ['https://example.com/x.jpg'] })).status, 400)
+
+    const saved = await c.put('/windows/east/40/profile', profile)
+    assert.equal(saved.success, true, saved.error)
+    const p = saved.window.profile
+    assert.match(p.logoUrl, /^\/uploads\/windows\//)
+    assert.equal(p.gallery.length, 2)
+    assert.deepEqual(p.tags, ['สินค้าเกษตร', 'ของฝาก'])
+    assert.equal(p.offerings.length, 1)
+    assert.equal(p.email, 'shop@test.th')
+    assert.deepEqual(p.highlights, ['ปลอดสาร'])
+    // Profile edits are free and don't use the daily content edits.
+    assert.equal(saved.window.editsToday, undefined)
+
+    // Keeping one gallery photo deletes the other file.
+    const kept = await c.put('/windows/east/40/profile', { ...p, gallery: [p.gallery[0]] })
+    assert.equal(kept.success, true, kept.error)
+    assert.equal(existsSync(path.join(ctx.config.uploadDir, p.gallery[1].replace('/uploads/', ''))), false)
+    assert.equal(existsSync(path.join(ctx.config.uploadDir, p.gallery[0].replace('/uploads/', ''))), true)
+
+    const boards = await client().get('/boards')
+    const onBoard = boards.windows.find((w: { region: string; id: number }) => w.region === 'east' && w.id === 40)
+    assert.equal(onBoard.profile, undefined)
+    assert.equal((await client().get('/windows/east/40')).window.profile.phone, '081-234-5678')
+  })
+
+  it('takes reviews from visitors, one each, and starts over for a new owner', async () => {
+    const { c } = await owner('/windows/east/41')
+    const a = await verifiedUser('ลูกค้า')
+    const b = await verifiedUser('ลูกค้า')
+    assert.equal((await client().post('/windows/east/41/review', { rating: 5 })).status, 401)
+    assert.equal((await c.post('/windows/east/41/review', { rating: 5, text: 'ร้านฉันเอง' })).status, 403)
+    assert.equal((await a.c.post('/windows/east/41/review', { rating: 6 })).status, 400)
+    assert.equal((await a.c.post('/windows/east/40/review', { rating: 5 })).success, true)
+    assert.equal((await a.c.post('/windows/east/2/review', { rating: 5 })).status, 400)
+
+    await a.c.post('/windows/east/41/review', { rating: 2, text: 'ช้า' })
+    const again = await a.c.post('/windows/east/41/review', { rating: 4, text: 'ดีขึ้นแล้ว' })
+    await b.c.post('/windows/east/41/review', { rating: 5, text: 'อร่อย' })
+    assert.equal(again.window.reviews.length, 1)
+    const detail = (await client().get('/windows/east/41')).window
+    assert.deepEqual(detail.reviewStats, { count: 2, average: 4.5 })
+    assert.equal(detail.reviews.find((r: { userId: string }) => r.userId === a.user.id).text, 'ดีขึ้นแล้ว')
+
+    const removed = await b.c.post('/windows/east/41/review/delete')
+    assert.equal(removed.window.reviews.length, 1)
+
+    const admin = await adminClient()
+    const reviewId = detail.reviews.find((r: { userId: string }) => r.userId === a.user.id).id
+    assert.equal((await a.c.post(`/admin/reviews/${reviewId}/delete`)).status, 403)
+    const moderated = await admin.post(`/admin/reviews/${reviewId}/delete`)
+    assert.equal(moderated.success, true, moderated.error)
+    assert.equal(moderated.window.reviews.length, 0)
+    assert.ok((await admin.get('/admin/overview')).auditLog.some((e: { action: string }) => e.action === 'ลบรีวิว'))
+
+    // Released and claimed again: a new owner starts without the old page or reviews.
+    await a.c.post('/windows/east/41/review', { rating: 3 })
+    await c.put('/windows/east/41/profile', { about: 'เดิม' })
+    const released = await admin.post('/admin/windows/east/41/release', { reason: 'ทดสอบ' })
+    assert.equal(released.success, true, released.error)
+    const next = await owner('/windows/east/41')
+    const fresh = (await next.c.get('/windows/east/41')).window
+    assert.equal(fresh.profile.about, '')
+    assert.deepEqual(fresh.reviews, [])
+  })
+})
+
 describe('LINE alerts to the finance admin', () => {
   /** Runs `body` with LINE set up and api.line.me stubbed; returns the calls made to LINE. */
   async function withLine(body: () => Promise<void>, reply = { status: 200, json: {} as object }) {

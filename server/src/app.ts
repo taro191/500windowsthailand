@@ -20,6 +20,7 @@ import * as windows from './services/windows'
 import * as purchases from './services/purchases'
 import * as promo from './services/promo'
 import * as admin from './services/admin'
+import * as windowProfiles from './services/windowProfiles'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
 import { sendContactMessage, updateContactMessage } from './services/contact'
@@ -34,6 +35,7 @@ export function createApp(ctx: AppContext) {
   const authLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 20 })
   const otpLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 5 })
   const contactLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 10 })
+  const reviewLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 30 })
 
   app.use('*', secureHeaders({ crossOriginResourcePolicy: 'same-origin', contentSecurityPolicy: undefined }))
   app.use('/api/*', compress())
@@ -250,6 +252,22 @@ export function createApp(ctx: AppContext) {
     return ok(c, await windows.editWindow(ctx, me(c), region, num, await body(c)))
   })
 
+  api.put('/windows/:region/:num/profile', async (c) => {
+    const { region, num } = windowRoute(c)
+    return ok(c, { window: await windowProfiles.updateWindowProfile(ctx, me(c), region, num, await body(c)) })
+  })
+
+  api.post('/windows/:region/:num/review', async (c) => {
+    const { region, num } = windowRoute(c)
+    reviewLimiter.hit(`review:${me(c).id}`)
+    return ok(c, { window: await windowProfiles.saveReview(ctx, me(c), region, num, await body(c)) })
+  })
+
+  api.post('/windows/:region/:num/review/delete', async (c) => {
+    const { region, num } = windowRoute(c)
+    return ok(c, { window: await windowProfiles.deleteOwnReview(ctx, me(c), region, num) })
+  })
+
   api.post('/windows/:region/:num/listing', async (c) => {
     const { region, num } = windowRoute(c)
     const { price } = await body<{ price: number }>(c)
@@ -386,6 +404,8 @@ export function createApp(ctx: AppContext) {
   adminApi.put('/users/:id', async (c) =>
     ok(c, { user: await admin.updateUserInfo(ctx, me(c), c.req.param('id'), await body<admin.UserInfoInput>(c)) }),
   )
+
+  adminApi.post('/reviews/:id/delete', async (c) => ok(c, { window: await windowProfiles.adminDeleteReview(ctx, me(c), c.req.param('id')) }))
 
   adminApi.post('/contact-messages/:id', async (c) => ok(c, await updateContactMessage(ctx, me(c), c.req.param('id'), await body(c))))
 

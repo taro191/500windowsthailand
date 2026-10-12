@@ -1,12 +1,13 @@
 // Boards and windows: reading, owner actions (edit, list for resale), likes and follows.
 // Buying and claiming live in purchases.ts because they involve payments.
-import type { CategoryId, ImageUpdate, OwnerHistoryEntry, RegionId, WindowItem } from '@shared/types'
+import type { CategoryId, ImageUpdate, OwnerHistoryEntry, RegionId, WindowItem, WindowProfile, WindowReview } from '@shared/types'
 import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORY_IDS } from '@shared/categories'
 import { createEmptyWindows, DEMO_IMAGES } from '@shared/seedWindows'
 import { thaiDayKey } from '@shared/thaiTime'
 import { getEditStatus, getHoldingPeriod, getPriceCap } from '@shared/ownershipRules'
 import { isPromoSlot } from '@shared/promo'
+import { emptyProfile } from '@shared/windowProfile'
 import type { UserRow, WindowRow } from '../db/schema'
 import type { DB } from '../db'
 import { newId } from '../lib/crypto'
@@ -62,6 +63,7 @@ export function emptyWindowRow(region: RegionId, num: number, now = nowIso(), cl
     note_at: null,
     previous_owner_id: null,
     reserved_order_id: null,
+    profile_json: null,
     updated_at: now,
   }
 }
@@ -76,6 +78,8 @@ interface Extras {
   followerCount?: number
   viewerFollows?: boolean
   viewerId?: string | null
+  /** Detail only. */
+  reviews?: WindowReview[]
 }
 
 /**
@@ -118,7 +122,51 @@ export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem
     dailyNote: row.note_day && row.note_text ? { day: row.note_day, text: row.note_text, at: row.note_at || '' } : undefined,
     slotPosition: row.num,
     reserved: row.reserved_order_id ? true : undefined,
+    ...(extras.reviews
+      ? {
+          profile: parseProfile(row.profile_json),
+          reviews: extras.reviews,
+          reviewStats: {
+            count: extras.reviews.length,
+            average: extras.reviews.length ? Math.round((extras.reviews.reduce((sum, r) => sum + r.rating, 0) / extras.reviews.length) * 10) / 10 : 0,
+          },
+        }
+      : {}),
   }
+}
+
+/** The stored profile over the empty one, so fields added later are always there. */
+export function parseProfile(json: string | null): WindowProfile {
+  if (!json) return emptyProfile()
+  try {
+    return { ...emptyProfile(), ...(JSON.parse(json) as Partial<WindowProfile>) }
+  } catch {
+    return emptyProfile()
+  }
+}
+
+/** Reviews written during the current owner's time, newest first. */
+async function loadReviews(db: DB, region: RegionId, num: number, ownerId: string | null): Promise<WindowReview[]> {
+  if (!ownerId) return []
+  const rows = await db
+    .selectFrom('window_reviews')
+    .innerJoin('users', 'users.id', 'window_reviews.user_id')
+    .select(['window_reviews.id', 'window_reviews.user_id', 'window_reviews.rating', 'window_reviews.text', 'window_reviews.updated_at', 'users.name', 'users.avatar_url'])
+    .where('window_reviews.region', '=', region)
+    .where('window_reviews.num', '=', num)
+    .where('window_reviews.owner_id', '=', ownerId)
+    .orderBy('window_reviews.updated_at', 'desc')
+    .limit(200)
+    .execute()
+  return rows.map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    userName: r.name,
+    userAvatarUrl: r.avatar_url,
+    rating: r.rating,
+    text: r.text,
+    createdAt: r.updated_at,
+  }))
 }
 
 const withOwnerName = (db: DB) =>
@@ -177,7 +225,7 @@ export async function loadBoards(ctx: AppContext, viewerId: string | null): Prom
   })
 }
 
-async function loadRow(db: DB, region: RegionId, num: number) {
+export async function loadRow(db: DB, region: RegionId, num: number) {
   const row = await withOwnerName(db).where('windows.region', '=', region).where('windows.num', '=', num).executeTakeFirst()
   if (!row) throw notFound('ไม่พบบานหน้าต่าง')
   return row
@@ -186,10 +234,11 @@ async function loadRow(db: DB, region: RegionId, num: number) {
 /** One window with its full image and owner history. */
 export async function loadWindow(ctx: AppContext, region: RegionId, num: number, viewerId: string | null, db: DB = ctx.db) {
   const row = await loadRow(db, region, num)
-  const [images, owners, follows] = await Promise.all([
+  const [images, owners, follows, reviews] = await Promise.all([
     db.selectFrom('window_images').selectAll().where('region', '=', region).where('num', '=', num).orderBy('date', 'desc').execute(),
     db.selectFrom('window_owners').selectAll().where('region', '=', region).where('num', '=', num).orderBy('transferred_at', 'asc').execute(),
     db.selectFrom('window_follows').select('user_id').where('region', '=', region).where('num', '=', num).execute(),
+    loadReviews(db, region, num, row.owner_id),
   ])
   return toWindowItem(row, {
     images: images.map((i) => ({ date: i.date, imageUrl: i.image_url, caption: i.caption })),
@@ -199,6 +248,7 @@ export async function loadWindow(ctx: AppContext, region: RegionId, num: number,
     followerCount: follows.length,
     viewerFollows: !!viewerId && follows.some((f) => f.user_id === viewerId),
     viewerId,
+    reviews,
   })
 }
 
