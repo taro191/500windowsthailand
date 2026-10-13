@@ -22,6 +22,8 @@ async function main() {
   const indexHtml = config.publicDir && path.join(config.publicDir, 'index.html')
   if (indexHtml && existsSync(indexHtml)) {
     const root = path.relative(process.cwd(), config.publicDir) || '.'
+    // The original design is a separate static site under public/design/.
+    app.get('/design', (c) => c.redirect('/design/', 301))
     app.use('/assets/*', serveStatic({ root, onFound: (_path, c) => c.header('Cache-Control', 'public, max-age=31536000, immutable') }))
     app.use('*', serveStatic({ root }))
     // Single-page app: any other GET returns index.html.

@@ -5,6 +5,7 @@
 //   app.cjs           startup file (Passenger loads CommonJS; it imports server.mjs)
 //   server.mjs        API + dependencies in one file, so the host needs no npm install
 //   public/           the built web app (document root), served by the API as well
+//   public/design/    the original Figma Make design (../design), built to live under /design
 //   public/.htaccess  301 from the old subdomain (500windowsthailand.yaydang.com) to the new domain
 //   tmp/restart.txt   changes every deploy, so Passenger restarts the app
 //
@@ -20,6 +21,8 @@ const webDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const serverDir = path.resolve(webDir, '../server')
 const webDist = path.join(webDir, 'dist')
 const serverBundle = path.join(serverDir, 'dist/server.mjs')
+const designDir = path.resolve(webDir, '../design')
+const designDist = path.join(designDir, 'dist')
 const run = (cmd, cwd = webDir) => execSync(cmd, { cwd, stdio: 'inherit' })
 const read = (cmd, cwd = webDir) => execSync(cmd, { cwd }).toString().trim()
 const dryRun = process.argv.includes('--dry-run')
@@ -33,12 +36,17 @@ if (read('git status --porcelain')) {
 run('npm run build')
 run('npm test', serverDir)
 run('npm run build', serverDir)
+// The design is reference only: install without writing a lockfile, and build it for the /design path.
+if (!existsSync(path.join(designDir, 'node_modules'))) run('npm install --no-package-lock --no-audit --no-fund', designDir)
+execSync('npx vite build --emptyOutDir', { cwd: designDir, stdio: 'inherit', env: { ...process.env, FIGMA_PUBLIC_URL: '/design' } })
 if (!existsSync(path.join(webDist, 'index.html'))) throw new Error('Build did not produce web/dist/index.html')
 if (!existsSync(serverBundle)) throw new Error('Build did not produce server/dist/server.mjs')
+if (!existsSync(path.join(designDist, 'index.html'))) throw new Error('Build did not produce design/dist/index.html')
 
 const work = mkdtempSync(path.join(tmpdir(), '500windows-deploy-'))
 try {
   cpSync(webDist, path.join(work, 'public'), { recursive: true })
+  cpSync(designDist, path.join(work, 'public/design'), { recursive: true })
   // The site moved from the old subdomain; Apache sends its visitors to the same path on the new domain.
   writeFileSync(
     path.join(work, 'public/.htaccess'),
