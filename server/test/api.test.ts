@@ -934,6 +934,77 @@ describe('window profile and reviews', () => {
     assert.equal(fresh.profile.about, '')
     assert.deepEqual(fresh.reviews, [])
   })
+
+  it('lets only the owner post, edit and delete daily updates, and admins remove them', async () => {
+    const { c } = await owner('/windows/east/42')
+    const other = await verifiedUser()
+    assert.equal((await client().post('/windows/east/42/updates', { text: 'สวัสดี' })).status, 401)
+    assert.equal((await other.c.post('/windows/east/42/updates', { text: 'แอบโพสต์' })).status, 403)
+    assert.equal((await c.post('/windows/east/42/updates', { text: '   ' })).status, 400)
+    assert.equal((await c.post('/windows/east/42/updates', { text: 'x'.repeat(501) })).status, 400)
+
+    await c.post('/windows/east/42/updates', { text: 'เปิดร้านวันแรก' })
+    const posted = await c.post('/windows/east/42/updates', { text: 'มีของใหม่' })
+    assert.equal(posted.success, true, posted.error)
+    assert.deepEqual(posted.window.updates.map((u: { text: string }) => u.text), ['มีของใหม่', 'เปิดร้านวันแรก'])
+    const [latest, first] = posted.window.updates
+
+    assert.equal((await other.c.post(`/windows/east/42/updates/${latest.id}`, { text: 'แก้' })).status, 403)
+    const edited = await c.post(`/windows/east/42/updates/${latest.id}`, { text: 'มีของใหม่ 3 อย่าง' })
+    assert.equal(edited.window.updates[0].text, 'มีของใหม่ 3 อย่าง')
+    assert.ok(edited.window.updates[0].editedAt)
+    const deleted = await c.post(`/windows/east/42/updates/${first.id}/delete`)
+    assert.equal(deleted.window.updates.length, 1)
+    assert.equal((await client().get('/windows/east/42')).window.updates.length, 1)
+
+    const admin = await adminClient()
+    const moderated = await admin.post(`/admin/updates/${latest.id}/delete`)
+    assert.equal(moderated.success, true, moderated.error)
+    assert.deepEqual(moderated.window.updates, [])
+    assert.ok((await admin.get('/admin/overview')).auditLog.some((e: { action: string }) => e.action === 'ลบอัปเดตประจำวัน'))
+  })
+
+  it('links other windows after the owner approves, up to 3, while both owners stay', async () => {
+    const host = await owner('/windows/east/43')
+    const friends = [await owner('/windows/thailand/60'), await owner('/windows/thailand/61'), await owner('/windows/thailand/62'), await owner('/windows/thailand/63')]
+    const request = (i: number, message = '') => friends[i].c.post('/windows/east/43/links', { fromRegion: 'thailand', fromNum: 60 + i, message })
+
+    assert.equal((await friends[0].c.post('/windows/east/43/links', { fromRegion: 'thailand', fromNum: 61 })).status, 403)
+    assert.equal((await host.c.post('/windows/east/43/links', { fromRegion: 'east', fromNum: 43 })).status, 400)
+    assert.equal((await friends[0].c.post('/windows/east/2/links', { fromRegion: 'thailand', fromNum: 60 })).status, 400)
+
+    const first = await request(0, 'ร้านเพื่อนบ้าน')
+    assert.equal(first.success, true, first.error)
+    assert.equal(first.window.myLinkRequests[0].status, 'pending')
+    assert.equal(first.window.linkRequests, undefined)
+    await request(0, 'ส่งซ้ำ')
+    for (const i of [1, 2, 3]) await request(i)
+
+    const pending = (await host.c.get('/windows/east/43')).window.linkRequests
+    assert.equal(pending.length, 4)
+    assert.equal(pending.find((r: { window: { id: number } }) => r.window.id === 60).message, 'ส่งซ้ำ')
+    const idOf = (i: number) => pending.find((r: { window: { id: number } }) => r.window.id === 60 + i).id
+
+    assert.equal((await friends[0].c.post(`/windows/east/43/links/${idOf(0)}/decide`, { approve: true })).status, 403)
+    for (const i of [0, 1, 2]) assert.equal((await host.c.post(`/windows/east/43/links/${idOf(i)}/decide`, { approve: true })).success, true)
+    assert.equal((await host.c.post(`/windows/east/43/links/${idOf(3)}/decide`, { approve: true })).status, 400)
+    const rejected = await host.c.post(`/windows/east/43/links/${idOf(3)}/decide`, { approve: false })
+    assert.equal(rejected.window.linkRequests.length, 0)
+    assert.equal((await friends[3].c.get('/windows/east/43')).window.myLinkRequests[0].status, 'rejected')
+
+    const visitor = (await client().get('/windows/east/43')).window
+    assert.deepEqual(visitor.links.map((l: { window: { id: number } }) => l.window.id).sort(), [60, 61, 62])
+    assert.equal((await request(1)).status, 400)
+
+    // The linked side can remove its own link; a stranger can't.
+    assert.equal((await friends[3].c.post(`/windows/east/43/links/${idOf(1)}/delete`)).status, 403)
+    assert.equal((await friends[1].c.post(`/windows/east/43/links/${idOf(1)}/delete`)).window.links.length, 2)
+
+    // A linked window that changes hands drops off.
+    const admin = await adminClient()
+    assert.equal((await admin.post('/admin/windows/thailand/60/release', { reason: 'ทดสอบ' })).success, true)
+    assert.equal((await client().get('/windows/east/43')).window.links.length, 1)
+  })
 })
 
 describe('LINE alerts to the finance admin', () => {

@@ -99,3 +99,4 @@ export const saveLineTopics = (topics: Partial<LineAlertTopics>) => put<LineStat
 
 /** Moderation: removes an unsuitable review from a window. */
 export const deleteReviewAsAdmin = (reviewId: string) => post<{ window: WindowItem }>(`/admin/reviews/${reviewId}/delete`)
+export const deleteUpdateAsAdmin = (updateId: string) => post<{ window: WindowItem }>(`/admin/updates/${updateId}/delete`)

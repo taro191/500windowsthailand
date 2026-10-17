@@ -125,6 +125,32 @@ export interface WindowReviewsTable {
   updated_at: string
 }
 
+/** A post on the window's daily updates; only the current owner's posts are shown. */
+export interface WindowUpdatesTable {
+  id: string
+  region: string
+  num: number
+  owner_id: string
+  text: string
+  created_at: string
+  edited_at: string | null
+}
+
+/** Another window asking to be shown on this one ("Friend and Co"); valid while both owners stay the same. */
+export interface WindowLinksTable {
+  id: string
+  region: string
+  num: number
+  owner_id: string
+  from_region: string
+  from_num: number
+  from_owner_id: string
+  message: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  decided_at: string | null
+}
+
 export interface WindowLikesTable {
   region: string
   num: number
@@ -248,6 +274,8 @@ export interface Database {
   window_follows: WindowFollowsTable
   window_likes: WindowLikesTable
   window_reviews: WindowReviewsTable
+  window_updates: WindowUpdatesTable
+  window_links: WindowLinksTable
   transactions: TransactionsTable
   payment_orders: PaymentOrdersTable
   promo_requests: PromoRequestsTable

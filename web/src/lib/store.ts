@@ -69,7 +69,8 @@ function applyBoards(changed: WindowItem[]) {
 /** Boards don't carry the detail-only fields: keep the ones already loaded while the owner is the same. */
 function withDetail(next: WindowItem, prev: WindowItem | undefined): WindowItem {
   if (!prev?.profile || next.profile || prev.ownerId !== next.ownerId) return next
-  return { ...next, profile: prev.profile, reviews: prev.reviews, reviewStats: prev.reviewStats }
+  const { profile, reviews, reviewStats, updates, links, linkRequests, myLinkRequests } = prev
+  return { ...next, profile, reviews, reviewStats, updates, links, linkRequests, myLinkRequests }
 }
 
 function putWindow(window: WindowItem) {
@@ -406,6 +407,23 @@ export async function deleteReview(region: RegionId, windowId: number): Promise<
   if (result.success) putWindow(result.window)
   return result
 }
+
+/** Owner actions on the window's detail (updates, "Friend and Co"): all answer with the fresh window. */
+async function detailAction(region: RegionId, windowId: number, path: string, body?: unknown): Promise<Result<{ window: WindowItem }>> {
+  const result = await post<{ window: WindowItem }>(`/windows/${region}/${windowId}/${path}`, body)
+  if (result.success) putWindow(result.window)
+  return result
+}
+
+export const postUpdate = (region: RegionId, windowId: number, text: string) => detailAction(region, windowId, 'updates', { text })
+export const editUpdate = (region: RegionId, windowId: number, id: string, text: string) => detailAction(region, windowId, `updates/${id}`, { text })
+export const deleteUpdate = (region: RegionId, windowId: number, id: string) => detailAction(region, windowId, `updates/${id}/delete`)
+
+/** Asks to show the user's window `from` on this one; the owner approves it. */
+export const requestLink = (region: RegionId, windowId: number, from: { region: RegionId; id: number }, message: string) =>
+  detailAction(region, windowId, 'links', { fromRegion: from.region, fromNum: from.id, message })
+export const decideLink = (region: RegionId, windowId: number, id: string, approve: boolean) => detailAction(region, windowId, `links/${id}/decide`, { approve })
+export const removeLink = (region: RegionId, windowId: number, id: string) => detailAction(region, windowId, `links/${id}/delete`)
 
 /** One like per visitor per day; returns the updated window. */
 export async function likeWindow(region: RegionId, windowId: number): Promise<{ window: WindowItem; counted: boolean } | null> {

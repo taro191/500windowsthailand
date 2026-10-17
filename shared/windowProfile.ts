@@ -15,6 +15,12 @@ export const PROFILE_LIMITS = {
   serviceArea: 100,
   shipping: 100,
   reviewText: 500,
+  updateText: 500,
+  /** Daily updates shown on the window. */
+  updatesShown: 30,
+  /** "Friend and Co" slots. */
+  links: 3,
+  linkMessage: 200,
 }
 
 export const SOCIALS = [

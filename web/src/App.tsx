@@ -628,6 +628,7 @@ export default function App() {
         }}
         onOpenKyc={() => openKyc('การทำธุรกรรมเปิดขายต่อหรือโอนสิทธิ์ต้องยืนยันตัวตนก่อน')}
         onOpenAuth={() => openAuth('login')}
+        onOpenWindow={selectWindow}
         onWindowChanged={() => refreshBoard()}
         onNotify={showToast}
       />

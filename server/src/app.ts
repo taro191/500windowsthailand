@@ -21,6 +21,7 @@ import * as purchases from './services/purchases'
 import * as promo from './services/promo'
 import * as admin from './services/admin'
 import * as windowProfiles from './services/windowProfiles'
+import * as community from './services/windowCommunity'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
 import { sendContactMessage, updateContactMessage } from './services/contact'
@@ -36,6 +37,7 @@ export function createApp(ctx: AppContext) {
   const otpLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 5 })
   const contactLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 10 })
   const reviewLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 30 })
+  const postLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 30 })
 
   app.use('*', secureHeaders({ crossOriginResourcePolicy: 'same-origin', contentSecurityPolicy: undefined }))
   app.use('/api/*', compress())
@@ -268,6 +270,39 @@ export function createApp(ctx: AppContext) {
     return ok(c, { window: await windowProfiles.deleteOwnReview(ctx, me(c), region, num) })
   })
 
+  api.post('/windows/:region/:num/updates', async (c) => {
+    const { region, num } = windowRoute(c)
+    postLimiter.hit(`update:${me(c).id}`)
+    return ok(c, { window: await community.postUpdate(ctx, me(c), region, num, await body(c)) })
+  })
+
+  api.post('/windows/:region/:num/updates/:id', async (c) => {
+    const { region, num } = windowRoute(c)
+    return ok(c, { window: await community.editUpdate(ctx, me(c), region, num, c.req.param('id'), await body(c)) })
+  })
+
+  api.post('/windows/:region/:num/updates/:id/delete', async (c) => {
+    const { region, num } = windowRoute(c)
+    return ok(c, { window: await community.deleteUpdate(ctx, me(c), region, num, c.req.param('id')) })
+  })
+
+  api.post('/windows/:region/:num/links', async (c) => {
+    const { region, num } = windowRoute(c)
+    postLimiter.hit(`link:${me(c).id}`)
+    return ok(c, { window: await community.requestLink(ctx, me(c), region, num, await body(c)) })
+  })
+
+  api.post('/windows/:region/:num/links/:id/decide', async (c) => {
+    const { region, num } = windowRoute(c)
+    const { approve } = await body<{ approve: boolean }>(c)
+    return ok(c, { window: await community.decideLink(ctx, me(c), region, num, c.req.param('id'), approve === true) })
+  })
+
+  api.post('/windows/:region/:num/links/:id/delete', async (c) => {
+    const { region, num } = windowRoute(c)
+    return ok(c, { window: await community.removeLink(ctx, me(c), region, num, c.req.param('id')) })
+  })
+
   api.post('/windows/:region/:num/listing', async (c) => {
     const { region, num } = windowRoute(c)
     const { price } = await body<{ price: number }>(c)
@@ -406,6 +441,7 @@ export function createApp(ctx: AppContext) {
   )
 
   adminApi.post('/reviews/:id/delete', async (c) => ok(c, { window: await windowProfiles.adminDeleteReview(ctx, me(c), c.req.param('id')) }))
+  adminApi.post('/updates/:id/delete', async (c) => ok(c, { window: await community.adminDeleteUpdate(ctx, me(c), c.req.param('id')) }))
 
   adminApi.post('/contact-messages/:id', async (c) => ok(c, await updateContactMessage(ctx, me(c), c.req.param('id'), await body(c))))
 

@@ -143,6 +143,33 @@ export interface WindowReview {
   createdAt: string
 }
 
+/** A post on the window's daily updates (current owner only). */
+export interface WindowUpdate {
+  id: string
+  text: string
+  createdAt: string
+  editedAt?: string
+}
+
+/** Another window as shown in "Friend and Co". */
+export interface LinkedWindow {
+  region: RegionId
+  id: number
+  code: string
+  title: string
+  imageUrl: string
+  logoUrl: string
+}
+
+export interface WindowLink {
+  id: string
+  window: LinkedWindow
+  requesterName: string
+  message: string
+  status: 'pending' | 'approved' | 'rejected'
+  createdAt: string
+}
+
 /** A note shown on the window for the current Thai calendar day only. */
 export interface DailyNote {
   day: string
@@ -193,6 +220,14 @@ export interface WindowItem {
   profile?: WindowProfile
   reviews?: WindowReview[]
   reviewStats?: { average: number; count: number }
+  /** Detail only: the current owner's daily updates, newest first. */
+  updates?: WindowUpdate[]
+  /** Detail only: approved "Friend and Co" links. */
+  links?: WindowLink[]
+  /** Detail only, owner only: requests waiting for approval. */
+  linkRequests?: WindowLink[]
+  /** Detail only: the viewer's own requests to this window. */
+  myLinkRequests?: WindowLink[]
 }
 
 export type TransactionType = 'claim' | 'resale' | 'transfer' | 'topup' | 'promo' | 'refund' | 'edit_fee' | 'bonus'

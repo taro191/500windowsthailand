@@ -1,13 +1,13 @@
 // Boards and windows: reading, owner actions (edit, list for resale), likes and follows.
 // Buying and claiming live in purchases.ts because they involve payments.
-import type { CategoryId, ImageUpdate, OwnerHistoryEntry, RegionId, WindowItem, WindowProfile, WindowReview } from '@shared/types'
+import type { CategoryId, ImageUpdate, OwnerHistoryEntry, RegionId, WindowItem, WindowLink, WindowProfile, WindowReview, WindowUpdate } from '@shared/types'
 import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORY_IDS } from '@shared/categories'
 import { createEmptyWindows, DEMO_IMAGES } from '@shared/seedWindows'
 import { thaiDayKey } from '@shared/thaiTime'
 import { getEditStatus, getHoldingPeriod, getPriceCap } from '@shared/ownershipRules'
 import { isPromoSlot } from '@shared/promo'
-import { emptyProfile } from '@shared/windowProfile'
+import { emptyProfile, PROFILE_LIMITS } from '@shared/windowProfile'
 import type { UserRow, WindowRow } from '../db/schema'
 import type { DB } from '../db'
 import { newId } from '../lib/crypto'
@@ -80,6 +80,7 @@ interface Extras {
   viewerId?: string | null
   /** Detail only. */
   reviews?: WindowReview[]
+  community?: Pick<WindowItem, 'updates' | 'links' | 'linkRequests' | 'myLinkRequests'>
 }
 
 /**
@@ -130,6 +131,7 @@ export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem
             count: extras.reviews.length,
             average: extras.reviews.length ? Math.round((extras.reviews.reduce((sum, r) => sum + r.rating, 0) / extras.reviews.length) * 10) / 10 : 0,
           },
+          ...extras.community,
         }
       : {}),
   }
@@ -167,6 +169,52 @@ async function loadReviews(db: DB, region: RegionId, num: number, ownerId: strin
     text: r.text,
     createdAt: r.updated_at,
   }))
+}
+
+/** The current owner's daily updates, newest first. */
+async function loadUpdates(db: DB, region: RegionId, num: number, ownerId: string | null): Promise<WindowUpdate[]> {
+  if (!ownerId) return []
+  const rows = await db
+    .selectFrom('window_updates')
+    .selectAll()
+    .where('region', '=', region)
+    .where('num', '=', num)
+    .where('owner_id', '=', ownerId)
+    .orderBy('created_at', 'desc')
+    .limit(PROFILE_LIMITS.updatesShown)
+    .execute()
+  return rows.map((r) => ({ id: r.id, text: r.text, createdAt: r.created_at, editedAt: r.edited_at ?? undefined }))
+}
+
+/**
+ * "Friend and Co" links of the current owner whose linked window still belongs to the requester.
+ * Everyone sees approved ones; the owner also sees pending requests, and a viewer sees their own.
+ */
+export async function loadLinks(db: DB, region: RegionId, num: number, ownerId: string | null, viewerId: string | null) {
+  if (!ownerId) return { links: [], myLinkRequests: [] }
+  const rows = await db
+    .selectFrom('window_links as l')
+    .innerJoin('windows as w', (j) => j.onRef('w.region', '=', 'l.from_region').onRef('w.num', '=', 'l.from_num').onRef('w.owner_id', '=', 'l.from_owner_id'))
+    .leftJoin('users as u', 'u.id', 'l.from_owner_id')
+    .select(['l.id', 'l.from_owner_id', 'l.message', 'l.status', 'l.created_at', 'w.region', 'w.num', 'w.code', 'w.title', 'w.image_url', 'w.profile_json', 'u.name'])
+    .where('l.region', '=', region)
+    .where('l.num', '=', num)
+    .where('l.owner_id', '=', ownerId)
+    .orderBy('l.created_at', 'asc')
+    .execute()
+  const toLink = (r: (typeof rows)[number]): WindowLink => ({
+    id: r.id,
+    window: { region: r.region as RegionId, id: r.num, code: r.code, title: r.title, imageUrl: r.image_url, logoUrl: parseProfile(r.profile_json).logoUrl },
+    requesterName: r.name ?? 'ผู้ใช้',
+    message: r.message,
+    status: r.status,
+    createdAt: r.created_at,
+  })
+  return {
+    links: rows.filter((r) => r.status === 'approved').map(toLink),
+    linkRequests: viewerId === ownerId ? rows.filter((r) => r.status === 'pending').map(toLink) : undefined,
+    myLinkRequests: viewerId ? rows.filter((r) => r.from_owner_id === viewerId).map(toLink) : [],
+  }
 }
 
 const withOwnerName = (db: DB) =>
@@ -234,11 +282,13 @@ export async function loadRow(db: DB, region: RegionId, num: number) {
 /** One window with its full image and owner history. */
 export async function loadWindow(ctx: AppContext, region: RegionId, num: number, viewerId: string | null, db: DB = ctx.db) {
   const row = await loadRow(db, region, num)
-  const [images, owners, follows, reviews] = await Promise.all([
+  const [images, owners, follows, reviews, updates, links] = await Promise.all([
     db.selectFrom('window_images').selectAll().where('region', '=', region).where('num', '=', num).orderBy('date', 'desc').execute(),
     db.selectFrom('window_owners').selectAll().where('region', '=', region).where('num', '=', num).orderBy('transferred_at', 'asc').execute(),
     db.selectFrom('window_follows').select('user_id').where('region', '=', region).where('num', '=', num).execute(),
     loadReviews(db, region, num, row.owner_id),
+    loadUpdates(db, region, num, row.owner_id),
+    loadLinks(db, region, num, row.owner_id, viewerId),
   ])
   return toWindowItem(row, {
     images: images.map((i) => ({ date: i.date, imageUrl: i.image_url, caption: i.caption })),
@@ -249,6 +299,7 @@ export async function loadWindow(ctx: AppContext, region: RegionId, num: number,
     viewerFollows: !!viewerId && follows.some((f) => f.user_id === viewerId),
     viewerId,
     reviews,
+    community: { updates, ...links },
   })
 }
 

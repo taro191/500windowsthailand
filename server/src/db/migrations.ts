@@ -308,6 +308,38 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+  '008_window_updates_links': {
+    // The owner's daily updates, and links between windows ("Friend and Co") that the owner approves.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('window_updates')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('region', varchar(20), (c) => c.notNull())
+        .addColumn('num', 'integer', (c) => c.notNull())
+        .addColumn('owner_id', id, (c) => c.notNull())
+        .addColumn('text', varchar(500), (c) => c.notNull())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('edited_at', time)
+        .execute()
+      await db.schema.createIndex('window_updates_window').on('window_updates').columns(['region', 'num']).execute()
+      await db.schema
+        .createTable('window_links')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('region', varchar(20), (c) => c.notNull())
+        .addColumn('num', 'integer', (c) => c.notNull())
+        .addColumn('owner_id', id, (c) => c.notNull())
+        .addColumn('from_region', varchar(20), (c) => c.notNull())
+        .addColumn('from_num', 'integer', (c) => c.notNull())
+        .addColumn('from_owner_id', id, (c) => c.notNull())
+        .addColumn('message', varchar(200), (c) => c.notNull())
+        .addColumn('status', varchar(20), (c) => c.notNull())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('decided_at', time)
+        .execute()
+      await db.schema.createIndex('window_links_window').on('window_links').columns(['region', 'num']).execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

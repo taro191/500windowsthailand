@@ -108,6 +108,7 @@ export async function takeDownContent(ctx: AppContext, admin: UserRow, region: R
     .where('num', '=', num)
     .execute()
   for (const image of profileImages(parseProfile(row.profile_json))) await deleteUpload(ctx.config.uploadDir, image)
+  await ctx.db.deleteFrom('window_updates').where('region', '=', region).where('num', '=', num).execute()
   await audit(ctx.db, admin, 'ถอดเนื้อหาบาน', `${row.code} · ${reason}`)
   return loadWindow(ctx, region, num, null)
 }
