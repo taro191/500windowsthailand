@@ -1,7 +1,7 @@
 // Promo bookings for windows 481–486: paid when submitted, reviewed by an admin,
 // refunded to the wallet if rejected.
 import type { PromoAd, PromoDetails, PromoRequest } from '@shared/promo'
-import { cleanPromoDetails, emptyPromoDetails, PROMO_MAX_IMAGES, PROMO_ROUND_OPTIONS, PROMO_ROUNDS_PER_DAY, PROMO_SIZES, promoPrice } from '@shared/promo'
+import { cleanPromoDetails, emptyPromoDetails, isChoosableLayout, PROMO_MAX_IMAGES, PROMO_ROUND_OPTIONS, PROMO_ROUNDS_PER_DAY, PROMO_SIZES, promoPrice } from '@shared/promo'
 import { thaiDayKey } from '@shared/thaiTime'
 import type { PromoRow, UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
@@ -26,6 +26,7 @@ export function toPromoRequest(row: PromoRow): PromoRequest {
     images,
     image: images[0] || '',
     details: { ...emptyPromoDetails(), ...(row.details_json ? (JSON.parse(row.details_json) as Partial<PromoDetails>) : {}) },
+    layout: isChoosableLayout(row.layout) ? row.layout : undefined,
     size: row.size,
     price: row.price,
     rounds: row.rounds,
@@ -48,7 +49,7 @@ export async function activeAds(ctx: AppContext): Promise<PromoAd[]> {
   const rows = await ctx.db.selectFrom('promo_requests').selectAll().where('status', '=', 'approved').orderBy('decided_at', 'asc').execute()
   return rows.map((row) => {
     const r = toPromoRequest(row)
-    return { id: r.id, brand: r.brand, tagline: r.tagline, link: r.link, contact: r.contact, image: r.image, images: r.images, size: r.size, details: r.details }
+    return { id: r.id, brand: r.brand, tagline: r.tagline, link: r.link, contact: r.contact, image: r.image, images: r.images, size: r.size, layout: r.layout, details: r.details }
   })
 }
 
@@ -77,6 +78,7 @@ export interface PromoInput {
   contact?: string
   images?: string[]
   details?: Partial<PromoDetails>
+  layout?: string
   size: number
   rounds: number
   scheduleMode: 'today' | 'calendar'
@@ -103,6 +105,8 @@ export async function submitPromoRequest(ctx: AppContext, user: UserRow, input: 
   if (input?.termsAccepted !== true) throw badRequest('กรุณายอมรับเงื่อนไขการโปรโมทก่อนส่งคำขอ')
   const { details, error } = cleanPromoDetails(input?.details)
   if (error) throw badRequest(error)
+  const layout = input?.layout ?? null
+  if (layout !== null && !isChoosableLayout(layout)) throw badRequest('กรุณาเลือกรูปแบบการจัดวางช่อง')
 
   const price = promoPrice(size, rounds, (await getSettings(ctx)).rules.promoPricePerWindowRound)
   const imageUrls: string[] = []
@@ -134,6 +138,7 @@ export async function submitPromoRequest(ctx: AppContext, user: UserRow, input: 
         contact: text(input.contact, 255),
         images_json: JSON.stringify(imageUrls),
         details_json: JSON.stringify(details),
+        layout,
         size,
         price,
         rounds,

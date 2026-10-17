@@ -377,4 +377,13 @@ export const translationOverrides = {
   "ลิงก์เพิ่มเติม (บรรทัดละลิงก์: ชื่อ | https://…)": "More links (one per line: name | https://…)",
   "หัวข้อเงื่อนไข": "Terms heading",
   "เงื่อนไข (บรรทัดละข้อ)": "Terms (one per line)",
+  "เลือกรูปแบบการจัดวางช่อง": "Choose how the windows are arranged",
+  "รูปแบบการจัดวางช่อง": "Window arrangement",
+  "การจัดวางช่อง:": "Arrangement:",
+  "แถวแนวนอน": "Horizontal row",
+  "แถวแนวตั้ง": "Vertical column",
+  "แยกสุ่ม": "Scattered",
+  "กลุ่มก้อน": "Cluster",
+  "สุ่มทุกรอบ (คำขอเดิม)": "Random each round (older request)",
+  "ตัวอย่างตำแหน่งเท่านั้น จัดวางตามรูปแบบที่เลือก ส่วนตำแหน่งบนกระดานสุ่มใหม่ทุกรอบ 6 ชั่วโมง": "Example only: arranged as chosen; the spot on the board changes every 6-hour round",
 } as const;

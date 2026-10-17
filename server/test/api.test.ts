@@ -380,6 +380,8 @@ describe('promo', () => {
     assert.equal((await bad({ mapUrl: 'javascript:alert(1)' })).status, 400)
     assert.equal((await bad({ validFrom: '2026-12-10', validTo: '2026-12-01' })).status, 400)
     assert.equal((await bad({ line: 'not a line id!' })).status, 400)
+    const badLayout = await c.post('/promo/requests', { request: { ...request(day), layout: 'diagonal' }, payment: wallet(60) })
+    assert.equal(badLayout.status, 400)
 
     const details = {
       role: 'คาเฟ่',
@@ -392,8 +394,9 @@ describe('promo', () => {
       points: ['เปิดทุกวัน', ''],
       terms: ['วันศุกร์เท่านั้น'],
     }
-    const res = await c.post('/promo/requests', { request: { ...request(day), brand: 'คาเฟ่รายละเอียด', details }, payment: wallet(60) })
+    const res = await c.post('/promo/requests', { request: { ...request(day), brand: 'คาเฟ่รายละเอียด', details, layout: 'vertical' }, payment: wallet(60) })
     assert.equal(res.success, true, res.error)
+    assert.equal(res.request.layout, 'vertical')
     assert.equal(res.request.details.offer, 'ซื้อ 1 แถม 1')
     assert.deepEqual(res.request.details.links, [{ label: 'เมนู', url: 'https://example.com/menu' }])
     assert.deepEqual(res.request.details.points, ['เปิดทุกวัน'])
@@ -403,6 +406,7 @@ describe('promo', () => {
     assert.equal((await admin.post(`/admin/promo/${res.request.id}/decide`, { decision: 'approved' })).success, true)
     const ad = (await client().get('/promo')).ads.find((a: any) => a.id === res.request.id)
     assert.equal(ad.details.line, '@cafe')
+    assert.equal(ad.layout, 'vertical')
     assert.equal(ad.contact, 'line')
     assert.equal(ad.images.length, 1)
   })

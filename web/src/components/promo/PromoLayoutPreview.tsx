@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { PROMO_LAYOUT_LABELS, previewPromoLayout } from '@/lib/promo'
+import { PROMO_LAYOUT_LABELS, previewPromoLayout, type PromoLayout } from '@/lib/promo'
 import { sixHourBlock } from '@shared/thaiTime'
 
 interface PromoLayoutPreviewProps {
@@ -8,12 +8,14 @@ interface PromoLayoutPreviewProps {
   offset: number
   image?: string
   brand?: string
+  /** Chosen layout; a random example when missing. */
+  layout?: PromoLayout
 }
 
 /** A 6×8 mini board showing an example of where a `size`-window ad lands this round. */
-export function PromoLayoutPreview({ size, offset, image, brand }: PromoLayoutPreviewProps) {
+export function PromoLayoutPreview({ size, offset, image, brand, layout }: PromoLayoutPreviewProps) {
   const round = sixHourBlock(Date.now(), offset)
-  const preview = useMemo(() => previewPromoLayout(size, round.idx), [size, round.idx])
+  const preview = useMemo(() => previewPromoLayout(size, round.idx, 0, undefined, layout), [size, round.idx, layout])
   const cellAt = (row: number, col: number) => preview.cells.find((c) => c.r === row && c.c === col)
 
   return (

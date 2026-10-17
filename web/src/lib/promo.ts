@@ -99,9 +99,10 @@ type Cell = [row: number, col: number]
  * Example placement of a `size`-window ad on a 6×8 mini board, for the promo dialog
  * preview. `variant` and `salt` pick a different random example.
  */
-export function previewPromoLayout(size: number, variant: number, salt = 0, nums?: number[]) {
+export function previewPromoLayout(size: number, variant: number, salt = 0, nums?: number[], chosen?: PromoLayout) {
   const random = seededRandom(variant * 7919 + size * 104729 + salt)
-  const layout = PROMO_LAYOUTS[Math.floor(random() * 4)]
+  const randomLayout = PROMO_LAYOUTS[Math.floor(random() * 4)]
+  const layout = chosen ?? randomLayout
   const numbers =
     nums ??
     PROMO_SLOTS.slice()
@@ -150,7 +151,7 @@ export function assignAdsToSlots(time = Date.now()) {
     const size = Math.min(6, Math.max(1, ad.size))
     if (freeNumbers.length < size) continue
     const nums = freeNumbers.splice(0, size).sort((a, b) => a - b)
-    placed.push({ ad, nums, layout: layoutForRound(round, placed.length) })
+    placed.push({ ad, nums, layout: ad.layout ?? layoutForRound(round, placed.length) })
   }
   return placed
 }

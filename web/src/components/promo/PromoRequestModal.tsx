@@ -6,7 +6,9 @@ import {
   emptyPromoDetails,
   isValidPromoStartDate,
   loadPromoRequests,
+  PROMO_CHOOSABLE_LAYOUTS,
   PROMO_DETAIL_LIMITS,
+  PROMO_LAYOUT_LABELS,
   localDateKey,
   PROMO_ROUND_OPTIONS,
   PROMO_SIZES,
@@ -14,6 +16,7 @@ import {
   promoRoundsAvailable,
   resizeImageFile,
   type PromoDetails,
+  type PromoLayout,
   type PromoRequest,
 } from '@/lib/promo'
 import { PromoDisplay } from './PromoDisplay'
@@ -68,6 +71,7 @@ const Icon = ({ icon: Component, className = 'promo-icon' }: { icon: LucideIcon;
 export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, onPaid }: PromoRequestModalProps) {
   const rules = useRules()
   const [size, setSize] = useState(3)
+  const [layout, setLayout] = useState<PromoLayout>('horizontal')
   const [rounds, setRounds] = useState(1)
   const [scheduleMode, setScheduleMode] = useState<'today' | 'calendar'>('today')
   const [startDate, setStartDate] = useState(() => localDateKey())
@@ -152,6 +156,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
         `เลขคำขอ: ${saved.id}`,
         `แบรนด์: ${saved.brand}`,
         `จำนวน: ${saved.size} บาน`,
+        `การจัดวาง: ${saved.layout ? PROMO_LAYOUT_LABELS[saved.layout] : 'สุ่มทุกรอบ'}`,
         `ราคา: ${money(saved.price)}`,
         `จำนวนรอบ: ${saved.rounds} รอบ (${saved.durationHours} ชั่วโมง)`,
         `วันที่โปรโมท: ${dateLabel(saved.startDate)}`,
@@ -243,6 +248,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
       contact: contact.trim(),
       images: [...images],
       details: cleanPromoDetails(detailsFromForm(details)).details,
+      layout,
       size,
       rounds,
       scheduleMode,
@@ -396,6 +402,28 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                     มี {images.length} รูป กรุณาลบให้เหลือไม่เกิน {size} รูปก่อนส่งคำขอ
                   </p>
                 )}
+
+                <div className="promo-section-heading">
+                  <h4>เลือกรูปแบบการจัดวางช่อง</h4>
+                  <span className="promo-subtle">{PROMO_LAYOUT_LABELS[layout]}</span>
+                </div>
+                <div className="promo-packages" role="group" aria-label="รูปแบบการจัดวางช่อง">
+                  {PROMO_CHOOSABLE_LAYOUTS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`promo-package ${option === layout ? 'is-selected' : ''}`}
+                      aria-pressed={option === layout}
+                      onClick={() => change(setLayout, option)}
+                    >
+                      <LayoutIcon layout={option} size={size} />
+                      <span className="promo-package-label">{PROMO_LAYOUT_LABELS[option]}</span>
+                      <span className="promo-radio" aria-hidden>
+                        {option === layout && <span />}
+                      </span>
+                    </button>
+                  ))}
+                </div>
 
                 <div className="promo-schedule">
                   <div className="promo-section-heading">
@@ -622,8 +650,8 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                   <Icon icon={ArrowRight} className="promo-chevron" />
                 </summary>
                 <div className="promo-preview-content">
-                  <PromoLayoutPreview size={size} offset={0} image={images[0] || ''} brand={brand} />
-                  <p className="promo-subtle">ตัวอย่างตำแหน่งเท่านั้น ระบบสุ่มสลับรูปแบบทุกรอบ 6 ชั่วโมง</p>
+                  <PromoLayoutPreview size={size} offset={0} image={images[0] || ''} brand={brand} layout={layout} />
+                  <p className="promo-subtle">ตัวอย่างตำแหน่งเท่านั้น จัดวางตามรูปแบบที่เลือก ส่วนตำแหน่งบนกระดานสุ่มใหม่ทุกรอบ 6 ชั่วโมง</p>
                   <button type="button" className="promo-secondary" disabled={!brand.trim()} onClick={() => setShowPage(true)}>
                     เปิดตัวอย่างหน้าที่ผู้ชมเห็น
                   </button>
@@ -701,6 +729,27 @@ function DetailsFields({ form, onChange }: { form: DetailsForm; onChange: (form:
       <TextField id="promo-terms-title" label="หัวข้อเงื่อนไข" value={form.termsTitle} onChange={set('termsTitle')} maxLength={60} placeholder="เงื่อนไขและรายละเอียดเพิ่มเติม" />
       {area('terms', 'เงื่อนไข (บรรทัดละข้อ)', 'ใช้สิทธิ์ได้เฉพาะวันศุกร์\nไม่ร่วมกับโปรโมชันอื่น')}
     </>
+  )
+}
+
+/** Tiny 4×4 board with `size` windows (up to 4 shown) placed the way `layout` puts them. */
+function LayoutIcon({ layout, size }: { layout: PromoLayout; size: number }) {
+  const count = Math.min(size, 4)
+  const cells = new Set(
+    layout === 'horizontal'
+      ? Array.from({ length: count }, (_, i) => 4 + i)
+      : layout === 'vertical'
+        ? Array.from({ length: count }, (_, i) => 1 + i * 4)
+        : layout === 'cluster'
+          ? [5, 6, 9, 10].slice(0, count)
+          : [0, 6, 11, 13].slice(0, count),
+  )
+  return (
+    <span className="grid grid-cols-4 gap-[2px] w-11 my-1" aria-hidden>
+      {Array.from({ length: 16 }, (_, i) => (
+        <span key={i} className={`aspect-square rounded-[2px] ${cells.has(i) ? 'bg-gradient-to-br from-orange-400 to-fuchsia-500' : 'bg-white/10'}`} />
+      ))}
+    </span>
   )
 }
 

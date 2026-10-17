@@ -347,6 +347,13 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('promo_requests').addColumn('details_json', 'text').execute()
     },
   },
+  '010_promo_layout': {
+    // The layout the promoter chose (horizontal / vertical / cluster / scatter); null = random each round.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('promo_requests').addColumn('layout', varchar(12)).execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

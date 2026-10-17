@@ -9,11 +9,14 @@ export const isPromoSlot = (id: number) => id >= 481 && id <= 486
 export type PromoLayout = 'horizontal' | 'vertical' | 'cluster' | 'scatter'
 export const PROMO_LAYOUTS: PromoLayout[] = ['horizontal', 'vertical', 'cluster', 'scatter']
 export const PROMO_LAYOUT_LABELS: Record<PromoLayout, string> = {
-  horizontal: 'ต่อกันแนวนอน',
-  vertical: 'ต่อกันแนวตั้ง',
-  cluster: 'รวมเป็นก้อน',
-  scatter: 'แยกกันคนละจุด',
+  horizontal: 'แถวแนวนอน',
+  vertical: 'แถวแนวตั้ง',
+  cluster: 'กลุ่มก้อน',
+  scatter: 'แยกสุ่ม',
 }
+/** Layouts the promoter picks from; ads without one (older requests) get a random layout each round. */
+export const PROMO_CHOOSABLE_LAYOUTS: PromoLayout[] = ['horizontal', 'vertical', 'cluster', 'scatter']
+export const isChoosableLayout = (value: unknown): value is PromoLayout => PROMO_CHOOSABLE_LAYOUTS.includes(value as PromoLayout)
 
 /** Optional extras for the promo page viewers open from the board; every field may be empty. */
 export interface PromoDetails {
@@ -116,6 +119,8 @@ export interface PromoAd {
   images?: string[]
   /** Number of windows the ad occupies (1–6). */
   size: number
+  /** How its windows sit on the board; random each round when missing. */
+  layout?: PromoLayout
   details?: PromoDetails
 }
 
@@ -138,6 +143,8 @@ export interface PromoRequest {
   /** First image, used by the ad renderer on the board. */
   image: string
   details: PromoDetails
+  /** Chosen layout; missing on requests made before layouts could be chosen. */
+  layout?: PromoLayout
   size: number
   price: number
   rounds: number

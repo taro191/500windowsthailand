@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Check, Megaphone, X } from 'lucide-react'
 import { decidePromoRequest } from '@/lib/adminApi'
-import type { PromoRequest, PromoRequestStatus } from '@/lib/promo'
+import { PROMO_LAYOUT_LABELS, type PromoRequest, type PromoRequestStatus } from '@/lib/promo'
 import { PromoDisplay } from '../../promo/PromoDisplay'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Callout, Card, DataTable, thaiDateTime } from '../ui'
@@ -118,6 +118,7 @@ export function PromoPage({ data, refresh, notify }: AdminPageProps) {
               <p className="whitespace-pre-wrap m-0">{preview.tagline || '(ไม่มีข้อความ)'}</p>
               <p className="m-0 text-[#6c757d]">ลิงก์: {preview.link || '-'}</p>
               <p className="m-0 text-[#6c757d]">ติดต่อกลับ: {preview.contact || '-'}</p>
+              <p className="m-0 text-[#6c757d]">การจัดวางช่อง: {preview.layout ? PROMO_LAYOUT_LABELS[preview.layout] : 'สุ่มทุกรอบ (คำขอเดิม)'}</p>
               <p className="m-0 text-[#6c757d]">เลขคำขอ: {preview.id}</p>
               <Button size="sm" tone="info" outline onClick={() => setShowPage(true)}>
                 <Megaphone className="w-3.5 h-3.5" /> เปิดหน้าที่ผู้ชมจะเห็น

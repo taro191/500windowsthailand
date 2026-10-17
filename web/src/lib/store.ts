@@ -324,7 +324,7 @@ export async function topUpWallet(amount: number, channel: PaymentChannel, slip?
 
 export type PromoInput = Pick<
   PromoRequest,
-  'brand' | 'tagline' | 'link' | 'contact' | 'images' | 'details' | 'size' | 'rounds' | 'scheduleMode' | 'startDate' | 'termsAccepted'
+  'brand' | 'tagline' | 'link' | 'contact' | 'images' | 'details' | 'layout' | 'size' | 'rounds' | 'scheduleMode' | 'startDate' | 'termsAccepted'
 >
 
 /** Pays for a promo request at submission and sends it for review. */

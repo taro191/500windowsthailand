@@ -215,6 +215,8 @@ export interface PromoRequestsTable {
   images_json: string
   /** PromoDetails as JSON (null on requests made before the promo page). */
   details_json: string | null
+  /** PromoLayout the promoter chose; null on older requests (random each round). */
+  layout: string | null
   size: number
   price: number
   rounds: number
