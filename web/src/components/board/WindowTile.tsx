@@ -3,7 +3,7 @@ import type { User, WindowItem, ZoomLevel } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { followerCount, highlightClass, highlightLabel, todaysNote } from '@shared/windowBadges'
 import { useRules } from '@/lib/settings'
-import { adForSlot, isPromoSlot, safeHttpUrl, safeImageUrl, type PromoAd } from '@/lib/promo'
+import { adForSlot, isPromoSlot, safeImageUrl, showPromo, type PromoAd } from '@/lib/promo'
 import { HighlightPill, HotSparks, StarBadge } from './WindowBadges'
 
 interface WindowTileProps {
@@ -18,7 +18,7 @@ interface WindowTileProps {
 
 export function WindowTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser, showRegion }: WindowTileProps) {
   const ad = isPromoSlot(windowItem.id) ? adForSlot(windowItem.id) : null
-  if (ad) return <PromoAdTile windowItem={windowItem} ad={ad} zoomLevel={zoomLevel} onSelect={onSelect} />
+  if (ad) return <PromoAdTile windowItem={windowItem} ad={ad} zoomLevel={zoomLevel} />
 
   if (isPromoSlot(windowItem.id) && windowItem.status === 'available') {
     return <PromoPlaceholderTile windowItem={windowItem} zoomLevel={zoomLevel} isSelected={isSelected} onSelect={onSelect} />
@@ -48,19 +48,16 @@ function PromoAdTile({
   windowItem,
   ad,
   zoomLevel,
-  onSelect,
 }: {
   windowItem: WindowItem
   ad: PromoAd
   zoomLevel: ZoomLevel
-  onSelect: (window: WindowItem) => void
 }) {
-  const link = safeHttpUrl(ad.link)
   const image = safeImageUrl(ad.image)
   const compact = zoomLevel === 'compact'
   return (
     <button
-      onClick={() => (link ? window.open(link, '_blank', 'noopener,noreferrer') : onSelect(windowItem))}
+      onClick={() => showPromo(ad)}
       id={`window-${windowItem.id}`}
       title={`${ad.brand}${ad.tagline ? ` · ${ad.tagline}` : ''} (โปรโมท)`}
       className={`relative overflow-hidden rounded-lg border border-amber-300/60 bg-gradient-to-br from-orange-400 to-fuchsia-500 text-white cursor-pointer hover:brightness-110 transition ${compact ? 'aspect-square' : 'min-h-[110px]'}`}

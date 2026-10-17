@@ -340,6 +340,13 @@ const migrations: Record<string, Migration> = {
       await db.schema.createIndex('window_links_window').on('window_links').columns(['region', 'num']).execute()
     },
   },
+  '009_promo_details': {
+    // Optional extras for the promo page (offer, price, hours, LINE, terms…) as JSON.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('promo_requests').addColumn('details_json', 'text').execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

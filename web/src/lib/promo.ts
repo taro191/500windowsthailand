@@ -13,6 +13,10 @@ export const promoPrice = (size: number, rounds: number) => sharedPromoPrice(siz
 /** Window event that opens the promo request dialog from anywhere. */
 export const OPEN_PROMO_EVENT = 'kapsulep:open-promo'
 
+/** Window event that opens an ad's promo page (`detail.ad`). */
+export const SHOW_PROMO_EVENT = 'kapsulep:show-promo'
+export const showPromo = (ad: PromoAd) => window.dispatchEvent(new CustomEvent(SHOW_PROMO_EVENT, { detail: { ad } }))
+
 /** `YYYY-MM-DD` in the browser's local time zone. */
 export function localDateKey(date: Date = new Date()): string {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)

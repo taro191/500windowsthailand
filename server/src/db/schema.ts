@@ -213,6 +213,8 @@ export interface PromoRequestsTable {
   link: string
   contact: string
   images_json: string
+  /** PromoDetails as JSON (null on requests made before the promo page). */
+  details_json: string | null
   size: number
   price: number
   rounds: number

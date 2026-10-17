@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, Megaphone, X } from 'lucide-react'
 import { decidePromoRequest } from '@/lib/adminApi'
 import type { PromoRequest, PromoRequestStatus } from '@/lib/promo'
+import { PromoDisplay } from '../../promo/PromoDisplay'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Callout, Card, DataTable, thaiDateTime } from '../ui'
 
@@ -14,6 +15,7 @@ function PromoStatus({ status }: { status: PromoRequestStatus }) {
 export function PromoPage({ data, refresh, notify }: AdminPageProps) {
   const [filter, setFilter] = useState<PromoRequestStatus | 'all'>('pending')
   const [preview, setPreview] = useState<PromoRequest | null>(null)
+  const [showPage, setShowPage] = useState(false)
   const users = new Map(data.users.map((u) => [u.id, u]))
   const requests = data.promoRequests.filter((r) => filter === 'all' || r.status === filter)
 
@@ -117,6 +119,9 @@ export function PromoPage({ data, refresh, notify }: AdminPageProps) {
               <p className="m-0 text-[#6c757d]">ลิงก์: {preview.link || '-'}</p>
               <p className="m-0 text-[#6c757d]">ติดต่อกลับ: {preview.contact || '-'}</p>
               <p className="m-0 text-[#6c757d]">เลขคำขอ: {preview.id}</p>
+              <Button size="sm" tone="info" outline onClick={() => setShowPage(true)}>
+                <Megaphone className="w-3.5 h-3.5" /> เปิดหน้าที่ผู้ชมจะเห็น
+              </Button>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {preview.images?.map((img, i) => (
@@ -126,6 +131,7 @@ export function PromoPage({ data, refresh, notify }: AdminPageProps) {
           </div>
         </Card>
       )}
+      {preview && showPage && <PromoDisplay simulated ad={preview} onClose={() => setShowPage(false)} />}
     </>
   )
 }

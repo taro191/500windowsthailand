@@ -2,16 +2,21 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, CircleCheck, ImagePlus, Megaphone, X, type LucideIcon } from 'lucide-react'
 import type { AuthMode, User } from '@shared/types'
 import {
+  cleanPromoDetails,
+  emptyPromoDetails,
   isValidPromoStartDate,
   loadPromoRequests,
+  PROMO_DETAIL_LIMITS,
   localDateKey,
   PROMO_ROUND_OPTIONS,
   PROMO_SIZES,
   promoPrice,
   promoRoundsAvailable,
   resizeImageFile,
+  type PromoDetails,
   type PromoRequest,
 } from '@/lib/promo'
+import { PromoDisplay } from './PromoDisplay'
 import { useRules } from '@/lib/settings'
 import { payPromoRequest, type PromoInput } from '@/lib/store'
 import { PaymentPanel } from '../payment/PaymentPanel'
@@ -34,6 +39,25 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const WEEKDAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
+/** Text-box form of the list fields: one item per line; links as "ชื่อ | https://…". */
+type DetailsForm = Omit<PromoDetails, 'links' | 'points' | 'terms'> & { links: string; points: string; terms: string }
+
+const emptyDetailsForm = (): DetailsForm => ({ ...emptyPromoDetails(), links: '', points: '', terms: '' })
+
+const splitLines = (value: string) => value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+
+function detailsFromForm(form: DetailsForm): Partial<PromoDetails> {
+  return {
+    ...form,
+    links: splitLines(form.links).map((row) => {
+      const at = row.lastIndexOf('|')
+      return at < 0 ? { label: '', url: row } : { label: row.slice(0, at).trim(), url: row.slice(at + 1).trim() }
+    }),
+    points: splitLines(form.points),
+    terms: splitLines(form.terms),
+  }
+}
+
 const money = (value: number) => `${value.toLocaleString('th-TH')} บาท`
 const dateLabel = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString('th-TH', { dateStyle: 'medium' })
 const Icon = ({ icon: Component, className = 'promo-icon' }: { icon: LucideIcon; className?: string }) => (
@@ -53,6 +77,8 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
   const [tagline, setTagline] = useState('')
   const [link, setLink] = useState('')
   const [images, setImages] = useState<string[]>([])
+  const [details, setDetails] = useState<DetailsForm>(emptyDetailsForm)
+  const [showPage, setShowPage] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState<PromoRequest | null>(null)
@@ -190,6 +216,8 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
       }
     }
     if (images.length > size) return `กรุณาลดจำนวนรูปให้ไม่เกิน ${size} รูปก่อนส่งคำขอ`
+    const detailsError = cleanPromoDetails(detailsFromForm(details)).error
+    if (detailsError) return detailsError
     if (!termsAccepted) return 'กรุณาตรวจสอบข้อมูลและยอมรับเงื่อนไข พร้อมรับผิดชอบเนื้อหาที่นำเสนอ'
     return null
   }
@@ -214,6 +242,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
       link: link.trim(),
       contact: contact.trim(),
       images: [...images],
+      details: cleanPromoDetails(detailsFromForm(details)).details,
       size,
       rounds,
       scheduleMode,
@@ -532,6 +561,17 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                   inputMode="url"
                 />
 
+                <details className="promo-preview">
+                  <summary>
+                    <span>ข้อมูลเพิ่มเติมบนหน้าโปรโมท (ไม่บังคับ)</span>
+                    <Icon icon={ArrowRight} className="promo-chevron" />
+                  </summary>
+                  <div className="promo-preview-content">
+                    <p className="promo-subtle">ผู้ชมเห็นข้อมูลเหล่านี้เมื่อกดบานโปรโมทบนกระดาน กรอกเฉพาะที่ต้องการแสดง</p>
+                    <DetailsFields form={details} onChange={(next) => change(setDetails, next)} />
+                  </div>
+                </details>
+
                 <div className="promo-section-heading">
                   <h4>รูปภาพโปรโมท</h4>
                   <span className="promo-subtle" role="status">
@@ -583,8 +623,11 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                 </summary>
                 <div className="promo-preview-content">
                   <PromoLayoutPreview size={size} offset={0} image={images[0] || ''} brand={brand} />
-                  {tagline && <p className="promo-content-text promo-subtle">{tagline}</p>}
                   <p className="promo-subtle">ตัวอย่างตำแหน่งเท่านั้น ระบบสุ่มสลับรูปแบบทุกรอบ 6 ชั่วโมง</p>
+                  <button type="button" className="promo-secondary" disabled={!brand.trim()} onClick={() => setShowPage(true)}>
+                    เปิดตัวอย่างหน้าที่ผู้ชมเห็น
+                  </button>
+                  {!brand.trim() && <p className="promo-subtle">กรอกชื่อแบรนด์ก่อนเพื่อดูตัวอย่าง</p>}
                 </div>
               </details>
 
@@ -618,7 +661,46 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
           </form>
         )}
       </section>
+      {showPage && (
+        <PromoDisplay
+          simulated
+          ad={{ brand: brand.trim(), tagline, link: link.trim(), contact: contact.trim(), images, image: images[0], size, details: cleanPromoDetails(detailsFromForm(details)).details }}
+          onClose={() => setShowPage(false)}
+        />
+      )}
     </div>
+  )
+}
+
+function DetailsFields({ form, onChange }: { form: DetailsForm; onChange: (form: DetailsForm) => void }) {
+  const set = (key: keyof DetailsForm) => (value: string) => onChange({ ...form, [key]: value })
+  const max = PROMO_DETAIL_LIMITS.text
+  const area = (key: 'points' | 'terms' | 'links', label: string, placeholder: string) => (
+    <label className="promo-field" htmlFor={`promo-${key}`}>
+      <span className="promo-field-label">{label}</span>
+      <textarea id={`promo-${key}`} className="promo-input promo-textarea" rows={3} value={form[key]} onChange={(e) => set(key)(e.target.value)} placeholder={placeholder} />
+    </label>
+  )
+  return (
+    <>
+      <TextField id="promo-role" label="ประเภทอาชีพ / ธุรกิจ" value={form.role} onChange={set('role')} maxLength={max} placeholder="เช่น คาเฟ่และร้านกาแฟ, ทนายความ, ช่างภาพ" />
+      <TextField id="promo-offer" label="ข้อเสนอเด่น" value={form.offer} onChange={set('offer')} maxLength={60} placeholder="เช่น ซื้อ 1 แถม 1, ปรึกษาฟรี 30 นาที" />
+      <TextField id="promo-offer-note" label="รายละเอียดข้อเสนอ" value={form.offerNote} onChange={set('offerNote')} maxLength={max} placeholder="เช่น เมนูกาแฟดริปทุกแก้ว · ทุกวันศุกร์" />
+      <TextField id="promo-price" label="ราคา" value={form.price} onChange={set('price')} maxLength={40} placeholder="เช่น ฿60 หรือ เริ่มต้น ฿250/ที่" />
+      <TextField id="promo-old-price" label="ราคาเดิม (ขีดฆ่า)" value={form.oldPrice} onChange={set('oldPrice')} maxLength={40} placeholder="เช่น ฿120" />
+      <TextField id="promo-valid-from" label="โปรโมชันเริ่ม" type="date" value={form.validFrom} onChange={set('validFrom')} />
+      <TextField id="promo-valid-to" label="โปรโมชันสิ้นสุด (แสดงจำนวนวันที่เหลือ)" type="date" value={form.validTo} onChange={set('validTo')} />
+      <TextField id="promo-hours" label="วันและเวลาทำการ" value={form.hours} onChange={set('hours')} maxLength={max} placeholder="เช่น จันทร์–เสาร์ 9:00–18:00" />
+      <TextField id="promo-address" label="ที่อยู่ (สร้างปุ่มนำทางให้อัตโนมัติ)" value={form.address} onChange={set('address')} maxLength={PROMO_DETAIL_LIMITS.line} />
+      <TextField id="promo-area" label="พื้นที่ให้บริการ" value={form.area} onChange={set('area')} maxLength={max} placeholder="เช่น กรุงเทพฯ และปริมณฑล" />
+      <TextField id="promo-map" label="ลิงก์แผนที่ (ไม่บังคับ)" value={form.mapUrl} onChange={set('mapUrl')} maxLength={500} placeholder="https://maps.google.com/…" inputMode="url" />
+      <TextField id="promo-line" label="LINE" value={form.line} onChange={set('line')} maxLength={200} placeholder="@yourshop หรือ https://line.me/…" />
+      <TextField id="promo-cta" label="ข้อความปุ่มหลัก" value={form.ctaLabel} onChange={set('ctaLabel')} maxLength={30} placeholder="เช่น จองคิว, ขอใบเสนอราคา" />
+      {area('points', 'จุดเด่นเพิ่มเติม (บรรทัดละข้อ)', 'มีที่จอดรถ\nรับบัตรเครดิต')}
+      {area('links', 'ลิงก์เพิ่มเติม (บรรทัดละลิงก์: ชื่อ | https://…)', 'ผลงาน | https://…\nFacebook | https://…')}
+      <TextField id="promo-terms-title" label="หัวข้อเงื่อนไข" value={form.termsTitle} onChange={set('termsTitle')} maxLength={60} placeholder="เงื่อนไขและรายละเอียดเพิ่มเติม" />
+      {area('terms', 'เงื่อนไข (บรรทัดละข้อ)', 'ใช้สิทธิ์ได้เฉพาะวันศุกร์\nไม่ร่วมกับโปรโมชันอื่น')}
+    </>
   )
 }
 

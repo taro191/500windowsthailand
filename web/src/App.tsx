@@ -19,7 +19,8 @@ import type {
 import { REGION_IDS } from '@shared/regions'
 import * as store from '@/lib/store'
 import { claimPriceOf, loadSettings, rulesView } from '@/lib/settings'
-import { isPromoSlot, OPEN_PROMO_EVENT } from '@/lib/promo'
+import { isPromoSlot, OPEN_PROMO_EVENT, SHOW_PROMO_EVENT, type PromoAd } from '@/lib/promo'
+import { PromoDisplay } from '@/components/promo/PromoDisplay'
 import { hotLevel, likesToday, matchesEffectFilter } from '@shared/windowBadges'
 import { filterWindows } from '@/lib/boardFilter'
 import { useToast } from '@/hooks/useToast'
@@ -99,6 +100,7 @@ export default function App() {
 
   const [regionMenuOpen, setRegionMenuOpen] = useState(false)
   const [hubOpen, setHubOpen] = useState(false)
+  const [promoView, setPromoView] = useState<PromoAd | null>(null)
   const [hubTab, setHubTab] = useState<HubTab>('rules')
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('login')
@@ -253,6 +255,15 @@ export default function App() {
     window.addEventListener(OPEN_PROMO_EVENT, onOpenPromo)
     return () => window.removeEventListener(OPEN_PROMO_EVENT, onOpenPromo)
   }, [openHub])
+
+  useEffect(() => {
+    const onShowPromo = (e: Event) => {
+      const ad = (e as CustomEvent<{ ad?: PromoAd }>).detail?.ad
+      if (ad) setPromoView(ad)
+    }
+    window.addEventListener(SHOW_PROMO_EVENT, onShowPromo)
+    return () => window.removeEventListener(SHOW_PROMO_EVENT, onShowPromo)
+  }, [])
 
   const jumpToWindow = (id: number) => {
     const found = board.find((w) => w.id === id)
@@ -604,6 +615,17 @@ export default function App() {
         onOpenAuth={openAuth}
         onOpenContact={() => setContactOpen(true)}
       />
+
+      {promoView && (
+        <PromoDisplay
+          ad={promoView}
+          onClose={() => setPromoView(null)}
+          onStartPromo={() => {
+            setPromoView(null)
+            window.dispatchEvent(new Event(OPEN_PROMO_EVENT))
+          }}
+        />
+      )}
 
       <WindowDetailModal
         windowItem={selectedWindow}

@@ -1,7 +1,7 @@
 // Promo bookings for windows 481–486: paid when submitted, reviewed by an admin,
 // refunded to the wallet if rejected.
-import type { PromoAd, PromoRequest } from '@shared/promo'
-import { PROMO_MAX_IMAGES, PROMO_ROUND_OPTIONS, PROMO_ROUNDS_PER_DAY, PROMO_SIZES, promoPrice } from '@shared/promo'
+import type { PromoAd, PromoDetails, PromoRequest } from '@shared/promo'
+import { cleanPromoDetails, emptyPromoDetails, PROMO_MAX_IMAGES, PROMO_ROUND_OPTIONS, PROMO_ROUNDS_PER_DAY, PROMO_SIZES, promoPrice } from '@shared/promo'
 import { thaiDayKey } from '@shared/thaiTime'
 import type { PromoRow, UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
@@ -25,6 +25,7 @@ export function toPromoRequest(row: PromoRow): PromoRequest {
     contact: row.contact,
     images,
     image: images[0] || '',
+    details: { ...emptyPromoDetails(), ...(row.details_json ? (JSON.parse(row.details_json) as Partial<PromoDetails>) : {}) },
     size: row.size,
     price: row.price,
     rounds: row.rounds,
@@ -47,7 +48,7 @@ export async function activeAds(ctx: AppContext): Promise<PromoAd[]> {
   const rows = await ctx.db.selectFrom('promo_requests').selectAll().where('status', '=', 'approved').orderBy('decided_at', 'asc').execute()
   return rows.map((row) => {
     const r = toPromoRequest(row)
-    return { brand: r.brand, tagline: r.tagline, link: r.link, image: r.image, size: r.size }
+    return { id: r.id, brand: r.brand, tagline: r.tagline, link: r.link, contact: r.contact, image: r.image, images: r.images, size: r.size, details: r.details }
   })
 }
 
@@ -75,6 +76,7 @@ export interface PromoInput {
   link?: string
   contact?: string
   images?: string[]
+  details?: Partial<PromoDetails>
   size: number
   rounds: number
   scheduleMode: 'today' | 'calendar'
@@ -99,6 +101,8 @@ export async function submitPromoRequest(ctx: AppContext, user: UserRow, input: 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate < thaiDayKey()) throw badRequest('กรุณาเลือกวันโปรโมทเป็นวันนี้หรือวันในอนาคต')
   if (images.length > Math.min(size, PROMO_MAX_IMAGES)) throw badRequest(`อัปโหลดรูปได้ไม่เกิน ${size} รูป`)
   if (input?.termsAccepted !== true) throw badRequest('กรุณายอมรับเงื่อนไขการโปรโมทก่อนส่งคำขอ')
+  const { details, error } = cleanPromoDetails(input?.details)
+  if (error) throw badRequest(error)
 
   const price = promoPrice(size, rounds, (await getSettings(ctx)).rules.promoPricePerWindowRound)
   const imageUrls: string[] = []
@@ -129,6 +133,7 @@ export async function submitPromoRequest(ctx: AppContext, user: UserRow, input: 
         link,
         contact: text(input.contact, 255),
         images_json: JSON.stringify(imageUrls),
+        details_json: JSON.stringify(details),
         size,
         price,
         rounds,
