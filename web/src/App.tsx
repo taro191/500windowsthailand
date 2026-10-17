@@ -215,6 +215,8 @@ export default function App() {
   useEffect(() => {
     const openFromHash = () => {
       const hash = window.location.hash
+      // Shared links open over the board, so skip the welcome screen (which renders neither).
+      if (hash === '#contact' || hash.startsWith('#window-')) setView((v) => (v === 'welcome' ? 'main' : v))
       if (hash === '#contact') setContactOpen(true)
       if (!hash.startsWith('#window-')) return
       const parts = hash.replace('#window-', '').split('-')
