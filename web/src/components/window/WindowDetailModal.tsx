@@ -241,9 +241,13 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
           <div className="grid grid-cols-1 lg:grid-cols-[57fr_43fr] gap-3.5">
             <AvailableImage />
             <div className={`${panel} flex flex-col justify-between gap-4`}>
-              <div>
-                <h1 className="text-2xl font-bold leading-snug">{w.title}</h1>
-                <p className={`mt-2 ${mut} leading-relaxed`}>{w.description}</p>
+              <div className="space-y-3.5">
+                <div>
+                  <h1 className="text-2xl font-bold leading-snug">{w.title}</h1>
+                  <p className={`mt-2 ${mut} leading-relaxed`}>{w.description}</p>
+                </div>
+                <OwnerCard {...shared} />
+                <Cheers windowItem={w} onLike={props.onLike} />
               </div>
               {purchaseBar}
             </div>
@@ -353,6 +357,81 @@ function AvailableImage() {
           จับจองเพื่อลงรูปภาพส่วนตัว ธุรกิจ หรือเรื่องราวแห่งความทรงจำของคุณ {editPolicyLabel(editPolicy)}
           และขายต่อได้ทุกเวลา (โควตาผู้ใช้: ไทย 1 บาน + ภูมิภาค 1 บาน)
         </p>
+      </div>
+    </div>
+  )
+}
+
+/** Who holds the window ("ยังไม่มีเจ้าของ" while it's free), its category and a follow button. */
+function OwnerCard({ windowItem: w, currentUser, onToggleFollow }: Props) {
+  const isFollowing = !!currentUser && !!w.followerIds?.includes(currentUser.id)
+  const category = CATEGORIES[w.category]
+  return (
+    <div className={`p-3.5 rounded-2xl bg-[#0d1538] border ${LINE} flex items-center justify-between gap-3`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className={`w-12 h-12 rounded-full ${grad} p-[2px] shrink-0`}>
+          <span className="w-full h-full rounded-full bg-[#03091A] grid place-items-center text-base font-bold text-[#ffb3d0]">
+            {w.status === 'available' ? '🇹🇭' : w.ownerName.charAt(0).toUpperCase()}
+          </span>
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-bold text-sm truncate">{w.ownerName}</span>
+            <span className="text-[10px] px-1.5 rounded bg-[#120a3a] text-[#c79bff] border border-[#8B2CFF]/60">เจ้าของบาน</span>
+          </div>
+          <div className={`text-xs ${mut} mt-0.5`}>
+            {category?.icon} {category?.label}
+            {w.province && <span className="text-white/80"> · {w.province}</span>}
+          </div>
+        </div>
+      </div>
+      <button onClick={() => onToggleFollow(w.id)} className={`${btn} ${isFollowing ? '' : btnOn} !px-3 text-xs font-semibold flex items-center gap-1.5 shrink-0`}>
+        <Users className="w-3.5 h-3.5" />
+        {isFollowing ? 'กำลังติดตาม' : 'ติดตาม'}
+      </button>
+    </div>
+  )
+}
+
+const CHEERS = [
+  { emoji: '❤️', label: 'ถูกใจ' },
+  { emoji: '👏', label: 'ชื่นชม' },
+  { emoji: '☕', label: 'ส่งกาแฟ' },
+  { emoji: '✨', label: 'ยอดเยี่ยม' },
+]
+
+/** Quick reactions; each one counts as the visitor's like for the day. */
+function Cheers({ windowItem: w, onLike }: { windowItem: WindowItem; onLike: (id: number) => void }) {
+  const [message, setMessage] = useState('')
+  useEffect(() => setMessage(''), [w.id, w.region])
+  useEffect(() => {
+    if (!message) return
+    const timer = setTimeout(() => setMessage(''), 3000)
+    return () => clearTimeout(timer)
+  }, [message])
+  return (
+    <div className={`p-3.5 rounded-2xl bg-[#0d1538] border ${LINE} space-y-3`}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold">💬 ส่งกำลังใจให้เพื่อน</span>
+        <span className="text-[11px] text-[#FF4D94] font-bold flex items-center gap-1">
+          <Heart className="w-3 h-3 fill-[#FF4D94]" /> {w.likesCount.toLocaleString()} กำลังใจ
+        </span>
+      </div>
+      {message && <div className="p-2 rounded-xl bg-[#1c1060] border border-[#8B2CFF] text-[#ffb3d0] text-xs text-center font-semibold">✨ {message}</div>}
+      <div className="grid grid-cols-4 gap-2">
+        {CHEERS.map((c) => (
+          <button
+            key={c.label}
+            onClick={() => {
+              onLike(w.id)
+              setMessage(`ส่งกำลังใจ "${c.emoji} ${c.label}" ให้เพื่อนเรียบร้อยแล้ว!`)
+            }}
+            className={`py-2 px-1.5 rounded-xl bg-[#120a3a] border ${LINE} hover:border-[#FF4D94] flex flex-col items-center gap-0.5 cursor-pointer active:scale-95 transition group`}
+          >
+            <span className="text-base group-hover:scale-110 transition-transform">{c.emoji}</span>
+            <span className={`text-[10px] ${mut} group-hover:text-white`}>{c.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   )
