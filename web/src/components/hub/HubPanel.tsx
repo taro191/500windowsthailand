@@ -88,9 +88,9 @@ export function HubPanel(props: HubPanelProps) {
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-sm flex justify-end animate-in fade-in duration-200 font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200 font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
           <div
-            className="w-full max-w-lg bg-[#0e0b17] border-l border-purple-900/40 h-full flex flex-col shadow-2xl overflow-hidden"
+            className="w-full max-w-lg bg-[#0e0b17] border border-purple-900/40 rounded-2xl h-full max-h-[min(860px,94dvh)] flex flex-col shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-4 bg-[#09080e]">
