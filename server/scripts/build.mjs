@@ -15,7 +15,8 @@ await build({
   target: 'node22',
   alias: { '@shared': path.resolve(serverDir, '../shared') },
   // mysql2 is CommonJS and calls require() for Node built-ins, which an ESM bundle doesn't have.
-  banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
+  // Aliased so bundled packages that import createRequire themselves (e.g. fflate) don't clash.
+  banner: { js: "import { createRequire as __bannerCreateRequire } from 'node:module'; const require = __bannerCreateRequire(import.meta.url);" },
   legalComments: 'none',
   logLevel: 'info',
 })

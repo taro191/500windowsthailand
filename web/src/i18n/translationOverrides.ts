@@ -412,4 +412,6 @@ export const translationOverrides = {
   "บันทึกธีมแล้ว ผู้ใช้จะเห็นธีมใหม่เมื่อเปิดหรือรีเฟรชหน้าเว็บ": "Themes saved. Visitors see the new theme when they open or refresh the site",
   "ธีมนี้กำลังใช้งานอยู่ เปลี่ยนธีมก่อนลบ": "This theme is in use; switch themes before deleting it",
   "กรุณาเลือกไฟล์ .zip": "Please choose a .zip file",
+  "ปิดซ่อมบำรุงชั่วคราว": "Down for maintenance",
+  "ขณะนี้ระบบกำลังปิดปรับปรุง ขออภัยในความไม่สะดวก กรุณากลับมาใหม่อีกครั้งในไม่ช้า": "We're doing some maintenance. Sorry for the inconvenience, please check back soon",
 } as const;
