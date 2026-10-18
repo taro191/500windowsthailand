@@ -2,7 +2,8 @@
 import type { AuditEntry, ContactMessageEntry, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowItem } from '@shared/types'
 import type { LineAlertTopics } from '@shared/lineAlerts'
 import type { PromoRequest } from '@shared/promo'
-import { get, post, put } from './api'
+import { download, get, post, put } from './api'
+import type { ThemeAssignments, ThemeInfo } from '@shared/themes'
 import { refreshBoards, refreshConfig } from './store'
 
 export interface AdminOverview {
@@ -100,3 +101,29 @@ export const saveLineTopics = (topics: Partial<LineAlertTopics>) => put<LineStat
 /** Moderation: removes an unsuitable review from a window. */
 export const deleteReviewAsAdmin = (reviewId: string) => post<{ window: WindowItem }>(`/admin/reviews/${reviewId}/delete`)
 export const deleteUpdateAsAdmin = (updateId: string) => post<{ window: WindowItem }>(`/admin/updates/${updateId}/delete`)
+
+// ---------------------------------------------------------------- site themes
+
+export const loadThemes = () => get<{ themes: ThemeInfo[]; assignments: ThemeAssignments }>('/admin/themes')
+
+/** Uploads a theme zip; the file is sent as base64 inside JSON like other uploads. */
+export async function uploadTheme(file: File) {
+  const zip = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+  return post<{ theme: ThemeInfo }>('/admin/themes', { zip })
+}
+
+export const deleteTheme = (id: string) => post(`/admin/themes/${encodeURIComponent(id)}/delete`)
+
+export async function saveThemeAssignments(assignments: ThemeAssignments) {
+  const result = await put<{ assignments: ThemeAssignments }>('/admin/themes/assignments', { assignments })
+  if (result.success) await refreshConfig()
+  return result
+}
+
+/** Downloads a theme as a zip ('default' = the built-in design). */
+export const downloadTheme = (id: string) => download(`/admin/themes/${encodeURIComponent(id)}/download`, 'theme.zip')

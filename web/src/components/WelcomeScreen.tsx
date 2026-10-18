@@ -7,7 +7,7 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onEnter, windowCount = 500 }: WelcomeScreenProps) {
   return (
-    <div className="relative min-h-screen w-full flex flex-col justify-between items-center bg-[#09080e] text-stone-100 overflow-hidden px-4 py-8 select-none font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
+    <div className="relative min-h-screen w-full flex flex-col justify-between items-center site-theme-page overflow-hidden px-4 py-8 select-none">
       <div className="absolute inset-0 pointer-events-none">
         <div
           className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] sm:w-[750px] h-[400px] sm:h-[550px] rounded-full blur-[120px] opacity-25 animate-window-glow"

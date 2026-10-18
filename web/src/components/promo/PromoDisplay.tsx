@@ -12,11 +12,11 @@ interface PromoDisplayProps {
   onStartPromo?: () => void
 }
 
-const accent = 'bg-gradient-to-r from-[#ea580c] to-[#c026d3]'
-const deep = 'bg-gradient-to-r from-[#c2410c] to-[#a21caf]'
-const glass = 'bg-[rgba(10,8,20,.58)] backdrop-blur-md'
+const accent = 'bg-gradient-to-r from-[color:var(--promo-page-button-from)] to-[color:var(--promo-page-button-to)]'
+const deep = 'bg-gradient-to-r from-[color:var(--promo-page-offer-from)] to-[color:var(--promo-page-offer-to)]'
+const glass = 'bg-[color:var(--promo-page-glass)] backdrop-blur-md'
 const chipBox = 'border border-white/15 bg-white/[.06]'
-const focus = 'focus-visible:outline-3 focus-visible:outline-[#fbbf24] focus-visible:outline-offset-2'
+const focus = 'focus-visible:outline-3 focus-visible:outline-[color:var(--promo-page-highlight)] focus-visible:outline-offset-2'
 
 /** Up to two letters of the brand, skipping Thai leading vowels and keeping marks with their consonant. */
 function initials(brand: string) {
@@ -144,7 +144,7 @@ export function PromoDisplay({ ad, simulated, onClose, onStartPromo }: PromoDisp
       href={href}
       target={/^https?:/.test(href) ? '_blank' : undefined}
       rel="noopener noreferrer nofollow sponsored"
-      className={`flex items-center justify-center gap-2 min-w-0 min-h-[54px] px-5 rounded-2xl font-bold text-center no-underline active:scale-[.98] transition-transform ${focus} ${main ? `flex-1 text-[19px] text-white ${accent} shadow-[0_8px_24px_rgba(192,38,211,.35)]` : `flex-[1.6] text-base text-[#fafaf9] ${chipBox} border-2`}`}
+      className={`flex items-center justify-center gap-2 min-w-0 min-h-[54px] px-5 rounded-2xl font-bold text-center no-underline active:scale-[.98] transition-transform ${focus} ${main ? `flex-1 text-[19px] text-white ${accent} shadow-[0_8px_24px_var(--promo-page-shadow)]` : `flex-[1.6] text-base text-[color:var(--promo-page-text)] ${chipBox} border-2`}`}
     >
       <span className="min-w-0 line-clamp-2 leading-tight break-words">{label}</span>
       <b>↗</b>
@@ -158,11 +158,11 @@ export function PromoDisplay({ ad, simulated, onClose, onStartPromo }: PromoDisp
       aria-modal
       aria-label={`หน้าแสดงผลโปรโมท ${brand}`}
       tabIndex={-1}
-      className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain outline-none bg-[radial-gradient(120%_50%_at_50%_0%,#2a1245,#0b0814_62%)] text-[#fafaf9] font-['Prompt','Noto_Sans_Thai',sans-serif] animate-[pqIn_.25s_ease-out] motion-reduce:animate-none"
+      className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain outline-none bg-[radial-gradient(120%_50%_at_50%_0%,var(--promo-page-glow),var(--promo-page-bg)_62%)] text-[color:var(--promo-page-text)] font-[family-name:var(--promo-page-font)] theme-scope-promo animate-[pqIn_.25s_ease-out] motion-reduce:animate-none"
     >
       <style>{'@keyframes pqIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}'}</style>
       <div className="max-w-[520px] mx-auto min-h-full flex flex-col">
-        <div className="relative flex-none aspect-[4/3] bg-[#1c1530] overflow-hidden after:content-[''] after:absolute after:inset-x-0 after:bottom-0 after:h-[34%] after:bg-gradient-to-t after:from-[#0b0814] after:from-[6%] after:to-transparent after:pointer-events-none after:z-[1]">
+        <div className="relative flex-none aspect-[4/3] bg-[color:var(--promo-page-media-bg)] overflow-hidden after:content-[''] after:absolute after:inset-x-0 after:bottom-0 after:h-[34%] after:bg-gradient-to-t after:from-[color:var(--promo-page-bg)] after:from-[6%] after:to-transparent after:pointer-events-none after:z-[1]">
           <div
             ref={trackRef}
             onScroll={(e) => {
@@ -182,7 +182,7 @@ export function PromoDisplay({ ad, simulated, onClose, onStartPromo }: PromoDisp
             <button type="button" onClick={onClose} aria-label="ปิด" className={`min-w-11 h-11 px-3.5 rounded-full ${glass} text-white text-sm font-semibold cursor-pointer ${focus}`}>
               ✕
             </button>
-            <span className="px-3 py-1.5 rounded-full bg-[rgba(10,8,20,.78)] backdrop-blur-md text-[#fde68a] text-xs font-bold whitespace-nowrap">
+            <span className="px-3 py-1.5 rounded-full bg-[rgba(10,8,20,.78)] backdrop-blur-md text-[color:var(--promo-page-badge)] text-xs font-bold whitespace-nowrap">
               {simulated ? 'โฆษณา · ตัวอย่าง' : 'โฆษณา'}
             </span>
             <button type="button" onClick={share} className={`min-w-11 h-11 px-3.5 rounded-full ${glass} text-white text-sm font-semibold cursor-pointer ${focus}`}>
@@ -212,11 +212,11 @@ export function PromoDisplay({ ad, simulated, onClose, onStartPromo }: PromoDisp
 
         <div className="relative z-[1] flex-none px-5 pt-1.5 pb-7">
           <h1 className="m-0 text-[32px] leading-tight font-extrabold tracking-[-.01em] break-words">{brand}</h1>
-          {d.role && <p className="mt-1.5 text-[15px] leading-normal font-medium text-[#b8b2ad] break-words">{d.role}</p>}
-          {hook && <p className="mt-2.5 text-[19px] leading-normal font-bold text-[#fbbf24] break-words whitespace-pre-wrap">{hook}</p>}
+          {d.role && <p className="mt-1.5 text-[15px] leading-normal font-medium text-[color:var(--promo-page-muted)] break-words">{d.role}</p>}
+          {hook && <p className="mt-2.5 text-[19px] leading-normal font-bold text-[color:var(--promo-page-highlight)] break-words whitespace-pre-wrap">{hook}</p>}
 
           {(offer || d.price || d.oldPrice || due) && (
-            <div className={`mt-[18px] px-4 py-3.5 rounded-2xl ${deep} text-white flex items-center justify-between flex-wrap gap-x-3.5 gap-y-2.5 shadow-[0_8px_24px_rgba(192,38,211,.3)]`}>
+            <div className={`mt-[18px] px-4 py-3.5 rounded-2xl ${deep} text-white flex items-center justify-between flex-wrap gap-x-3.5 gap-y-2.5 shadow-[0_8px_24px_var(--promo-page-shadow)]`}>
               <div>
                 {offer && <b className="block text-[30px] leading-tight font-extrabold break-words">{offer}</b>}
                 {d.offerNote && <small className="block mt-0.5 text-sm font-semibold">{d.offerNote}</small>}
@@ -255,7 +255,7 @@ export function PromoDisplay({ ad, simulated, onClose, onStartPromo }: PromoDisp
           {terms.length > 0 && (
             <details className={`mt-4 rounded-[14px] ${chipBox}`}>
               <summary className={`min-h-11 flex items-center px-3.5 py-2 text-sm font-bold cursor-pointer ${focus}`}>{d.termsTitle || 'เงื่อนไขและรายละเอียดเพิ่มเติม'}</summary>
-              <ul className="m-0 pl-[34px] pr-3.5 pb-3 text-[#b8b2ad] text-[13px] leading-[1.75] list-disc">
+              <ul className="m-0 pl-[34px] pr-3.5 pb-3 text-[color:var(--promo-page-muted)] text-[13px] leading-[1.75] list-disc">
                 {terms.map((t, i) => (
                   <li key={i}>{t}</li>
                 ))}
@@ -264,15 +264,15 @@ export function PromoDisplay({ ad, simulated, onClose, onStartPromo }: PromoDisp
           )}
 
           {simulated && (
-            <div className="mt-[18px] px-3 py-2.5 rounded-xl border border-dashed border-[#fbbf24]/75 bg-[#fbbf24]/[.08] text-[#fbbf24] text-[13px] leading-relaxed">
+            <div className="mt-[18px] px-3 py-2.5 rounded-xl border border-dashed border-[color:var(--promo-page-highlight)]/75 bg-[color:var(--promo-page-highlight)]/[.08] text-[color:var(--promo-page-highlight)] text-[13px] leading-relaxed">
               ตัวอย่างหน้าแสดงผลจากคำขอโปรโมท ยังไม่ใช่โฆษณาจริง
             </div>
           )}
 
-          <div className="mt-7 pt-3.5 border-t border-white/15 flex flex-col items-center gap-0.5 text-center text-[#b8b2ad] text-[13px] leading-relaxed">
+          <div className="mt-7 pt-3.5 border-t border-white/15 flex flex-col items-center gap-0.5 text-center text-[color:var(--promo-page-muted)] text-[13px] leading-relaxed">
             <span>เนื้อหาโฆษณาเป็นความรับผิดชอบของผู้โปรโมท</span>
             {onStartPromo && !simulated && (
-              <button type="button" onClick={onStartPromo} className={`min-h-11 px-3 py-2 text-[#fbbf24] text-[13px] font-bold underline underline-offset-[3px] cursor-pointer ${focus}`}>
+              <button type="button" onClick={onStartPromo} className={`min-h-11 px-3 py-2 text-[color:var(--promo-page-highlight)] text-[13px] font-bold underline underline-offset-[3px] cursor-pointer ${focus}`}>
                 อยากโปรโมทแบรนด์ของคุณ? เริ่มโปรโมท ›
               </button>
             )}
@@ -280,7 +280,7 @@ export function PromoDisplay({ ad, simulated, onClose, onStartPromo }: PromoDisp
         </div>
 
         {(link || sys) && (
-          <div className="sticky bottom-0 z-[4] mt-auto flex gap-2.5 px-4 pt-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] bg-gradient-to-t from-[#0b0814] from-[72%] to-transparent">
+          <div className="sticky bottom-0 z-[4] mt-auto flex gap-2.5 px-4 pt-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] bg-gradient-to-t from-[color:var(--promo-page-bg)] from-[72%] to-transparent">
             {link && ctaButton(true, 'ไปที่ลิงก์', link)}
             {sys && ctaButton(!link, sys.label, sys.href)}
           </div>

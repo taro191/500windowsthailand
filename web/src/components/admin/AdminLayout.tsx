@@ -25,6 +25,7 @@ import {
   Settings2,
   Users,
   Wallet,
+  Palette,
   type LucideIcon,
 } from 'lucide-react'
 import type { User } from '@shared/types'
@@ -50,6 +51,7 @@ export type AdminPage =
   | 'signup-bonus'
   | 'rules'
   | 'contact'
+  | 'themes'
   | 'line-alerts'
   | 'audit'
 
@@ -84,6 +86,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   'signup-bonus': 'โบนัสสมัครสมาชิก',
   rules: 'กติกาทั่วไป',
   contact: 'ติดต่อเรา',
+  themes: 'ธีมเว็บไซต์',
   'line-alerts': 'แจ้งเตือนทาง LINE',
   audit: 'บันทึกการใช้งาน',
 }
@@ -141,6 +144,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'signup-bonus', label: PAGE_TITLES['signup-bonus'], icon: Gift },
         { id: 'rules', label: PAGE_TITLES.rules, icon: BookOpen },
         { id: 'contact', label: PAGE_TITLES.contact, icon: Contact },
+        { id: 'themes', label: PAGE_TITLES.themes, icon: Palette },
       ],
     },
     {

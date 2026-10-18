@@ -278,7 +278,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
   }
 
   return (
-    <div className="promo-backdrop" onClick={onClose}>
+    <div className="promo-backdrop theme-scope-promo" onClick={onClose}>
       <section
         ref={dialogRef}
         className="promo-dialog"

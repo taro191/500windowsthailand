@@ -354,6 +354,26 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('promo_requests').addColumn('layout', varchar(12)).execute()
     },
   },
+  '011_themes': {
+    // Uploaded site themes; the files live under UPLOAD_DIR/themes/<id>/ and the assignments in settings row 'themes'.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('themes')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('name', varchar(60), (c) => c.notNull())
+        .addColumn('description', varchar(300), (c) => c.notNull())
+        .addColumn('version', varchar(20), (c) => c.notNull())
+        .addColumn('author', varchar(60), (c) => c.notNull())
+        .addColumn('variables_json', 'text', (c) => c.notNull())
+        .addColumn('stylesheet', varchar(200), (c) => c.notNull())
+        .addColumn('files_json', 'text', (c) => c.notNull())
+        .addColumn('size', 'integer', (c) => c.notNull())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('created_by', varchar(120), (c) => c.notNull())
+        .execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

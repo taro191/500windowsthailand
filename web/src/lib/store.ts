@@ -25,6 +25,7 @@ import type { PromoAd, PromoRequest } from '@shared/promo'
 import { get, patch, post, put, type ApiResult } from './api'
 import { enabledChannels, setSettings } from './settings'
 import { setPromoData } from './promo'
+import { setThemes, type ActiveThemes } from './themes'
 
 export interface AppConfig {
   /** "simulated" until a payment gateway is chosen. */
@@ -92,7 +93,7 @@ function applySession(data: SessionData) {
 /** Loads config, session, boards and promo data. Call once before rendering. */
 export async function init(): Promise<Result> {
   const [config, session, boards, promo] = await Promise.all([
-    get<AppConfig & { settings: PlatformSettings }>('/config'),
+    get<AppConfig & { settings: PlatformSettings; themes: ActiveThemes }>('/config'),
     get<SessionData>('/session'),
     get<{ windows: WindowItem[] }>('/boards'),
     get<{ ads: PromoAd[]; reservedRounds: Record<string, number> }>('/promo'),
@@ -101,9 +102,10 @@ export async function init(): Promise<Result> {
   if (!session.success) return session
   if (!boards.success) return boards
   if (!promo.success) return promo
-  const { settings, ...rest } = config
+  const { settings, themes, ...rest } = config
   appConfig = rest
   setSettings(settings)
+  setThemes(themes)
   applySession(session)
   applyBoards(boards.windows)
   setPromoData({ ads: promo.ads, reservedRounds: promo.reservedRounds })
@@ -127,8 +129,11 @@ export async function refreshPromo() {
 
 /** Called after an admin saves settings. */
 export async function refreshConfig() {
-  const config = await get<{ settings: PlatformSettings }>('/config')
-  if (config.success) setSettings(config.settings)
+  const config = await get<{ settings: PlatformSettings; themes: ActiveThemes }>('/config')
+  if (config.success) {
+    setSettings(config.settings)
+    setThemes(config.themes)
+  }
 }
 
 // ---------------------------------------------------------------- reads

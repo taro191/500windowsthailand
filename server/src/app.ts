@@ -12,6 +12,7 @@ import type { UserRow } from './db/schema'
 import { newToken } from './lib/crypto'
 import { ApiError, forbidden } from './lib/errors'
 import { uploadFilePath } from './lib/files'
+import { THEME_FILE_TYPES } from '@shared/themes'
 import { createRateLimiter } from './lib/rateLimit'
 import { replyLine, validLineSignature } from './lib/line'
 import { getSettings } from './services/settings'
@@ -22,6 +23,7 @@ import * as promo from './services/promo'
 import * as admin from './services/admin'
 import * as windowProfiles from './services/windowProfiles'
 import * as community from './services/windowCommunity'
+import * as themes from './services/themes'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
 import { sendContactMessage, updateContactMessage } from './services/contact'
@@ -129,6 +131,7 @@ export function createApp(ctx: AppContext) {
   api.get('/config', async (c) =>
     ok(c, {
       settings: await getSettings(ctx),
+      themes: await themes.activeThemes(ctx),
       cardPayments: ctx.config.cardPayments,
       otpMode: ctx.config.otpMode,
       demoTools: ctx.config.demoTools,
@@ -456,11 +459,55 @@ export function createApp(ctx: AppContext) {
     return ok(c, await promo.decidePromoRequest(ctx, me(c), c.req.param('id'), decision === 'approved' ? 'approved' : 'rejected', note))
   })
 
+  adminApi.get('/themes', async (c) => ok(c, { themes: await themes.listThemes(ctx), assignments: await themes.getAssignments(ctx) }))
+
+  adminApi.post('/themes', async (c) => {
+    const { zip } = await body<{ zip: string }>(c)
+    return ok(c, { theme: await themes.uploadTheme(ctx, me(c), zip) })
+  })
+
+  adminApi.post('/themes/:id/delete', async (c) => {
+    await themes.deleteTheme(ctx, me(c), c.req.param('id'))
+    return ok(c)
+  })
+
+  adminApi.put('/themes/assignments', async (c) => {
+    const { assignments } = await body<{ assignments: Parameters<typeof themes.setAssignments>[2] }>(c)
+    return ok(c, { assignments: await themes.setAssignments(ctx, me(c), assignments ?? {}) })
+  })
+
+  // Zip of a theme ('default' = the built-in design as a starter).
+  adminApi.get('/themes/:id/download', async (c) => {
+    const { fileName, data } = await themes.exportTheme(ctx, c.req.param('id'))
+    c.header('Content-Type', 'application/zip')
+    c.header('Content-Disposition', `attachment; filename="theme.zip"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
+    c.header('Cache-Control', 'no-store')
+    return c.body(data as Uint8Array<ArrayBuffer>)
+  })
+
   api.route('/admin', adminApi)
   api.all('*', (c) => c.json({ success: false, error: 'ไม่พบ API นี้' }, 404))
   app.route('/api', api)
 
   // ------------------------------------------------------------ uploaded files
+
+  // Theme files: a new id per upload, so they can be cached for good.
+  app.get('/uploads/themes/:id/*', async (c) => {
+    const prefix = `/uploads/themes/${c.req.param('id')}/`
+    const file = themes.themeFilePath(ctx.config.uploadDir, c.req.param('id'), decodeURIComponent(c.req.path.slice(prefix.length)))
+    if (!file) return c.notFound()
+    try {
+      const data = await readFile(file)
+      c.header('Content-Type', THEME_FILE_TYPES[themes.themeFileExt(file)])
+      c.header('Cache-Control', 'public, max-age=31536000, immutable')
+      c.header('X-Content-Type-Options', 'nosniff')
+      // SVGs and other files opened directly must not run scripts on this origin.
+      c.header('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; font-src 'self'; sandbox")
+      return c.body(data)
+    } catch {
+      return c.notFound()
+    }
+  })
 
   app.get('/uploads/:folder/:file', async (c) => {
     const publicPath = `/uploads/${c.req.param('folder')}/${c.req.param('file')}`

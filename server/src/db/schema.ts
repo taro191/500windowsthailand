@@ -240,6 +240,24 @@ export interface SettingsTable {
   updated_at: string
 }
 
+export interface ThemesTable {
+  id: string
+  name: string
+  description: string
+  version: string
+  author: string
+  /** Flat map of CSS custom properties. */
+  variables_json: string
+  /** Stylesheet path inside the theme folder, or ''. */
+  stylesheet: string
+  /** `{ path, size }[]` of the stored files. */
+  files_json: string
+  size: number
+  created_at: string
+  /** Name of the admin who uploaded it. */
+  created_by: string
+}
+
 export interface AuditLogTable {
   id: string
   at: string
@@ -284,6 +302,7 @@ export interface Database {
   payment_orders: PaymentOrdersTable
   promo_requests: PromoRequestsTable
   settings: SettingsTable
+  themes: ThemesTable
   audit_log: AuditLogTable
   contact_messages: ContactMessagesTable
 }

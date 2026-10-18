@@ -47,6 +47,9 @@ import { ProfileModal } from '@/components/auth/ProfileModal'
 import { WalletHistoryModal } from '@/components/payment/WalletHistoryModal'
 import { ContactModal } from '@/components/layout/ContactModal'
 import { AdminApp } from '@/components/admin/AdminApp'
+import { ThemePreviewBar } from '@/components/layout/ThemePreviewBar'
+import { loadThemes } from '@/lib/adminApi'
+import { setPreviewTheme, setThemeContext } from '@/lib/themes'
 
 const EMPTY_QUOTA: Quota = {
   thailandCount: 0,
@@ -74,7 +77,11 @@ export default function App() {
 
   // Open the admin page directly when the URL is #admin/... and an admin is signed in.
   const [view, setView] = useState<'welcome' | 'main' | 'admin'>(() =>
-    window.location.hash.startsWith('#admin') && store.loadCurrentUser()?.role === 'admin' ? 'admin' : 'welcome',
+    window.location.hash.startsWith('#admin') && store.loadCurrentUser()?.role === 'admin'
+      ? 'admin'
+      : new URLSearchParams(window.location.search).has('theme-preview')
+        ? 'main'
+        : 'welcome',
   )
   const [activeRegion, setActiveRegion] = useState<RegionId>(() => store.loadActiveRegion())
   const [board, setBoard] = useState<WindowItem[]>(() => store.loadBoard(store.loadActiveRegion()))
@@ -509,6 +516,20 @@ export default function App() {
     showToast(forceRandom ? 'สุ่มสลับตำแหน่งหน้าต่างทั้ง 500 บานสำเร็จ!' : 'จำลองการกลับสู่ตำแหน่งมาตรฐาน 1-500 สำเร็จ!')
   }
 
+  // Site themes follow the page being shown (the admin area is never themed).
+  const shownView = view === 'admin' && currentUser?.role === 'admin' ? 'admin' : view === 'admin' ? 'main' : view
+  useEffect(() => setThemeContext(shownView, activeRegion), [shownView, activeRegion])
+
+  // An admin trying out a theme from the theme library (?theme-preview=<id>).
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('theme-preview')
+    if (!id || currentUser?.role !== 'admin') return
+    loadThemes().then((result) => {
+      const theme = result.success ? result.themes.find((t) => t.id === id) : null
+      if (theme) setPreviewTheme(theme)
+    })
+  }, [currentUser?.role])
+
   // ------------------------------------------------------------ render
 
   const isAdmin = currentUser?.role === 'admin'
@@ -548,8 +569,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09080e] text-stone-100 flex flex-col pb-16 sm:pb-0 font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
+    <div className="min-h-screen site-theme-page flex flex-col pb-16 sm:pb-0">
       <Toast toast={toast} />
+      <ThemePreviewBar />
 
       <Header
         activeRegion={activeRegion}

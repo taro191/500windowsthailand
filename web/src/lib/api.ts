@@ -29,3 +29,27 @@ export const get = <T extends object>(path: string) => api<T>('GET', path)
 export const post = <T extends object>(path: string, body?: unknown) => api<T>('POST', path, body)
 export const patch = <T extends object>(path: string, body?: unknown) => api<T>('PATCH', path, body)
 export const put = <T extends object>(path: string, body?: unknown) => api<T>('PUT', path, body)
+
+/** Saves a file the API returns (e.g. a zip) through the browser's download. */
+export async function download(path: string, fallbackName: string): Promise<ApiResult> {
+  try {
+    const res = await fetch(`/api${path}`, { credentials: 'same-origin' })
+    if (!res.ok) {
+      const json = await res.json().catch(() => null)
+      return { success: false, status: res.status, error: json?.error || `เซิร์ฟเวอร์ขัดข้อง (${res.status})` }
+    }
+    const match = res.headers.get('content-disposition')?.match(/filename\*=UTF-8''([^;]+)/)
+    const name = match ? decodeURIComponent(match[1]) : fallbackName
+    const url = URL.createObjectURL(await res.blob())
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    return { success: true }
+  } catch {
+    return { success: false, error: OFFLINE }
+  }
+}

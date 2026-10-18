@@ -13,6 +13,7 @@ import { createSecrets } from '../src/lib/crypto'
 import { createApp } from '../src/app'
 import { pushFinanceFeed } from '../src/services/financeFeed'
 import type { AppContext } from '../src/context'
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
@@ -1334,3 +1335,81 @@ describe('LINE alerts to the finance admin', () => {
     assert.equal((await otherAdmin.get('/admin/line-status')).status, 403)
   })
 })
+
+describe('site themes', () => {
+  const zipBase64 = (files: Record<string, string>) =>
+    Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)])))).toString('base64')
+  const manifest = (extra: object = {}) =>
+    JSON.stringify({ name: 'ธีมทดสอบ', version: '2', variables: { page: { '--theme-page-bg': 'url(assets/bg.png)' }, '--color-amber-400': '#ff0000' }, ...extra })
+
+  it('uploads a theme zip, assigns it and serves its files', async () => {
+    const admin = await adminClient()
+    const up = await admin.post('/admin/themes', { zip: zipBase64({ 'my-theme/theme.json': manifest(), 'my-theme/theme.css': 'body{}', 'my-theme/assets/bg.png': 'x' }) })
+    assert.equal(up.success, true, up.error)
+    const id = up.theme.id
+    assert.equal(up.theme.files, 3)
+    assert.equal(up.theme.variables['--theme-page-bg'], `url(/uploads/themes/${id}/assets/bg.png)`)
+    assert.equal(up.theme.stylesheet, `/uploads/themes/${id}/theme.css`)
+
+    const css = await app.request(`/uploads/themes/${id}/theme.css`)
+    assert.equal(css.status, 200)
+    assert.match(css.headers.get('content-type')!, /text\/css/)
+    assert.equal((await app.request(`/uploads/themes/${id}/../../x.css`)).status, 404)
+
+    assert.equal((await client().get('/config')).themes.main, null)
+    const set = await admin.put('/admin/themes/assignments', { assignments: { main: null, regions: { north: id }, promo: id } })
+    assert.equal(set.success, true, set.error)
+    const config = await client().get('/config')
+    assert.equal(config.themes.regions.north.id, id)
+    assert.equal(config.themes.promo.variables['--color-amber-400'], '#ff0000')
+
+    const blocked = await admin.post(`/admin/themes/${id}/delete`)
+    assert.equal(blocked.status, 400)
+    assert.match(blocked.error, /ภาคเหนือ/)
+
+    const download = await app.request(`/api/admin/themes/${id}/download`, { headers: { cookie: (await loginCookie()) } })
+    assert.equal(download.status, 200)
+    const files = unzipSync(new Uint8Array(await download.arrayBuffer()))
+    assert.deepEqual(Object.keys(files).sort(), ['assets/bg.png', 'preview.html', 'theme.css', 'theme.json'])
+    assert.match(strFromU8(files['preview.html']), /ธีมทดสอบ/)
+
+    await admin.put('/admin/themes/assignments', { assignments: { main: null, regions: {}, promo: null } })
+    assert.equal((await admin.post(`/admin/themes/${id}/delete`)).success, true)
+    assert.equal(existsSync(path.join(ctx.config.uploadDir, 'themes', id)), false)
+  })
+
+  it('offers the built-in design as a starter theme that can be uploaded back', async () => {
+    const download = await app.request('/api/admin/themes/default/download', { headers: { cookie: await loginCookie() } })
+    assert.equal(download.status, 200)
+    const files = unzipSync(new Uint8Array(await download.arrayBuffer()))
+    assert.ok(files['theme.json'] && files['theme.css'] && files['README.txt'] && files['preview.html'])
+    assert.doesNotMatch(strFromU8(files['preview.html']), /__[A-Z_]+__/)
+    const up = await (await adminClient()).post('/admin/themes', { zip: Buffer.from(await (await app.request('/api/admin/themes/default/download', { headers: { cookie: await loginCookie() } })).arrayBuffer()).toString('base64') })
+    assert.equal(up.success, true, up.error)
+    assert.ok(Object.keys(up.theme.variables).length > 50)
+    // The preview page is for offline use only and is never stored on the site.
+    assert.equal(up.theme.files, 3)
+  })
+
+  it('rejects broken or unsafe theme zips and non-admins', async () => {
+    const admin = await adminClient()
+    assert.match((await admin.post('/admin/themes', { zip: 'bm90IGEgemlw' })).error, /zip/)
+    assert.match((await admin.post('/admin/themes', { zip: zipBase64({ 'a.css': '' }) })).error, /theme\.json/)
+    assert.match((await admin.post('/admin/themes', { zip: zipBase64({ 'theme.json': manifest(), 'run.js': '' }) })).error, /run\.js/)
+    assert.match((await admin.post('/admin/themes', { zip: zipBase64({ 'theme.json': manifest({ variables: { '--x': 'red; } body { color: red' } }) }) })).error, /--x/)
+    assert.match((await admin.post('/admin/themes', { zip: zipBase64({ 'theme.json': '{}' }) })).error, /name/)
+    assert.equal((await admin.put('/admin/themes/assignments', { assignments: { main: 'theme_missing' } })).status, 400)
+    const { c: user } = await verifiedUser()
+    assert.equal((await user.post('/admin/themes', { zip: zipBase64({ 'theme.json': manifest() }) })).status, 403)
+  })
+})
+
+/** Session cookie of the seeded admin, for requests that return files rather than JSON. */
+async function loginCookie() {
+  const res = await app.request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': '10.9.9.9' },
+    body: JSON.stringify({ identifier: 'admin@test.th', password: 'admin-pass-123' }),
+  })
+  return res.headers.getSetCookie().map((h) => h.split(';')[0]).join('; ')
+}

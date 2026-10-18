@@ -26,6 +26,40 @@
   --text-xs--line-height: var(--app-leading-body);
   --text-sm: var(--app-text-body);
   --text-sm--line-height: var(--app-leading-body);
+
+  /* Site theme defaults; an admin-chosen theme overrides these (see lib/themes.ts). */
+  --theme-page-bg: #09080e;
+  --theme-page-bg-image: none;
+  --theme-page-text: var(--color-stone-100);
+  --theme-font-heading: 'Plus Jakarta Sans', 'Prompt', sans-serif;
+}
+
+/* Page background, text colour and font of the user-facing site. */
+.site-theme-page {
+  background-color: var(--theme-page-bg);
+  background-image: var(--theme-page-bg-image);
+  background-size: cover;
+  background-position: center top;
+  color: var(--theme-page-text);
+  font-family: var(--theme-font-heading);
+}
+
+/* Promo page colours; the promo theme overrides them. */
+.theme-scope-promo {
+  --promo-page-bg: #0b0814;
+  --promo-page-glow: #2a1245;
+  --promo-page-media-bg: #1c1530;
+  --promo-page-text: #fafaf9;
+  --promo-page-muted: #b8b2ad;
+  --promo-page-highlight: #fbbf24;
+  --promo-page-badge: #fde68a;
+  --promo-page-button-from: #ea580c;
+  --promo-page-button-to: #c026d3;
+  --promo-page-offer-from: #c2410c;
+  --promo-page-offer-to: #a21caf;
+  --promo-page-shadow: rgba(192, 38, 211, 0.35);
+  --promo-page-glass: rgba(10, 8, 20, 0.58);
+  --promo-page-font: 'Prompt', 'Noto Sans Thai', sans-serif;
 }
 
 /* ---------------------------------------------------------------- base */
@@ -39,6 +73,10 @@ body {
   font-synthesis: none;
   -webkit-text-size-adjust: 100%;
   background: #0c0a09;
+}
+:root:not([data-view='admin']),
+:root:not([data-view='admin']) body {
+  background: var(--theme-page-bg);
 }
 
 body {

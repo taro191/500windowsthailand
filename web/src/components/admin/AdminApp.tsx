@@ -13,6 +13,7 @@ import { PaymentsPage } from './pages/PaymentsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditPage, PayoutsPage, RevenuePage, TopUpsPage, TransactionsPage } from './pages/FinancePages'
 import { MessagesPage } from './pages/MessagesPage'
+import { ThemesPage } from './pages/ThemesPage'
 import { ChannelsPage, ContactPage, EditSettingsPage, PriceCapsPage, RulesPage, SignupBonusPage, TopUpSettingsPage } from './pages/SettingsPages'
 import { LineAlertCard } from './LineAlertCard'
 import { Callout } from './ui'
@@ -103,6 +104,7 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
           {page === 'signup-bonus' && <SignupBonusPage {...props} />}
           {page === 'rules' && <RulesPage {...props} />}
           {page === 'contact' && <ContactPage {...props} />}
+          {page === 'themes' && <ThemesPage {...props} />}
           {page === 'messages' && <MessagesPage {...props} />}
           {page === 'line-alerts' && (admin.superAdmin ? <LineAlertCard notify={notify} /> : <Callout tone="warning">เฉพาะ Super Admin</Callout>)}
           {page === 'audit' && <AuditPage {...props} />}
