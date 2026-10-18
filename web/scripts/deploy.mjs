@@ -11,7 +11,10 @@
 //
 //   npm run deploy
 //   npm run deploy -- --dry-run   (build and package, but don't push)
-import { execSync } from 'node:child_process'
+//
+// Before pushing, the packaged app is started once with a throwaway SQLite database (smokeTest):
+// if it can't start or answer, nothing is pushed and the live site keeps the previous build.
+import { execSync, spawn } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -26,6 +29,62 @@ const designDist = path.join(designDir, 'dist')
 const run = (cmd, cwd = webDir) => execSync(cmd, { cwd, stdio: 'inherit' })
 const read = (cmd, cwd = webDir) => execSync(cmd, { cwd }).toString().trim()
 const dryRun = process.argv.includes('--dry-run')
+
+/** Starts the packaged app like Passenger does and checks that the API and the web page answer. */
+async function smokeTest(appDir) {
+  const data = mkdtempSync(path.join(tmpdir(), '500windows-smoke-'))
+  const port = 40000 + Math.floor(Math.random() * 10000)
+  let output = ''
+  const child = spawn(process.execPath, ['app.cjs'], {
+    cwd: appDir,
+    env: {
+      ...process.env,
+      NODE_ENV: 'development',
+      PORT: String(port),
+      DB_CLIENT: 'sqlite',
+      SQLITE_FILE: path.join(data, 'smoke.sqlite'),
+      UPLOAD_DIR: path.join(data, 'uploads'),
+      PUBLIC_DIR: path.join(appDir, 'public'),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  child.stdout.on('data', (chunk) => (output += chunk))
+  child.stderr.on('data', (chunk) => (output += chunk))
+  let exited = false
+  child.on('exit', () => (exited = true))
+
+  const base = `http://127.0.0.1:${port}`
+  const check = async (url, test) => {
+    const res = await fetch(base + url)
+    const body = await res.text()
+    if (!res.ok || !test(body)) throw new Error(`${url} answered ${res.status}: ${body.slice(0, 200)}`)
+  }
+  try {
+    const deadline = Date.now() + 60_000
+    for (;;) {
+      if (exited) throw new Error('the server stopped while starting')
+      try {
+        await check('/api/health', (b) => JSON.parse(b).success === true)
+        break
+      } catch (error) {
+        if (Date.now() > deadline) throw error
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+    }
+    await check('/api/config', (b) => JSON.parse(b).success === true)
+    await check('/api/boards', (b) => JSON.parse(b).success === true)
+    await check('/', (b) => b.includes('<div id="root">'))
+    console.log('✅ Smoke test: the packaged server starts and answers.')
+  } catch (error) {
+    throw new Error(`Smoke test failed, nothing was pushed: ${error.message}
+--- server output ---
+${output.slice(-3000)}`)
+  } finally {
+    child.kill()
+    await new Promise((resolve) => (exited ? resolve() : child.on('exit', resolve)))
+    rmSync(data, { recursive: true, force: true })
+  }
+}
 
 const remote = read('git remote get-url origin')
 const sourceCommit = read('git rev-parse --short HEAD')
@@ -59,6 +118,7 @@ try {
   )
   cpSync(serverBundle, path.join(work, 'server.mjs'))
   writeFileSync(path.join(work, 'app.cjs'), "import('./server.mjs').catch((error) => { console.error(error); process.exit(1) })\n")
+  await smokeTest(work)
   mkdirSync(path.join(work, 'tmp'))
   writeFileSync(path.join(work, 'tmp/restart.txt'), `${sourceCommit} ${new Date().toISOString()}\n`)
   run('git init -q -b deploy', work)
