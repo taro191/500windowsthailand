@@ -26,6 +26,7 @@ import {
   Users,
   Wallet,
   Palette,
+  FolderOpen,
   type LucideIcon,
 } from 'lucide-react'
 import type { User } from '@shared/types'
@@ -52,6 +53,7 @@ export type AdminPage =
   | 'rules'
   | 'contact'
   | 'themes'
+  | 'files'
   | 'line-alerts'
   | 'audit'
 
@@ -87,6 +89,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   rules: 'กติกาทั่วไป',
   contact: 'ติดต่อเรา',
   themes: 'ธีมเว็บไซต์',
+  files: 'คลังเอกสาร',
   'line-alerts': 'แจ้งเตือนทาง LINE',
   audit: 'บันทึกการใช้งาน',
 }
@@ -151,6 +154,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
       header: 'ระบบ',
       items: [
         ...(admin.superAdmin ? [{ id: 'line-alerts' as const, label: PAGE_TITLES['line-alerts'], icon: MessageCircle }] : []),
+        { id: 'files', label: PAGE_TITLES.files, icon: FolderOpen },
         { id: 'audit', label: PAGE_TITLES.audit, icon: History },
       ],
     },

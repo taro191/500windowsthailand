@@ -374,6 +374,22 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+  '012_admin_files': {
+    // Admin document library; the files live under UPLOAD_DIR/documents/<id>.<ext>.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('admin_files')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('name', varchar(150), (c) => c.notNull())
+        .addColumn('ext', varchar(10), (c) => c.notNull())
+        .addColumn('size', 'integer', (c) => c.notNull())
+        .addColumn('note', varchar(300), (c) => c.notNull())
+        .addColumn('uploaded_by', varchar(120), (c) => c.notNull())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

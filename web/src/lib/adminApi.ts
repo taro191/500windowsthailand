@@ -4,6 +4,7 @@ import type { LineAlertTopics } from '@shared/lineAlerts'
 import type { PromoRequest } from '@shared/promo'
 import { download, get, post, put } from './api'
 import type { ThemeAssignments, ThemeInfo } from '@shared/themes'
+import type { AdminFile } from '@shared/adminFiles'
 import { refreshBoards, refreshConfig } from './store'
 
 export interface AdminOverview {
@@ -127,3 +128,24 @@ export async function saveThemeAssignments(assignments: ThemeAssignments) {
 
 /** Downloads a theme as a zip ('default' = the built-in design). */
 export const downloadTheme = (id: string) => download(`/admin/themes/${encodeURIComponent(id)}/download`, 'theme.zip')
+
+// ---------------------------------------------------------------- document library
+
+export const loadFiles = () => get<{ files: AdminFile[] }>('/admin/files')
+
+/** Uploads one file as base64 inside JSON like other uploads. */
+export async function uploadFile(file: File, note = '') {
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+  return post<{ file: AdminFile }>('/admin/files', { name: file.name, data, note })
+}
+
+export const updateFileNote = (id: string, note: string) => post<{ file: AdminFile }>(`/admin/files/${encodeURIComponent(id)}/note`, { note })
+export const deleteFile = (id: string) => post(`/admin/files/${encodeURIComponent(id)}/delete`)
+export const downloadFile = (file: AdminFile) => download(`/admin/files/${encodeURIComponent(file.id)}/download`, file.name)
+/** Inline URL for image thumbnails (admins only; the cookie authorises it). */
+export const filePreviewUrl = (id: string) => `/api/admin/files/${encodeURIComponent(id)}/download?inline=1`

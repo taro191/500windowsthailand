@@ -258,6 +258,18 @@ export interface ThemesTable {
   created_by: string
 }
 
+export interface AdminFilesTable {
+  id: string
+  /** Original file name. */
+  name: string
+  ext: string
+  size: number
+  note: string
+  /** Name of the admin who uploaded it. */
+  uploaded_by: string
+  created_at: string
+}
+
 export interface AuditLogTable {
   id: string
   at: string
@@ -303,6 +315,7 @@ export interface Database {
   promo_requests: PromoRequestsTable
   settings: SettingsTable
   themes: ThemesTable
+  admin_files: AdminFilesTable
   audit_log: AuditLogTable
   contact_messages: ContactMessagesTable
 }

@@ -1413,3 +1413,52 @@ async function loginCookie() {
   })
   return res.headers.getSetCookie().map((h) => h.split(';')[0]).join('; ')
 }
+
+describe('admin document library', () => {
+  const b64 = (data: string | Buffer) => Buffer.from(data).toString('base64')
+  const PDF = b64('%PDF-1.4\n%test\n')
+
+  it('lets admins upload, download, describe and delete files, with audit entries', async () => {
+    const admin = await adminClient()
+    const up = await admin.post('/admin/files', { name: 'สัญญา เช่า.pdf', data: PDF, note: 'ฉบับลงนาม' })
+    assert.equal(up.success, true, up.error)
+    assert.equal(up.file.name, 'สัญญา เช่า.pdf')
+    assert.equal(up.file.ext, 'pdf')
+    const image = await admin.post('/admin/files', { name: 'logo.png', data: PNG })
+    assert.equal(image.success, true, image.error)
+    const zip = await admin.post('/admin/files', { name: 'backup.zip', data: b64(Buffer.from(zipSync({ 'a.txt': strToU8('hi') }))) })
+    assert.equal(zip.success, true, zip.error)
+
+    const list = await admin.get('/admin/files')
+    assert.ok(list.files.some((f: any) => f.id === up.file.id))
+
+    const cookie = await loginCookie()
+    const res = await app.request(`/api/admin/files/${up.file.id}/download`, { headers: { cookie } })
+    assert.equal(res.status, 200)
+    assert.equal(res.headers.get('content-type'), 'application/pdf')
+    assert.match(res.headers.get('content-disposition')!, /^attachment;.*filename\*=UTF-8''%E0%B8%AA/)
+    assert.equal(Buffer.from(await res.arrayBuffer()).toString(), '%PDF-1.4\n%test\n')
+    const preview = await app.request(`/api/admin/files/${image.file.id}/download?inline=1`, { headers: { cookie } })
+    assert.match(preview.headers.get('content-disposition')!, /^inline/)
+    const pdfInline = await app.request(`/api/admin/files/${up.file.id}/download?inline=1`, { headers: { cookie } })
+    assert.match(pdfInline.headers.get('content-disposition')!, /^attachment/)
+
+    assert.equal((await admin.post(`/admin/files/${up.file.id}/note`, { note: 'แก้แล้ว' })).file.note, 'แก้แล้ว')
+    assert.equal((await admin.post(`/admin/files/${up.file.id}/delete`)).success, true)
+    assert.equal((await app.request(`/api/admin/files/${up.file.id}/download`, { headers: { cookie } })).status, 404)
+    assert.equal(existsSync(path.join(ctx.config.uploadDir, 'documents', `${up.file.id}.pdf`)), false)
+    const log = (await admin.get('/admin/overview')).auditLog.map((e: any) => e.action)
+    assert.ok(log.includes('อัปโหลดเอกสาร') && log.includes('ลบเอกสาร'))
+  })
+
+  it('refuses other types, renamed files, files over 10 MB and non-admins', async () => {
+    const admin = await adminClient()
+    assert.match((await admin.post('/admin/files', { name: 'run.exe', data: b64('MZ') })).error, /\.exe/)
+    assert.match((await admin.post('/admin/files', { name: 'page.html', data: b64('<script>') })).error, /\.html/)
+    assert.match((await admin.post('/admin/files', { name: 'fake.pdf', data: PNG })).error, /\.pdf/)
+    assert.match((await admin.post('/admin/files', { name: 'big.txt', data: b64(Buffer.alloc(10 * 1024 * 1024 + 1, 97)) })).error, /10 MB/)
+    const { c: user } = await verifiedUser()
+    assert.equal((await user.post('/admin/files', { name: 'a.pdf', data: PDF })).status, 403)
+    assert.equal((await user.get('/admin/files')).status, 403)
+  })
+})

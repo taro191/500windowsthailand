@@ -648,7 +648,12 @@ function FriendAndCo({ windowItem: w, currentUser, isOwner, canManage, onOpenAut
               </div>
             )
           return (
-            <div key={link.id} className={`rounded-xl border ${LINE} bg-[#0d1538] p-2 sm:p-2.5 min-w-0 flex flex-col gap-1 break-words`}>
+            <div
+              key={link.id}
+              className={`rounded-xl border ${LINE} bg-[#0d1538] bg-cover bg-center p-2 sm:p-2.5 min-w-0 flex flex-col gap-1 break-words`}
+              // The partner's main image as the backdrop, darkened so the text stays readable.
+              style={link.window.imageUrl ? { backgroundImage: `linear-gradient(rgba(13,21,56,.55), rgba(13,21,56,.88)), url("${link.window.imageUrl.replace(/"/g, '%22')}")` } : undefined}
+            >
               <div className="flex items-center gap-1.5 min-w-0">
                 <Avatar user={{ name: link.window.title, avatarUrl: link.window.logoUrl || link.window.imageUrl }} className="w-7 h-7 shrink-0 hidden sm:flex" />
                 <b className="text-[12.5px] sm:text-sm leading-tight line-clamp-2">{link.window.title}</b>

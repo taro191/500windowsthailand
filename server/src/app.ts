@@ -24,6 +24,7 @@ import * as admin from './services/admin'
 import * as windowProfiles from './services/windowProfiles'
 import * as community from './services/windowCommunity'
 import * as themes from './services/themes'
+import * as adminFiles from './services/adminFiles'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
 import { sendContactMessage, updateContactMessage } from './services/contact'
@@ -483,6 +484,32 @@ export function createApp(ctx: AppContext) {
     c.header('Content-Disposition', `attachment; filename="theme.zip"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
     c.header('Cache-Control', 'no-store')
     return c.body(data as Uint8Array<ArrayBuffer>)
+  })
+
+  adminApi.get('/files', async (c) => ok(c, { files: await adminFiles.listFiles(ctx) }))
+
+  adminApi.post('/files', async (c) => ok(c, { file: await adminFiles.uploadFile(ctx, me(c), await body(c)) }))
+
+  adminApi.post('/files/:id/note', async (c) => {
+    const { note } = await body<{ note: string }>(c)
+    return ok(c, { file: await adminFiles.updateNote(ctx, me(c), c.req.param('id'), note) })
+  })
+
+  adminApi.post('/files/:id/delete', async (c) => {
+    await adminFiles.deleteFile(ctx, me(c), c.req.param('id'))
+    return ok(c)
+  })
+
+  // Always a download, except image previews (?inline=1); never cached by shared caches.
+  adminApi.get('/files/:id/download', async (c) => {
+    const { file, mime, data } = await adminFiles.readAdminFile(ctx, c.req.param('id'))
+    const inline = c.req.query('inline') === '1' && mime.startsWith('image/')
+    c.header('Content-Type', mime)
+    c.header('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="file.${file.ext}"; filename*=UTF-8''${encodeURIComponent(file.name)}`)
+    c.header('Cache-Control', 'private, no-store')
+    c.header('X-Content-Type-Options', 'nosniff')
+    c.header('Content-Security-Policy', "default-src 'none'; img-src 'self'; sandbox")
+    return c.body(data)
   })
 
   api.route('/admin', adminApi)
