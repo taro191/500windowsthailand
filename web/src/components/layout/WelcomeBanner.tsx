@@ -25,8 +25,8 @@ export function WelcomeBanner({ user, quota, onOpenKyc, onDismiss }: WelcomeBann
             </div>
             <p className="text-stone-300 text-[11px] mt-0.5 leading-snug font-['Prompt',sans-serif]">
               ยอดเงินในกระเป๋า: <strong className="text-rose-300 font-mono">฿{user.balance.toLocaleString()}</strong> ·
-              ถือครองปัจจุบัน: <strong className="text-rose-300 font-mono">{quota.totalCount}/2 บาน</strong> (ไทย{' '}
-              {quota.thailandCount}/1 + ภูมิภาค {quota.regionalCount}/1)
+              ถือครองปัจจุบัน: <strong className="text-rose-300 font-mono">{quota.totalCount}/{quota.totalLimit} บาน</strong> (ไทย{' '}
+              {quota.thailandCount}/{quota.thailandLimit} + ภูมิภาค {quota.regionalCount}/{quota.regionalLimit})
             </p>
           </div>
         </div>

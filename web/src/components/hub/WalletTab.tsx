@@ -3,6 +3,7 @@ import { Building2, Check, CircleCheck, History, QrCode, Sparkles, UserCog, Wall
 import type { AuthMode, PayoutAccount, Transaction, User, WindowItem } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
+import { quotaLimits } from '@shared/windowQuota'
 import { useRules } from '@/lib/settings'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 import { Avatar } from '../Avatar'
@@ -54,7 +55,7 @@ export function WalletTab(props: WalletTabProps) {
       <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} onOpenProfile={props.onOpenProfile} />
       <BalanceCard user={currentUser} onOpenTopUp={props.onOpenTopUp} onOpenHistory={props.onOpenWalletHistory} />
       <PayoutAccountCard user={currentUser} onUpdatePayoutAccount={props.onUpdatePayoutAccount} />
-      <OwnedWindows windows={props.myWindows} onSelectWindow={props.onSelectWindow} onClose={props.onClose} />
+      <OwnedWindows windows={props.myWindows} limit={quotaLimits(currentUser.extraWindows).total} onSelectWindow={props.onSelectWindow} onClose={props.onClose} />
       <TransactionHistory transactions={props.transactions} />
     </div>
   )
@@ -512,17 +513,19 @@ function PayoutAccountCard({
 
 function OwnedWindows({
   windows,
+  limit,
   onSelectWindow,
   onClose,
 }: {
   windows: WindowItem[]
+  limit: number
   onSelectWindow: (window: WindowItem) => void
   onClose: () => void
 }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs">
-        <span className="font-bold text-stone-200">หน้าต่างที่ถือครอง ({windows.length} บาน / จำกัดไม่เกิน 2 บาน)</span>
+        <span className="font-bold text-stone-200">หน้าต่างที่ถือครอง ({windows.length} บาน / จำกัดไม่เกิน {limit} บาน)</span>
       </div>
       {windows.length === 0 ? (
         <p className="text-xs text-stone-500 italic p-3 bg-stone-950 rounded-lg border border-stone-850">

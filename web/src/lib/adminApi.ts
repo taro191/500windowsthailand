@@ -1,5 +1,5 @@
 // Admin-only API calls (server/src/services/admin.ts). Every change is audit-logged on the server.
-import type { AuditEntry, ContactMessageEntry, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowItem } from '@shared/types'
+import type { AuditEntry, ContactMessageEntry, ExtraWindows, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowItem } from '@shared/types'
 import type { LineAlertTopics } from '@shared/lineAlerts'
 import type { PromoRequest } from '@shared/promo'
 import { download, get, post, put } from './api'
@@ -52,6 +52,9 @@ export const removeUserAvatar = (userId: string) => post<{ user: User }>(`/admin
 
 /** Disabled accounts cannot log in (suspended ones only cannot trade). */
 export const setUserDisabled = (userId: string, disabled: boolean) => post<{ user: User }>(`/admin/users/${userId}/disable`, { disabled })
+
+/** Windows on top of the normal quota (1 Thailand + 1 regional); 0/0 removes the grant. */
+export const setUserExtraWindows = (userId: string, extra: ExtraWindows) => post<{ user: User }>(`/admin/users/${userId}/extra-windows`, extra)
 
 /** Super admin only (as is createUser). */
 export const setUserRole = (userId: string, role: 'admin' | 'user') => post<{ user: User }>(`/admin/users/${userId}/role`, { role })

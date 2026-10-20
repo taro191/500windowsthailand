@@ -427,4 +427,17 @@ export const translationOverrides = {
   "ยังไม่มีไฟล์ — กด \"เลือกไฟล์และอัปโหลด\" ด้านบน": "No files yet: press \"Choose files and upload\" above",
   "แก้คำอธิบาย": "Edit description",
   "บันทึกคำอธิบายแล้ว": "Description saved",
+  "คุณมีหน้าต่างบานประเทศไทยครบ": "You have reached your Thailand window limit of",
+  "คุณมีหน้าต่างบานภูมิภาคครบ": "You have reached your regional window limit of",
+  "บานแล้ว": "windows",
+  "ไม่สามารถถือครองเพิ่มได้: คุณมี \"หน้าต่างบานประเทศไทย\" ได้ไม่เกิน": "Cannot hold more: your Thailand window limit is",
+  "ไม่สามารถถือครองเพิ่มได้: คุณมี \"หน้าต่างบานภูมิภาค\" ได้ไม่เกิน": "Cannot hold more: your regional window limit is",
+  "ปัจจุบันคุณถือครองแล้ว": "you currently hold",
+  "โควตาบานเพิ่มพิเศษ": "Extra window quota",
+  "โควตาบาน": "Window quota",
+  "บานประเทศไทยเพิ่ม": "Extra Thailand windows",
+  "บานภูมิภาคเพิ่ม (ภาคใดก็ได้)": "Extra regional windows (any region)",
+  "ใส่ 0 ทั้งสองช่องเพื่อกลับไปใช้โควตาปกติ · การลดโควตาไม่ดึงบานที่ถือครองอยู่คืน แต่จะจับจองหรือซื้อเพิ่มไม่ได้จนกว่าจะต่ำกว่าโควตา":
+    "Enter 0 in both fields to go back to the normal quota · Lowering the quota does not take back windows already held, but the user cannot claim or buy more until they are under it",
+  "พิเศษ": "extra",
 } as const;

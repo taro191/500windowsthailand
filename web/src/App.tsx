@@ -50,15 +50,9 @@ import { AdminApp } from '@/components/admin/AdminApp'
 import { ThemePreviewBar } from '@/components/layout/ThemePreviewBar'
 import { loadThemes } from '@/lib/adminApi'
 import { setPreviewTheme, setThemeContext } from '@/lib/themes'
+import { buildQuota } from '@shared/windowQuota'
 
-const EMPTY_QUOTA: Quota = {
-  thailandCount: 0,
-  regionalCount: 0,
-  totalCount: 0,
-  canAcquireThailand: true,
-  canAcquireRegional: true,
-  canAcquireTotal: true,
-}
+const EMPTY_QUOTA: Quota = buildQuota([])
 
 const countAvailable = (windows: WindowItem[]) =>
   windows.filter((w) => w.status === 'available' && !isPromoSlot(w.id)).length
@@ -137,7 +131,7 @@ export default function App() {
   }, [])
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const quota = useMemo(() => (currentUser ? store.getQuota(currentUser.id) : EMPTY_QUOTA), [currentUser, board])
+  const quota = useMemo(() => (currentUser ? store.getQuota(currentUser) : EMPTY_QUOTA), [currentUser, board])
 
   useEffect(() => {
     setAvailableByRegion((counts) => ({ ...counts, [activeRegion]: countAvailable(board) }))

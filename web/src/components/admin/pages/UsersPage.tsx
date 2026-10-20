@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Ban, ImageOff, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users, X } from 'lucide-react'
-import type { User } from '@shared/types'
-import { createUser, removeUserAvatar, revokeKyc, setUserDisabled, setUserRole, setUserSuspended, updateUserInfo, verifyUserKyc } from '@/lib/adminApi'
+import { Ban, ImageOff, LayoutGrid, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users, X } from 'lucide-react'
+import type { ExtraWindows, User } from '@shared/types'
+import {
+  createUser,
+  removeUserAvatar,
+  revokeKyc,
+  setUserDisabled,
+  setUserExtraWindows,
+  setUserRole,
+  setUserSuspended,
+  updateUserInfo,
+  verifyUserKyc,
+} from '@/lib/adminApi'
 import { maskCitizenId, maskPhone } from '@shared/identity'
+import { BASE_REGIONAL_WINDOWS, BASE_THAILAND_WINDOWS, MAX_EXTRA_WINDOWS, quotaLimits } from '@shared/windowQuota'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Card, DataTable, FormRow, inputClass, thaiDateTime } from '../ui'
 import { Avatar } from '../../Avatar'
@@ -147,19 +158,100 @@ function EditUserCard({ user, onClose, refresh, notify }: { user: User; onClose:
   )
 }
 
+/** Any admin: extra windows on top of the normal quota (1 Thailand + 1 regional). */
+function ExtraWindowsCard({
+  user,
+  held,
+  onClose,
+  refresh,
+  notify,
+}: { user: User; held: { thailand: number; regional: number }; onClose: () => void } & Pick<AdminPageProps, 'refresh' | 'notify'>) {
+  const [form, setForm] = useState(user.extraWindows ?? { thailand: 0, regional: 0 })
+  const [saving, setSaving] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+  const limits = quotaLimits(form)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    const result = await setUserExtraWindows(user.id, form)
+    setSaving(false)
+    if (!result.success) return notify(result.error || 'บันทึกไม่สำเร็จ', 'error')
+    await refresh()
+    notify(`${user.name} ถือครองได้ ${limits.total} บาน (ไทย ${limits.thailand} + ภูมิภาค ${limits.regional})`)
+    onClose()
+  }
+
+  const field = (key: keyof ExtraWindows, label: string, base: number) => (
+    <FormRow label={label} hint={`ปกติ ${base} บาน · ถือครองอยู่ ${held[key]} บาน · รวมแล้วได้ ${limits[key]} บาน`}>
+      <input
+        type="number"
+        min={0}
+        max={MAX_EXTRA_WINDOWS}
+        step={1}
+        required
+        value={form[key]}
+        onChange={(e) => setForm((f) => ({ ...f, [key]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+        className={inputClass}
+      />
+    </FormRow>
+  )
+
+  return (
+    <div ref={ref} className="scroll-mt-4">
+      <Card
+        title={`โควตาบานเพิ่มพิเศษ · ${user.name}`}
+        icon={LayoutGrid}
+        outline="primary"
+        tools={
+          <button type="button" onClick={onClose} className="text-[#6c757d] hover:text-[#212529] cursor-pointer" aria-label="ปิด">
+            <X className="w-4 h-4" />
+          </button>
+        }
+      >
+        <form onSubmit={submit} className="grid gap-x-4 sm:grid-cols-2">
+          {field('thailand', 'บานประเทศไทยเพิ่ม', BASE_THAILAND_WINDOWS)}
+          {field('regional', 'บานภูมิภาคเพิ่ม (ภาคใดก็ได้)', BASE_REGIONAL_WINDOWS)}
+          <p className="sm:col-span-2 text-[0.8rem] text-[#6c757d] mb-3">
+            ใส่ 0 ทั้งสองช่องเพื่อกลับไปใช้โควตาปกติ · การลดโควตาไม่ดึงบานที่ถือครองอยู่คืน แต่จะจับจองหรือซื้อเพิ่มไม่ได้จนกว่าจะต่ำกว่าโควตา
+          </p>
+          <div className="sm:col-span-2 flex justify-end gap-2">
+            <Button tone="secondary" outline onClick={onClose}>
+              ยกเลิก
+            </Button>
+            <Button type="submit" disabled={saving}>
+              <Save className="w-4 h-4" /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  )
+}
+
 export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
+  const [granting, setGranting] = useState<User | null>(null)
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [kycFilter, setKycFilter] = useState<KycFilter>('all')
 
   const holdings = useMemo(() => {
-    const map = new Map<string, number>()
-    data.windows.forEach((w) => w.ownerId && map.set(w.ownerId, (map.get(w.ownerId) || 0) + 1))
+    const map = new Map<string, { thailand: number; regional: number }>()
+    data.windows.forEach((w) => {
+      if (!w.ownerId) return
+      const held = map.get(w.ownerId) ?? { thailand: 0, regional: 0 }
+      held[w.region === 'thailand' ? 'thailand' : 'regional']++
+      map.set(w.ownerId, held)
+    })
     return map
   }, [data.windows])
+  const heldBy = (userId: string) => holdings.get(userId) ?? { thailand: 0, regional: 0 }
 
   const users = data.users.filter((u) => {
     const q = query.trim().toLowerCase()
@@ -222,7 +314,13 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
   }
   const edit = (u: User) => {
     setAdding(false)
+    setGranting(null)
     setEditing(u)
+  }
+  const grant = (u: User) => {
+    setAdding(false)
+    setEditing(null)
+    setGranting(u)
   }
   const removeAvatar = (u: User) =>
     act(`ลบรูปโปรไฟล์ของ ${u.name}? ผู้ใช้จะกลับไปใช้รูปเริ่มต้น (อัปโหลดรูปใหม่เองได้)`, () => removeUserAvatar(u.id), `ลบรูปโปรไฟล์ของ ${u.name} แล้ว`)
@@ -233,6 +331,16 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
     <>
       {adding && <NewUserCard onClose={() => setAdding(false)} refresh={refresh} notify={notify} />}
       {editing && <EditUserCard key={editing.id} user={editing} onClose={() => setEditing(null)} refresh={refresh} notify={notify} />}
+      {granting && (
+        <ExtraWindowsCard
+          key={granting.id}
+          user={granting}
+          held={heldBy(granting.id)}
+          onClose={() => setGranting(null)}
+          refresh={refresh}
+          notify={notify}
+        />
+      )}
       <Card
         title={`ผู้ใช้งาน (${users.length}/${data.users.length})`}
         icon={Users}
@@ -276,6 +384,7 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
         <DataTable head={['ผู้ใช้', 'ติดต่อ', 'เลขบัตร (ปิดบัง)', 'สิทธิ์', 'สถานะ', 'KYC', 'ถือครอง', 'กระเป๋าเงิน', 'บัญชีรับเงิน', 'สมัครเมื่อ', 'จัดการ']} empty="ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข">
           {users.map((u) => {
             const isSelf = u.id === admin.id
+            const held = heldBy(u.id)
             return (
               <tr key={u.id} className={u.disabled ? 'opacity-60' : ''}>
                 <td className="whitespace-nowrap">
@@ -318,7 +427,14 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
                   )}
                 </td>
                 <td>{u.isVerified ? <Badge tone="success">ยืนยันแล้ว</Badge> : <Badge tone="secondary">ยังไม่ยืนยัน</Badge>}</td>
-                <td className="text-center">{holdings.get(u.id) || 0}/2</td>
+                <td className="text-center whitespace-nowrap">
+                  {held.thailand + held.regional}/{quotaLimits(u.extraWindows).total}
+                  {u.extraWindows && (
+                    <div title={`เพิ่มพิเศษ: ไทย ${u.extraWindows.thailand} · ภูมิภาค ${u.extraWindows.regional}`}>
+                      <Badge tone="info">+{u.extraWindows.thailand + u.extraWindows.regional} พิเศษ</Badge>
+                    </div>
+                  )}
+                </td>
                 <td className="text-right font-mono whitespace-nowrap">{baht(u.balance)}</td>
                 <td className="whitespace-nowrap text-[#6c757d]">
                   {u.payoutAccount ? `${u.payoutAccount.bankName || 'พร้อมเพย์'} · ${u.payoutAccount.accountNumber}` : '-'}
@@ -336,6 +452,9 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
                           <Pencil className="w-3.5 h-3.5" /> แก้ไข
                         </Button>
                       )}
+                      <Button size="sm" tone="primary" outline onClick={() => grant(u)}>
+                        <LayoutGrid className="w-3.5 h-3.5" /> โควตาบาน
+                      </Button>
                       <Button size="sm" tone={u.disabled ? 'success' : 'secondary'} onClick={() => toggleDisabled(u)}>
                         {u.disabled ? <Power className="w-3.5 h-3.5" /> : <PowerOff className="w-3.5 h-3.5" />}
                         {u.disabled ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}

@@ -1,6 +1,6 @@
 // Accounts: sign-up, login, sessions, profile, KYC (citizen ID + phone OTP).
 import { randomInt } from 'node:crypto'
-import type { PayoutAccount, User } from '@shared/types'
+import type { ExtraWindows, PayoutAccount, User } from '@shared/types'
 import { formatCitizenId, isValidCitizenId, isValidThaiMobile, maskCitizenId } from '@shared/identity'
 import { activeSignupBonus } from '@shared/settings'
 import type { UserRow } from '../db/schema'
@@ -50,7 +50,14 @@ export function selfDto(ctx: AppContext, row: UserRow): User {
     suspended: !!row.suspended || undefined,
     disabled: !!row.disabled || undefined,
     superAdmin: isSuperAdmin(ctx, row) || undefined,
+    extraWindows: extraWindowsOf(row),
   }
+}
+
+export function extraWindowsOf(row: Pick<UserRow, 'extra_thailand_windows' | 'extra_regional_windows'>): ExtraWindows | undefined {
+  const thailand = row.extra_thailand_windows ?? 0
+  const regional = row.extra_regional_windows ?? 0
+  return thailand || regional ? { thailand, regional } : undefined
 }
 
 /** What an admin sees in the user list: contact details, citizen ID masked. */
@@ -120,6 +127,8 @@ export async function signup(ctx: AppContext, input: SignupInput): Promise<UserR
     role: 'user',
     suspended: 0,
     disabled: 0,
+    extra_thailand_windows: 0,
+    extra_regional_windows: 0,
     payout_json: null,
     created_at: now,
     updated_at: now,

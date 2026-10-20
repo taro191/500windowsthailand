@@ -1,6 +1,7 @@
 import { Check, CircleAlert, Tag, X } from 'lucide-react'
 import type { AuthMode, Quota, User, WindowItem } from '@shared/types'
 import { maskCitizenId } from '@shared/identity'
+import { quotaFullMessage } from '@shared/windowQuota'
 import { commissionOf } from '@/lib/ownershipRules'
 import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
@@ -34,9 +35,7 @@ export function BuyResaleModal({
   const isThailand = windowItem.region === 'thailand'
   const isVerified = currentUser?.isVerified
   const canAcquireHere = isThailand ? quota.canAcquireThailand : quota.canAcquireRegional
-  const quotaMessage = isThailand
-    ? `คุณมีหน้าต่างบานประเทศไทยครบ 1 บานแล้ว (${quota.thailandWindow?.code})`
-    : `คุณมีหน้าต่างบานภูมิภาคครบ 1 บานแล้ว (${quota.regionalWindow?.code})`
+  const quotaMessage = quotaFullMessage(quota, isThailand)
   const commission = commissionOf(price)
   const sellerNet = price - commission
   const code = windowItem.code || `#${windowItem.id.toString().padStart(3, '0')}`
@@ -121,7 +120,7 @@ export function BuyResaleModal({
             <div className="p-3 bg-stone-950 rounded-xl border border-stone-850 space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-stone-300 font-medium">โควตาการถือครอง ({maskCitizenId(currentUser.citizenId)}):</span>
-                <span className="font-mono text-rose-400 font-bold">{quota.totalCount}/2 บาน</span>
+                <span className="font-mono text-rose-400 font-bold">{quota.totalCount}/{quota.totalLimit} บาน</span>
               </div>
               {!canAcquireHere && (
                 <div className="p-2 rounded bg-purple-950/40 border border-purple-500/40 text-rose-300 text-[11px] flex items-center gap-1.5">

@@ -44,6 +44,7 @@ import {
   commissionOf,
 } from '@/lib/ownershipRules'
 import { maskCitizenId, maskPhone } from '@shared/identity'
+import { quotaFullMessage } from '@shared/windowQuota'
 import { copyToClipboard } from '@/lib/browser'
 import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import {
@@ -152,9 +153,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
   const search = (query = '') => setDialog({ kind: 'search', query })
 
   const canAcquireHere = isThailand ? quota.canAcquireThailand : quota.canAcquireRegional
-  const quotaMessage = isThailand
-    ? `คุณมีหน้าต่างบานประเทศไทยครบ 1 บานแล้ว (${quota.thailandWindow?.code}) ไม่สามารถจับจองเพิ่มได้`
-    : `คุณมีหน้าต่างบานภูมิภาคครบ 1 บานแล้ว (${quota.regionalWindow?.code}) ไม่สามารถจับจองเพิ่มได้`
+  const quotaMessage = `${quotaFullMessage(quota, isThailand)} ไม่สามารถจับจองเพิ่มได้`
 
   /** Runs `action` unless the signed-in user still has to complete KYC. */
   const requireKyc = (action: () => void) => () => {

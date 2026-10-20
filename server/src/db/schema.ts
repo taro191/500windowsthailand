@@ -20,6 +20,9 @@ export interface UsersTable {
   role: 'user' | 'admin'
   suspended: number
   disabled: number
+  /** Windows allowed on top of the normal quota, set by an admin. */
+  extra_thailand_windows: number
+  extra_regional_windows: number
   /** PayoutAccount as JSON. */
   payout_json: string | null
   created_at: string

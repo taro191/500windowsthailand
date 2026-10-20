@@ -429,6 +429,10 @@ export function createApp(ctx: AppContext) {
     return ok(c, { user: await admin.setUserDisabled(ctx, me(c), c.req.param('id'), !!disabled) })
   })
 
+  adminApi.post('/users/:id/extra-windows', async (c) =>
+    ok(c, { user: await admin.setUserExtraWindows(ctx, me(c), c.req.param('id'), await body<unknown>(c)) }),
+  )
+
   adminApi.post('/users/:id/role', async (c) => {
     const { role } = await body<{ role: 'admin' | 'user' }>(c)
     return ok(c, { user: await admin.setUserRole(ctx, me(c), c.req.param('id'), role) })

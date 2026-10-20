@@ -390,6 +390,14 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+  '013_extra_windows': {
+    // Per-user extra window quota granted by an admin (on top of 1 Thailand + 1 regional).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('users').addColumn('extra_thailand_windows', 'integer', (c) => c.notNull().defaultTo(0)).execute()
+      await db.schema.alterTable('users').addColumn('extra_regional_windows', 'integer', (c) => c.notNull().defaultTo(0)).execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

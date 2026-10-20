@@ -442,6 +442,30 @@ describe('admin', () => {
     assert.equal(login.success, true)
     assert.equal(claim.status, 403)
   })
+
+  it('grants a user extra windows on top of the normal quota', async () => {
+    const { c, user } = await verifiedUser()
+    const admin = await adminClient()
+    await topUpByCard(c, 2000)
+    assert.equal((await c.post('/windows/northeast/70/claim', { content, payment: wallet(500) })).success, true)
+    assert.equal((await c.post('/windows/south/70/claim', { content, payment: wallet(500) })).status, 403)
+
+    assert.equal((await admin.post(`/admin/users/${user.id}/extra-windows`, { thailand: 0, regional: -1 })).status, 400)
+    const granted = await admin.post(`/admin/users/${user.id}/extra-windows`, { thailand: 0, regional: 1 })
+    assert.deepEqual(granted.user.extraWindows, { thailand: 0, regional: 1 })
+    assert.deepEqual((await c.get('/session')).user.extraWindows, { thailand: 0, regional: 1 })
+    assert.equal((await c.post('/windows/south/70/claim', { content, payment: wallet(500) })).success, true)
+    const third = await c.post('/windows/north/70/claim', { content, payment: wallet(500) })
+    assert.equal(third.status, 403)
+    assert.match(third.error, /ไม่เกิน 2 บาน/)
+
+    // Lowering the grant keeps the windows already held.
+    const reset = await admin.post(`/admin/users/${user.id}/extra-windows`, { thailand: 0, regional: 0 })
+    assert.equal(reset.user.extraWindows, undefined)
+    const overview = await admin.get('/admin/overview')
+    assert.equal(overview.windows.filter((w: any) => w.ownerId === user.id).length, 2)
+    assert.ok(overview.auditLog.some((a: any) => a.action === 'กำหนดโควตาบานเพิ่ม'))
+  })
 })
 
 describe('editing a window', () => {

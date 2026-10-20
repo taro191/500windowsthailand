@@ -283,12 +283,12 @@ export function Header({
 
                   <div className="p-2.5 rounded-xl bg-[#09080e] border border-stone-800 space-y-1">
                     <div className="flex items-center justify-between text-[11px] font-['Prompt',sans-serif]">
-                      <span className="text-stone-400">โควตาถือครอง (สูงสุด 2 บาน):</span>
-                      <strong className="text-rose-400 font-mono">{quota.totalCount}/2 บาน</strong>
+                      <span className="text-stone-400">โควตาถือครอง (สูงสุด {quota.totalLimit} บาน):</span>
+                      <strong className="text-rose-400 font-mono">{quota.totalCount}/{quota.totalLimit} บาน</strong>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-stone-500 font-mono">
-                      <span>• บานประเทศไทย: {quota.thailandCount}/1</span>
-                      <span>• บานภูมิภาค: {quota.regionalCount}/1</span>
+                      <span>• บานประเทศไทย: {quota.thailandCount}/{quota.thailandLimit}</span>
+                      <span>• บานภูมิภาค: {quota.regionalCount}/{quota.regionalLimit}</span>
                     </div>
                   </div>
 

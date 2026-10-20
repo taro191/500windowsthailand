@@ -9,6 +9,7 @@ import type { PaymentChannel, PaymentOrder, PaymentOrderKind, PlatformSettings, 
 import { commissionRate, enabledChannels, resaleCommission, SLIP_CHANNEL_TYPES } from '@shared/settings'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { isPromoSlot } from '@shared/promo'
+import { buildQuota } from '@shared/windowQuota'
 import type { DB } from '../db'
 import type { OrderRow, UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
@@ -16,7 +17,7 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
 import { getSettings } from './settings'
-import { assertCanTrade, requireUserRow, selfDto } from './users'
+import { assertCanTrade, extraWindowsOf, requireUserRow, selfDto } from './users'
 import { cleanContent, insertImage, resolveImage, type WindowContentInput } from './windows'
 import { creditWallet, debitWallet, recordTransaction } from './ledger'
 import { audit } from './audit'
@@ -150,8 +151,13 @@ async function lockUser(db: DB, userId: string) {
   await db.updateTable('users').set({ updated_at: nowIso() }).where('id', '=', userId).execute()
 }
 
-/** Max 1 window on the Thailand board + 1 regional; windows held by pending orders count too. */
+/** Max 1 window on the Thailand board + 1 regional, plus the user's admin-granted extra; pending orders count too. */
 async function assertQuota(db: DB, userId: string, region: RegionId) {
+  const user = await db
+    .selectFrom('users')
+    .select(['extra_thailand_windows', 'extra_regional_windows'])
+    .where('id', '=', userId)
+    .executeTakeFirstOrThrow()
   const owned = await db.selectFrom('windows').select(['region', 'code']).where('owner_id', '=', userId).execute()
   const pending = await db
     .selectFrom('payment_orders')
@@ -161,17 +167,18 @@ async function assertQuota(db: DB, userId: string, region: RegionId) {
     .where('kind', 'in', ['claim', 'resale'])
     .execute()
   const held = [...owned.map((w) => ({ region: w.region, code: w.code })), ...pending.map((o) => ({ region: o.region, code: `${o.label} (รอตรวจสลิป)` }))]
-  const thailand = held.filter((w) => w.region === 'thailand')
-  const regional = held.filter((w) => w.region !== 'thailand')
-  const quota = (reason: string) => forbidden(reason, { quotaExceeded: true })
-  if (region === 'thailand' && thailand.length >= 1) {
-    throw quota(`ไม่สามารถถือครองเพิ่มได้: ผู้ใช้งาน 1 คนสามารถมี "หน้าต่างบานประเทศไทย" ได้ไม่เกิน 1 บาน (ปัจจุบันคุณถือครองแล้ว: ${thailand[0].code})`)
+  const quota = buildQuota(held, extraWindowsOf(user))
+  const refuse = (reason: string) => forbidden(reason, { quotaExceeded: true })
+  if (region === 'thailand' && !quota.canAcquireThailand) {
+    const current = quota.thailandLimit === 1 ? `ปัจจุบันคุณถือครองแล้ว: ${quota.thailandWindow?.code}` : `ปัจจุบันคุณถือครองแล้ว ${quota.thailandCount} บาน`
+    throw refuse(`ไม่สามารถถือครองเพิ่มได้: คุณมี "หน้าต่างบานประเทศไทย" ได้ไม่เกิน ${quota.thailandLimit} บาน (${current})`)
   }
-  if (region !== 'thailand' && regional.length >= 1) {
-    const where = REGIONS_BY_ID[regional[0].region as RegionId]?.name ?? 'ภูมิภาค'
-    throw quota(`ไม่สามารถถือครองเพิ่มได้: ผู้ใช้งาน 1 คนสามารถมี "หน้าต่างบานภูมิภาค" ได้ไม่เกิน 1 บาน (ปัจจุบันคุณถือครองแล้วใน${where}: ${regional[0].code})`)
+  if (region !== 'thailand' && !quota.canAcquireRegional) {
+    const first = quota.regionalWindow
+    const where = (first && REGIONS_BY_ID[first.region as RegionId]?.name) ?? 'ภูมิภาค'
+    const current = quota.regionalLimit === 1 ? `ปัจจุบันคุณถือครองแล้วใน${where}: ${first?.code}` : `ปัจจุบันคุณถือครองแล้ว ${quota.regionalCount} บาน`
+    throw refuse(`ไม่สามารถถือครองเพิ่มได้: คุณมี "หน้าต่างบานภูมิภาค" ได้ไม่เกิน ${quota.regionalLimit} บาน (${current})`)
   }
-  if (held.length >= 2) throw quota('ไม่สามารถถือครองเพิ่มได้: คุณมีหน้าต่างครบ 2 บานตามโควตาสูงสุดแล้ว (ไทย 1 บาน + ภูมิภาค 1 บาน)')
 }
 
 export interface PurchaseResult {

@@ -5,6 +5,7 @@ import { REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES, CATEGORY_IDS } from '@shared/categories'
 import { DEMO_IMAGES } from '@shared/seedWindows'
 import { maskCitizenId } from '@shared/identity'
+import { quotaFullMessage } from '@shared/windowQuota'
 import { claimPriceOf } from '@/lib/settings'
 import { compressImage } from '@/lib/browser'
 import { KapsulepLogo } from '../KapsulepLogo'
@@ -62,11 +63,7 @@ export function ClaimWindowModal({
       return
     }
     if (!canAcquireHere) {
-      setError(
-        isThailand
-          ? 'คุณมีหน้าต่างบานประเทศไทยครบ 1 บานตามโควตาสูงสุดแล้ว'
-          : `คุณมีหน้าต่างบานภูมิภาคครบ 1 บานตามโควตาสูงสุดแล้ว (${quota.regionalWindow?.code})`,
-      )
+      setError(quotaFullMessage(quota, isThailand))
       return
     }
     if (!acceptedTerms) {
@@ -157,13 +154,13 @@ export function ClaimWindowModal({
               <span className="text-stone-300 font-medium">
                 โควตาการถือครอง ({currentUser.name} · {maskCitizenId(currentUser.citizenId) || 'ยังไม่ระบุ'}):
               </span>
-              <span className="font-mono text-rose-400 font-bold">ถือครองรวม {quota.totalCount}/2 บาน</span>
+              <span className="font-mono text-rose-400 font-bold">ถือครองรวม {quota.totalCount}/{quota.totalLimit} บาน</span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
               <div className={`p-2 rounded border ${isThailand ? 'border-rose-500/60 bg-rose-950/20' : 'border-stone-800'}`}>
                 <span>🇹🇭 ประเทศไทย: </span>
-                <strong className={quota.thailandCount >= 1 ? 'text-rose-400' : 'text-emerald-400'}>
-                  {quota.thailandCount}/1 บาน
+                <strong className={quota.canAcquireThailand ? 'text-emerald-400' : 'text-rose-400'}>
+                  {quota.thailandCount}/{quota.thailandLimit} บาน
                 </strong>
                 {isThailand && (
                   <span className="block text-[9px] text-rose-300 font-sans mt-0.5">← บานที่คุณกำลังจะจับจอง</span>
@@ -171,8 +168,8 @@ export function ClaimWindowModal({
               </div>
               <div className={`p-2 rounded border ${isThailand ? 'border-stone-800' : 'border-purple-500/60 bg-purple-950/20'}`}>
                 <span>🗺️ ภูมิภาค: </span>
-                <strong className={quota.regionalCount >= 1 ? 'text-rose-400' : 'text-emerald-400'}>
-                  {quota.regionalCount}/1 บาน
+                <strong className={quota.canAcquireRegional ? 'text-emerald-400' : 'text-rose-400'}>
+                  {quota.regionalCount}/{quota.regionalLimit} บาน
                 </strong>
                 {!isThailand && (
                   <span className="block text-[9px] text-purple-300 font-sans mt-0.5">← บานที่คุณกำลังจะจับจอง</span>

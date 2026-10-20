@@ -3,6 +3,7 @@ import { isLineAlertTopic, LINE_ALERT_GROUPS, LINE_ALERT_TOPICS, type LineAlertT
 import type { PlatformSettings, RegionId } from '@shared/types'
 import { isValidCitizenId, isValidThaiMobile } from '@shared/identity'
 import { profileImages } from '@shared/windowProfile'
+import { MAX_EXTRA_WINDOWS, parseExtraWindows, quotaLimits } from '@shared/windowQuota'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
@@ -261,6 +262,8 @@ export async function createUser(ctx: AppContext, admin: UserRow, input: NewUser
     role,
     suspended: 0,
     disabled: 0,
+    extra_thailand_windows: 0,
+    extra_regional_windows: 0,
     payout_json: null,
     created_at: now,
     updated_at: now,
@@ -290,6 +293,20 @@ export async function setUserDisabled(ctx: AppContext, admin: UserRow, userId: s
   await audit(ctx.db, admin, disabled ? 'ปิดใช้งานบัญชี' : 'เปิดใช้งานบัญชี', user.name)
   notifyAdminAction(ctx, 'security.suspend', admin, disabled ? 'ปิดใช้งานบัญชี' : 'เปิดใช้งานบัญชี', `ผู้ใช้: ${user.name}`)
   return adminUserDto(ctx, { ...user, disabled: disabled ? 1 : 0 })
+}
+
+/** Extra windows on top of the normal quota. Lowering it never takes windows away; it only blocks new ones. */
+export async function setUserExtraWindows(ctx: AppContext, admin: UserRow, userId: string, input: unknown) {
+  const extra = parseExtraWindows(input)
+  if (!extra) throw badRequest(`จำนวนบานเพิ่มต้องเป็นจำนวนเต็ม 0-${MAX_EXTRA_WINDOWS}`)
+  const user = await managedUser(ctx, userId)
+  const changes = { extra_thailand_windows: extra.thailand, extra_regional_windows: extra.regional }
+  await ctx.db.updateTable('users').set({ ...changes, updated_at: nowIso() }).where('id', '=', userId).execute()
+  const limits = quotaLimits(extra)
+  const detail = `${user.name}: ไทย ${limits.thailand} บาน + ภูมิภาค ${limits.regional} บาน (เพิ่มพิเศษ ไทย ${extra.thailand} · ภูมิภาค ${extra.regional})`
+  await audit(ctx.db, admin, 'กำหนดโควตาบานเพิ่ม', detail)
+  notifyAdminAction(ctx, 'security.userEdit', admin, 'กำหนดโควตาบานเพิ่ม', detail)
+  return adminUserDto(ctx, { ...user, ...changes })
 }
 
 /**

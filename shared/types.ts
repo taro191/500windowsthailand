@@ -77,6 +77,13 @@ export interface User {
   disabled?: boolean
   /** The one admin who can create users and grant or remove admin rights (SUPER_ADMIN_EMAIL). */
   superAdmin?: boolean
+  /** Windows an admin allows on top of the normal quota (1 Thailand + 1 regional); absent = none. */
+  extraWindows?: ExtraWindows
+}
+
+export interface ExtraWindows {
+  thailand: number
+  regional: number
 }
 
 /** Where resale and rental income is paid (net 95%). */
@@ -377,6 +384,10 @@ export interface Quota {
   thailandCount: number
   regionalCount: number
   totalCount: number
+  /** Normal quota plus the user's extraWindows (see windowQuota.ts). */
+  thailandLimit: number
+  regionalLimit: number
+  totalLimit: number
   canAcquireThailand: boolean
   canAcquireRegional: boolean
   canAcquireTotal: boolean

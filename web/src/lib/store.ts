@@ -21,6 +21,7 @@ import { REGION_IDS } from '@shared/regions'
 import { createEmptyWindows } from '@shared/seedWindows'
 import { getRotationCycle } from '@shared/thaiTime'
 import { orderWindowsForCycle } from '@shared/boardOrder'
+import { buildQuota } from '@shared/windowQuota'
 import type { PromoAd, PromoRequest } from '@shared/promo'
 import { get, patch, post, put, type ApiResult } from './api'
 import { enabledChannels, setSettings } from './settings'
@@ -174,26 +175,15 @@ export function saveActiveRegion(region: RegionId) {
  * Windows the user holds: max 1 on the Thailand board + 1 on any regional board.
  * Windows held for the user's pending payments count too (the server checks the same).
  */
-export function getQuota(userId: string): Quota {
+export function getQuota(user: User): Quota {
   const held: WindowItem[] = []
-  for (const region of REGION_IDS) for (const w of loadRegionWindows(region)) if (w.ownerId === userId) held.push(w)
+  for (const region of REGION_IDS) for (const w of loadRegionWindows(region)) if (w.ownerId === user.id) held.push(w)
   for (const order of orders) {
     if (order.status !== 'pending' || !order.region || !order.windowId || order.kind === 'topup' || order.kind === 'promo') continue
     const w = loadRegionWindows(order.region).find((x) => x.id === order.windowId)
     if (w && !held.includes(w)) held.push(w)
   }
-  const thailand = held.filter((w) => w.region === 'thailand')
-  const regional = held.filter((w) => w.region !== 'thailand')
-  return {
-    thailandCount: thailand.length,
-    regionalCount: regional.length,
-    totalCount: held.length,
-    canAcquireThailand: thailand.length < 1,
-    canAcquireRegional: regional.length < 1,
-    canAcquireTotal: held.length < 2,
-    thailandWindow: thailand[0],
-    regionalWindow: regional[0],
-  }
+  return buildQuota(held, user.extraWindows)
 }
 
 /** Splits `price` into a wallet part (up to the balance) and the remainder. */
