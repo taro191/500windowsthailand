@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Quota, User, WindowItem, WindowProfile } from '@shared/types'
 import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES } from '@shared/categories'
@@ -57,10 +57,13 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
   const [viewer, setViewer] = useState<{ images: string[]; index: number; caption?: LightboxCaption } | null>(null)
   const [searching, setSearching] = useState<string | null>(null)
   const isOwner = !!currentUser && !!w && w.ownerId === currentUser.id
+  const pageRef = useRef<HTMLDivElement>(null)
 
+  // Another window opened from this page (Friend and Co, search): start it from the top.
   useEffect(() => {
     setViewer(null)
     setSearching(null)
+    pageRef.current?.scrollTo({ top: 0 })
   }, [w?.id, w?.region])
 
   if (!w) return null
@@ -136,7 +139,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
     ))
 
   return (
-    <div className="kap fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-(--kap-bg) text-(--kap-text) font-[Prompt,system-ui,sans-serif] leading-normal">
+    <div ref={pageRef} className="kap fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-(--kap-bg) text-(--kap-text) font-[Prompt,system-ui,sans-serif] leading-normal">
       <div className="max-w-[900px] mx-auto px-3 pt-3 pb-9 pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] flex flex-col gap-3.5">
         <header className="flex flex-wrap gap-2 items-center">
           <span className="text-[20px] sm:text-[22px] font-semibold text-(--kap-gold)">{code}</span>
