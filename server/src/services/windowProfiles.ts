@@ -1,6 +1,6 @@
-// The owner's public page for a window (logo, gallery, offerings, contacts, details) and
+// The owner's public page for a window (gallery, works, products, links, contacts, switches) and
 // visitors' reviews. Profile edits are free and don't count toward the daily content edits.
-import type { RegionId, WindowProfile } from '@shared/types'
+import type { RegionId } from '@shared/types'
 import { cleanProfile, PROFILE_LIMITS, profileImages } from '@shared/windowProfile'
 import type { UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
@@ -10,7 +10,7 @@ import { nowIso, type AppContext } from '../context'
 import { audit } from './audit'
 import { loadRow, loadWindow, parseProfile } from './windows'
 
-export async function updateWindowProfile(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: Partial<WindowProfile>) {
+export async function updateWindowProfile(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: unknown) {
   if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
   const row = await loadRow(ctx.db, region, num)
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
@@ -27,7 +27,7 @@ export async function updateWindowProfile(ctx: AppContext, user: UserRow, region
   }
   profile.logoUrl = await resolve(profile.logoUrl)
   profile.gallery = (await Promise.all(profile.gallery.map(resolve))).filter(Boolean)
-  for (const offering of profile.offerings) offering.imageUrl = await resolve(offering.imageUrl)
+  for (const item of [...profile.works, ...profile.products]) item.images = (await Promise.all(item.images.map(resolve))).filter(Boolean)
 
   await ctx.db
     .updateTable('windows')
@@ -62,6 +62,8 @@ export async function saveReview(ctx: AppContext, user: UserRow, region: RegionI
     .where('owner_id', '=', row.owner_id)
     .where('user_id', '=', user.id)
     .executeTakeFirst()
+  // The owner can stop new reviews; ones already written can still be changed.
+  if (!existing && !parseProfile(row.profile_json).display.reviews) throw forbidden('เจ้าของปิดรับรีวิวใหม่ในขณะนี้')
   if (existing) {
     await ctx.db.updateTable('window_reviews').set({ rating, text, updated_at: now }).where('id', '=', existing.id).execute()
   } else {

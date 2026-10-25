@@ -7,7 +7,7 @@ import { createEmptyWindows, DEMO_IMAGES } from '@shared/seedWindows'
 import { thaiDayKey } from '@shared/thaiTime'
 import { getEditStatus, getHoldingPeriod, getPriceCap } from '@shared/ownershipRules'
 import { isPromoSlot } from '@shared/promo'
-import { emptyProfile, PROFILE_LIMITS } from '@shared/windowProfile'
+import { emptyProfile, normalizeProfile, PROFILE_LIMITS } from '@shared/windowProfile'
 import type { UserRow, WindowRow } from '../db/schema'
 import type { DB } from '../db'
 import { newId } from '../lib/crypto'
@@ -137,11 +137,11 @@ export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem
   }
 }
 
-/** The stored profile over the empty one, so fields added later are always there. */
+/** The stored profile in the current shape (older profiles are converted when read). */
 export function parseProfile(json: string | null): WindowProfile {
   if (!json) return emptyProfile()
   try {
-    return { ...emptyProfile(), ...(JSON.parse(json) as Partial<WindowProfile>) }
+    return normalizeProfile(JSON.parse(json))
   } catch {
     return emptyProfile()
   }
@@ -524,7 +524,7 @@ export async function likeWindow(ctx: AppContext, region: RegionId, num: number,
 }
 
 export async function toggleFollow(ctx: AppContext, user: UserRow, region: RegionId, num: number) {
-  await loadRow(ctx.db, region, num)
+  const row = await loadRow(ctx.db, region, num)
   const where = { region, num, user_id: user.id }
   const existing = await ctx.db
     .selectFrom('window_follows')
@@ -533,6 +533,8 @@ export async function toggleFollow(ctx: AppContext, user: UserRow, region: Regio
     .where('num', '=', num)
     .where('user_id', '=', user.id)
     .executeTakeFirst()
+  // Unfollowing always works; the owner can stop new follows.
+  if (!existing && row.owner_id && !parseProfile(row.profile_json).display.follow) throw forbidden('เจ้าของปิดการติดตามบานนี้')
   if (existing) {
     await ctx.db.deleteFrom('window_follows').where('region', '=', region).where('num', '=', num).where('user_id', '=', user.id).execute()
   } else {

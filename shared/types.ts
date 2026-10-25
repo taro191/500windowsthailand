@@ -112,32 +112,57 @@ export interface OwnerHistoryEntry {
   type: 'resale' | 'transfer'
 }
 
-/** A product, service or piece of work the owner presents on the window. */
-export interface WindowOffering {
-  imageUrl: string
+/** A piece of work or a product on the window page: up to 3 photos with a name and details. */
+export interface ShowcaseItem {
+  images: string[]
   name: string
+  /** Works: category / year; products: price. */
+  sub: string
+  detail: string
+}
+
+/** A link in "ช่องทางนำเสนอผลงาน"; `icon` is one of PROFILE_LINK_TYPES. */
+export interface ProfileLink {
+  icon: string
+  label: string
+  url: string
+}
+
+/** What the window page shows and allows; the owner switches each one. */
+export interface ProfileDisplay {
+  views: boolean
+  likes: boolean
+  today: boolean
+  followers: boolean
+  /** Visitors may follow the window. */
+  follow: boolean
+  /** Visitors may write new reviews. */
+  reviews: boolean
+}
+
+/** When "Friend and Co" takes link requests; dates are Thai calendar days `YYYY-MM-DD` or ''. */
+export interface FriendSettings {
+  open: boolean
+  from: string
+  to: string
   note: string
 }
 
 /** The owner's public page for the window (detail popup); every field is optional to fill in. */
 export interface WindowProfile {
+  /** Shown on partner cards in "Friend and Co"; kept from the older profile editor. */
   logoUrl: string
   tags: string[]
   /** Extra photos after the main window image. */
   gallery: string[]
-  offerings: WindowOffering[]
+  works: ShowcaseItem[]
+  products: ShowcaseItem[]
+  links: ProfileLink[]
   phone: string
   lineId: string
-  email: string
-  website: string
-  facebook: string
-  instagram: string
-  tiktok: string
-  youtube: string
   about: string
-  highlights: string[]
-  serviceArea: string
-  shipping: string
+  display: ProfileDisplay
+  friend: FriendSettings
 }
 
 export interface WindowReview {

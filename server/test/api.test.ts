@@ -907,33 +907,36 @@ describe('window profile and reviews', () => {
     return o
   }
 
-  it('lets the owner fill in a public page with photos, offerings and contacts, only in the detail', async () => {
+  it('lets the owner fill in a public page with photos, works, products and links, only in the detail', async () => {
     const { c } = await owner('/windows/east/40')
     const empty = await client().get('/windows/east/40')
     assert.equal(empty.window.profile.logoUrl, '')
+    assert.equal(empty.window.profile.display.follow, true)
     assert.deepEqual(empty.window.reviews, [])
 
     const profile = {
       logoUrl: PNG,
       tags: ['#สินค้าเกษตร', 'ของฝาก', 'ของฝาก'],
       gallery: [PNG, PNG],
-      offerings: [{ imageUrl: PNG, name: 'ผักออร์แกนิก', note: 'สด สะอาด' }, { imageUrl: '', name: '', note: '' }],
+      works: [{ images: [PNG, PNG], name: 'งานออกแบบ', sub: 'โลโก้ · 2569', detail: 'โจทย์และผลลัพธ์' }, { images: [], name: '', sub: '', detail: '' }],
+      products: [{ images: [PNG], name: 'ผักออร์แกนิก', sub: '฿120', detail: 'สด สะอาด' }],
+      links: [
+        { icon: '🌐', label: 'เว็บไซต์', url: 'baansuan.example.com' },
+        { icon: '💣', label: 'อื่นๆ', url: 'https://example.com/x' },
+      ],
       phone: '081-234-5678',
       lineId: '@baansuan',
-      email: 'Shop@Test.th',
-      website: 'https://baansuan.example.com',
-      facebook: 'https://www.facebook.com/baansuan',
       about: 'ร้านของครอบครัว',
-      highlights: ['ปลอดสาร', ''],
-      serviceArea: 'ทั่วประเทศ',
-      shipping: '2-5 วัน',
+      display: { views: false, likes: true, today: true, followers: true, follow: true, reviews: true },
+      friend: { open: true, from: '2026-01-01', to: '2026-12-31', note: 'รับเฉพาะธุรกิจในภาคตะวันออก' },
     }
     assert.equal((await client().put('/windows/east/40/profile', profile)).status, 401)
     const other = await verifiedUser()
     assert.equal((await other.c.put('/windows/east/40/profile', profile)).status, 403)
-    assert.equal((await c.put('/windows/east/40/profile', { ...profile, facebook: 'https://evil.example.com/fb' })).status, 400)
-    assert.equal((await c.put('/windows/east/40/profile', { ...profile, website: 'javascript:alert(1)' })).status, 400)
+    assert.equal((await c.put('/windows/east/40/profile', { ...profile, links: [{ icon: '🔗', label: 'x', url: 'javascript:alert(1)' }] })).status, 400)
+    assert.equal((await c.put('/windows/east/40/profile', { ...profile, friend: { ...profile.friend, from: '2026-12-31', to: '2026-01-01' } })).status, 400)
     assert.equal((await c.put('/windows/east/40/profile', { ...profile, gallery: ['https://example.com/x.jpg'] })).status, 400)
+    assert.equal((await c.put('/windows/east/40/profile', { ...profile, works: [{ images: ['https://example.com/x.jpg'], name: 'x' }] })).status, 400)
 
     const saved = await c.put('/windows/east/40/profile', profile)
     assert.equal(saved.success, true, saved.error)
@@ -941,14 +944,25 @@ describe('window profile and reviews', () => {
     assert.match(p.logoUrl, /^\/uploads\/windows\//)
     assert.equal(p.gallery.length, 2)
     assert.deepEqual(p.tags, ['สินค้าเกษตร', 'ของฝาก'])
-    assert.equal(p.offerings.length, 1)
-    assert.equal(p.email, 'shop@test.th')
-    assert.deepEqual(p.highlights, ['ปลอดสาร'])
+    assert.equal(p.works.length, 1)
+    assert.equal(p.works[0].images.length, 2)
+    assert.match(p.products[0].images[0], /^\/uploads\/windows\//)
+    assert.deepEqual(p.links, [
+      { icon: '🌐', label: 'เว็บไซต์', url: 'https://baansuan.example.com' },
+      { icon: '🔗', label: 'อื่นๆ', url: 'https://example.com/x' },
+    ])
+    assert.equal(p.display.views, false)
+    assert.equal(p.friend.note, 'รับเฉพาะธุรกิจในภาคตะวันออก')
     // Profile edits are free and don't use the daily content edits.
     assert.equal(saved.window.editsToday, undefined)
 
+    // Dropping a work deletes its photos.
+    const noWorks = await c.put('/windows/east/40/profile', { ...p, works: [] })
+    assert.equal(noWorks.success, true, noWorks.error)
+    assert.equal(existsSync(path.join(ctx.config.uploadDir, p.works[0].images[0].replace('/uploads/', ''))), false)
+
     // Keeping one gallery photo deletes the other file.
-    const kept = await c.put('/windows/east/40/profile', { ...p, gallery: [p.gallery[0]] })
+    const kept = await c.put('/windows/east/40/profile', { ...noWorks.window.profile, gallery: [p.gallery[0]] })
     assert.equal(kept.success, true, kept.error)
     assert.equal(existsSync(path.join(ctx.config.uploadDir, p.gallery[1].replace('/uploads/', ''))), false)
     assert.equal(existsSync(path.join(ctx.config.uploadDir, p.gallery[0].replace('/uploads/', ''))), true)
@@ -957,6 +971,71 @@ describe('window profile and reviews', () => {
     const onBoard = boards.windows.find((w: { region: string; id: number }) => w.region === 'east' && w.id === 40)
     assert.equal(onBoard.profile, undefined)
     assert.equal((await client().get('/windows/east/40')).window.profile.phone, '081-234-5678')
+  })
+
+  it('reads profiles saved before the redesign in the new shape', async () => {
+    await owner('/windows/east/46')
+    const legacy = {
+      logoUrl: '',
+      tags: ['ของฝาก'],
+      gallery: [],
+      offerings: [{ imageUrl: '/uploads/windows/img_old.jpg', name: 'น้ำผึ้ง', note: 'แท้ 100%' }],
+      phone: '081-234-5678',
+      lineId: '@baansuan',
+      email: 'shop@test.th',
+      website: 'https://baansuan.example.com',
+      facebook: 'https://www.facebook.com/baansuan',
+      instagram: '',
+      tiktok: '',
+      youtube: '',
+      about: 'ร้านของครอบครัว',
+      highlights: ['ปลอดสาร'],
+      serviceArea: 'ทั่วประเทศ',
+      shipping: '',
+    }
+    await ctx.db.updateTable('windows').set({ profile_json: JSON.stringify(legacy) }).where('region', '=', 'east').where('num', '=', 46).execute()
+    const p = (await client().get('/windows/east/46')).window.profile
+    assert.deepEqual(p.products, [{ images: ['/uploads/windows/img_old.jpg'], name: 'น้ำผึ้ง', sub: '', detail: 'แท้ 100%' }])
+    assert.deepEqual(
+      p.links.map((k: { icon: string; url: string }) => [k.icon, k.url]),
+      [
+        ['🌐', 'https://baansuan.example.com'],
+        ['📘', 'https://www.facebook.com/baansuan'],
+        ['✉️', 'mailto:shop@test.th'],
+      ],
+    )
+    assert.equal(p.about, 'ร้านของครอบครัว\n\n★ จุดเด่นของเรา\n✓ ปลอดสาร\n\n📍 พื้นที่ให้บริการ: ทั่วประเทศ')
+    assert.deepEqual(p.display, { views: true, likes: true, today: true, followers: true, follow: true, reviews: true })
+    assert.equal(p.offerings, undefined)
+  })
+
+  it('lets the owner close follows, new reviews and Friend and Co requests', async () => {
+    const { c } = await owner('/windows/east/47')
+    const visitor = await verifiedUser('ลูกค้า')
+    const fan = await verifiedUser('แฟน')
+    assert.equal((await fan.c.post('/windows/east/47/follow')).following, true)
+    assert.equal((await fan.c.post('/windows/east/47/review', { rating: 5 })).success, true)
+
+    const closed = await c.put('/windows/east/47/profile', {
+      display: { views: true, likes: true, today: true, followers: true, follow: false, reviews: false },
+      friend: { open: false, from: '', to: '', note: '' },
+    })
+    assert.equal(closed.success, true, closed.error)
+    assert.equal((await visitor.c.post('/windows/east/47/follow')).status, 403)
+    assert.equal((await visitor.c.post('/windows/east/47/review', { rating: 4 })).status, 403)
+    // Existing followers and reviewers keep their choice.
+    assert.equal((await fan.c.post('/windows/east/47/review', { rating: 3 })).success, true)
+    assert.equal((await fan.c.post('/windows/east/47/follow')).following, false)
+
+    const partner = await owner('/windows/east/48')
+    const ask = () => partner.c.post('/windows/east/47/links', { fromRegion: 'east', fromNum: 48, message: 'ขอเชื่อมลิงก์' })
+    const refused = await ask()
+    assert.equal(refused.status, 400)
+    assert.match(refused.error, /ปิดรับ/)
+    await c.put('/windows/east/47/profile', { ...closed.window.profile, friend: { open: true, from: '2000-01-01', to: '2000-12-31', note: '' } })
+    assert.match((await ask()).error, /หมดช่วงเวลา/)
+    await c.put('/windows/east/47/profile', { ...closed.window.profile, friend: { open: true, from: '', to: '', note: '' } })
+    assert.equal((await ask()).success, true)
   })
 
   it('takes reviews from visitors, one each, and starts over for a new owner', async () => {

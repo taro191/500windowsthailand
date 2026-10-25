@@ -46,12 +46,12 @@
 
 /* Promo page colours; the promo theme overrides them. */
 .theme-scope-promo {
-  --promo-page-bg: #0b0814;
-  --promo-page-glow: #2a1245;
-  --promo-page-media-bg: #1c1530;
-  --promo-page-text: #fafaf9;
-  --promo-page-muted: #b8b2ad;
-  --promo-page-highlight: #fbbf24;
+  --promo-page-bg: #061a28;
+  --promo-page-glow: #0b2a40;
+  --promo-page-media-bg: #0c2538;
+  --promo-page-text: #f2f7fa;
+  --promo-page-muted: #9db3c1;
+  --promo-page-highlight: #f5b82e;
   --promo-page-badge: #fde68a;
   --promo-page-button-from: #ea580c;
   --promo-page-button-to: #c026d3;
@@ -60,6 +60,18 @@
   --promo-page-shadow: rgba(192, 38, 211, 0.35);
   --promo-page-glass: rgba(10, 8, 20, 0.58);
   --promo-page-font: 'Prompt', 'Noto Sans Thai', sans-serif;
+}
+
+/* Window page (KAP design): navy cards, gold and teal accents. */
+.kap {
+  --kap-bg: #070d1a;
+  --kap-card: #0d1a2e;
+  --kap-line: #27406b;
+  --kap-text: #e8eefc;
+  --kap-muted: #93a4c4;
+  --kap-gold: #e8b84a;
+  --kap-teal: #3fb8b0;
+  --kap-warn: #f0a050;
 }
 
 /* ---------------------------------------------------------------- base */

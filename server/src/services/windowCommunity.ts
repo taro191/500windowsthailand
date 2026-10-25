@@ -1,13 +1,14 @@
 // The owner's daily updates, and "Friend and Co": other windows asking to be linked from this one.
 // Both belong to the current owner; when the window changes hands they stop showing.
 import type { RegionId } from '@shared/types'
-import { PROFILE_LIMITS } from '@shared/windowProfile'
+import { thaiDayKey } from '@shared/thaiTime'
+import { friendStatus, PROFILE_LIMITS } from '@shared/windowProfile'
 import type { UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
 import { badRequest, forbidden, notFound } from '../lib/errors'
 import { nowIso, type AppContext } from '../context'
 import { audit } from './audit'
-import { loadLinks, loadRow, loadWindow, parseWindowRef } from './windows'
+import { loadLinks, loadRow, loadWindow, parseProfile, parseWindowRef } from './windows'
 
 const SUSPENDED = 'บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน'
 
@@ -82,6 +83,8 @@ export async function requestLink(ctx: AppContext, user: UserRow, region: Region
   if (from.region === region && from.num === num) throw badRequest('เลือกบานอื่นที่ไม่ใช่บานนี้')
   const target = await loadRow(ctx.db, region, num)
   if (!target.owner_id) throw badRequest('ขอเชื่อมลิงก์ได้เฉพาะบานที่มีเจ้าของแล้ว')
+  const status = friendStatus(parseProfile(target.profile_json).friend, thaiDayKey())
+  if (!status.open) throw badRequest(status.reason)
   const source = await loadRow(ctx.db, from.region, from.num)
   if (source.owner_id !== user.id) throw forbidden('ขอเชื่อมลิงก์ได้เฉพาะบานที่คุณเป็นเจ้าของ')
   const message = String(input.message ?? '').trim().slice(0, PROFILE_LIMITS.linkMessage)
@@ -121,12 +124,12 @@ export async function requestLink(ctx: AppContext, user: UserRow, region: Region
   return loadWindow(ctx, region, num, user.id)
 }
 
-/** The owner approves (up to PROFILE_LIMITS.links shown at once) or rejects a request. */
+/** The owner approves (up to PROFILE_LIMITS.partners shown at once) or rejects a request. */
 export async function decideLink(ctx: AppContext, user: UserRow, region: RegionId, num: number, id: string, approve: boolean) {
   await ownedRow(ctx, user, region, num)
   const { links, linkRequests } = await loadLinks(ctx.db, region, num, user.id, user.id)
   if (!linkRequests?.some((r) => r.id === id)) throw notFound('ไม่พบคำขอนี้ หรือคำขอถูกจัดการไปแล้ว')
-  if (approve && links.length >= PROFILE_LIMITS.links) throw badRequest(`ครบ ${PROFILE_LIMITS.links} ช่องแล้ว กรุณายกเลิกลิงก์เดิมก่อน`)
+  if (approve && links.length >= PROFILE_LIMITS.partners) throw badRequest(`ครบ ${PROFILE_LIMITS.partners} ช่องแล้ว กรุณายกเลิกลิงก์เดิมก่อน`)
   await ctx.db
     .updateTable('window_links')
     .set({ status: approve ? 'approved' : 'rejected', decided_at: nowIso() })
