@@ -440,6 +440,10 @@ export const translationOverrides = {
   "ใส่ 0 ทั้งสองช่องเพื่อกลับไปใช้โควตาปกติ · การลดโควตาไม่ดึงบานที่ถือครองอยู่คืน แต่จะจับจองหรือซื้อเพิ่มไม่ได้จนกว่าจะต่ำกว่าโควตา":
     "Enter 0 in both fields to go back to the normal quota · Lowering the quota does not take back windows already held, but the user cannot claim or buy more until they are under it",
   "พิเศษ": "extra",
+  "สลิปชำระเงิน": "Payment slip",
+  "ตัดจากกระเป๋าแล้ว": "Already taken from the wallet",
+  "เปิดรูปในแท็บใหม่": "Open the image in a new tab",
+  "ส่งเมื่อ": "Sent",
   // Window page (KAP design) and promo page
   "ปัดขึ้นเพื่ออ่านรายละเอียด": "Swipe up to read the details",
   "ดูภาพขยาย": "Photo viewer",

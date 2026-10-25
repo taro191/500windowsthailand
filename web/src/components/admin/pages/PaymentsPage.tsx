@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Check, FileCheck2, X } from 'lucide-react'
 import type { PaymentOrder, PaymentOrderKind, PaymentOrderStatus } from '@shared/types'
 import { decideOrder } from '@/lib/adminApi'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Callout, Card, DataTable, thaiDateTime } from '../ui'
 
@@ -31,6 +32,7 @@ export function PaymentsPage({ data, refresh, notify }: AdminPageProps) {
     const result = await decideOrder(order.id, decision, note)
     setBusyId(null)
     if (!result.success) return notify(result.error, 'error')
+    setPreview(null)
     await refresh()
     notify(
       decision === 'approved'
@@ -102,29 +104,63 @@ export function PaymentsPage({ data, refresh, notify }: AdminPageProps) {
         </DataTable>
       </Card>
 
-      {preview && (
-        <Card
-          title={`สลิป: ${preview.label} · ${preview.userName}`}
-          outline="info"
-          tools={
-            <Button size="sm" tone="secondary" outline onClick={() => setPreview(null)}>
-              ปิด
-            </Button>
-          }
-        >
-          <div className="flex flex-col md:flex-row gap-4 text-sm">
-            <a href={preview.slipUrl} target="_blank" rel="noreferrer">
-              <img src={preview.slipUrl} alt="สลิป" className="max-h-[70vh] rounded border border-[#dee2e6]" />
-            </a>
-            <div className="space-y-1">
-              <p className="m-0">ยอดที่ต้องได้รับ: <b className="font-mono">{baht(preview.externalAmount)}</b></p>
-              <p className="m-0">ช่องทาง: {preview.channelName}</p>
-              <p className="m-0">เลขที่รายการ (ผู้ใช้กรอก): <span className="font-mono">{preview.slipRef || '-'}</span></p>
-              <p className="m-0 text-[#6c757d]">เลขที่คำสั่งซื้อ: {preview.id}</p>
-            </div>
-          </div>
-        </Card>
-      )}
+      {preview && <SlipPopup order={preview} busy={busyId === preview.id} onDecide={(d) => decide(preview, d)} onClose={() => setPreview(null)} />}
     </>
+  )
+}
+
+/** The slip at full size over the page, with the amount to check and the decision buttons. */
+function SlipPopup({ order, busy, onDecide, onClose }: { order: PaymentOrder; busy: boolean; onDecide: (decision: 'approved' | 'rejected') => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useDialogFocus(true, ref, onClose)
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-3" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal aria-label="สลิปชำระเงิน" className="bg-white text-[#212529] rounded-lg shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col outline-none">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[#dee2e6]">
+          <h3 className="m-0 text-base font-semibold">
+            สลิป: {order.label} · {order.userName}
+          </h3>
+          <button type="button" onClick={onClose} aria-label="ปิด" className="p-1 text-[#6c757d] hover:text-[#212529] cursor-pointer">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex flex-col md:flex-row gap-4 p-4 overflow-auto text-sm">
+          <a href={order.slipUrl} target="_blank" rel="noreferrer" className="shrink-0 self-center md:self-start" title="เปิดรูปในแท็บใหม่">
+            <img src={order.slipUrl} alt="สลิป" className="max-h-[70vh] max-w-full rounded border border-[#dee2e6]" />
+          </a>
+          <div className="space-y-1">
+            <p className="m-0">
+              ยอดที่ต้องได้รับ: <b className="font-mono">{baht(order.externalAmount)}</b>
+            </p>
+            {order.walletAmount > 0 && <p className="m-0 text-[#6c757d]">ตัดจากกระเป๋าแล้ว: {baht(order.walletAmount)}</p>}
+            <p className="m-0">ช่องทาง: {order.channelName}</p>
+            <p className="m-0">
+              เลขที่รายการ (ผู้ใช้กรอก): <span className="font-mono">{order.slipRef || '-'}</span>
+            </p>
+            <p className="m-0">ส่งเมื่อ: {thaiDateTime(order.createdAt)}</p>
+            <p className="m-0 text-[#6c757d]">เลขที่คำสั่งซื้อ: {order.id}</p>
+            <p className="m-0 pt-1">
+              <Badge tone={order.status === 'approved' ? 'success' : order.status === 'rejected' ? 'danger' : 'warning'}>{STATUS_LABELS[order.status]}</Badge>
+            </p>
+            {order.note && <p className="m-0 text-[#6c757d]">{order.note}</p>}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-[#dee2e6]">
+          {order.status === 'pending' && (
+            <>
+              <Button tone="success" disabled={busy} onClick={() => onDecide('approved')}>
+                <Check className="w-4 h-4" /> อนุมัติ
+              </Button>
+              <Button tone="danger" disabled={busy} onClick={() => onDecide('rejected')}>
+                <X className="w-4 h-4" /> ไม่อนุมัติ
+              </Button>
+            </>
+          )}
+          <Button tone="secondary" outline onClick={onClose}>
+            ปิด
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
