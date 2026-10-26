@@ -48,7 +48,7 @@ interface WindowDetailModalProps {
   onNotify: (message: string, kind?: ToastKind) => void
 }
 
-const windowUrl = (w: { region: string; id: number }) => `${window.location.href.split('#')[0]}#window-${w.region}-${w.id}`
+const windowUrl = (w: { region: string; id: number }) => `${window.location.origin}/w/${w.region}/${w.id}`
 
 /** The window page (KAP design): one column of cards, each with its own owner mode. */
 export function WindowDetailModal(props: WindowDetailModalProps) {

@@ -10,6 +10,7 @@ import { seed } from './db/seed'
 import { createSecrets } from './lib/crypto'
 import { createApp } from './app'
 import { startFinanceFeed } from './services/financeFeed'
+import { requestOrigin, windowSharePage } from './services/sharePage'
 import type { AppContext } from './context'
 
 async function main() {
@@ -28,6 +29,12 @@ async function main() {
     app.use('*', serveStatic({ root }))
     // Single-page app: any other GET returns index.html.
     const html = readFileSync(indexHtml, 'utf8')
+    // Shared window links carry that window's title and picture for link previews.
+    app.get('/w/:region/:num', async (c) => {
+      const origin = requestOrigin(c.req.url, c.req.header('x-forwarded-proto'))
+      const page = await windowSharePage(ctx, html, c.req.param('region'), c.req.param('num'), origin).catch(() => null)
+      return c.html(page ?? html)
+    })
     app.get('*', (c) => c.html(html))
     console.log(`serving web app from ${config.publicDir}`)
   }

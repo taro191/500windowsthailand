@@ -233,6 +233,9 @@ export default function App() {
         if (found) setSelectedWindow(found)
       }
     }
+    // Share links (/w/<region>/<id>) are served with the window's preview tags; open them as a deep link.
+    const shared = window.location.pathname.match(/^\/w\/([a-z]+)\/(\d+)\/?$/)
+    if (shared) window.history.replaceState(null, '', `/#window-${shared[1]}-${shared[2]}`)
     openFromHash()
     window.addEventListener('hashchange', openFromHash)
     return () => window.removeEventListener('hashchange', openFromHash)

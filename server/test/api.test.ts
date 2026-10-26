@@ -12,6 +12,7 @@ import { seed } from '../src/db/seed'
 import { createSecrets } from '../src/lib/crypto'
 import { createApp } from '../src/app'
 import { pushFinanceFeed } from '../src/services/financeFeed'
+import { requestOrigin, windowSharePage } from '../src/services/sharePage'
 import type { AppContext } from '../src/context'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 
@@ -139,6 +140,20 @@ describe('public API', () => {
     assert.equal(first.counted, true)
     assert.equal(second.counted, false)
     assert.equal(second.window.likesCount, first.window.likesCount)
+  })
+
+  it('gives shared window links that window\'s preview tags', async () => {
+    const html = '<head>\n<title>Site</title>\n<meta\n  name="description"\n  content="site"\n/>\n<meta property="og:title" content="Site" />\n</head>'
+    const page = await windowSharePage(ctx, html, 'thailand', '1', 'https://example.th')
+    assert.ok(page)
+    assert.match(page, /<meta property="og:image" content="https:\/\/(images\.unsplash\.com|example\.th\/)/)
+    assert.match(page, /<meta property="og:url" content="https:\/\/example\.th\/w\/thailand\/1" \/>/)
+    assert.match(page, /<title>[^<]*KAP-TH-001[^<]*<\/title>/)
+    assert.equal(page.match(/name="description"/g)?.length, 1, 'the description tag is replaced, not duplicated')
+    assert.equal(await windowSharePage(ctx, html, 'mars', '1', 'https://example.th'), null)
+    assert.equal(await windowSharePage(ctx, html, 'thailand', '9999', 'https://example.th'), null)
+    assert.equal(requestOrigin('http://500windowsthailand.com/w/thailand/1'), 'https://500windowsthailand.com')
+    assert.equal(requestOrigin('http://localhost:3001/w/thailand/1'), 'http://localhost:3001')
   })
 })
 
