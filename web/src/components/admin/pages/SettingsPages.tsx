@@ -15,7 +15,7 @@ import {
 } from '@/lib/settings'
 import { PROMO_SLOTS } from '@/lib/promo'
 import type { AdminPageProps } from '../adminData'
-import { Badge, baht, Button, Callout, Card, DataTable, FormRow, inputClass } from '../ui'
+import { Badge, baht, Button, Callout, Card, DataTable, FormRow, inputClass, Modal } from '../ui'
 
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
 
@@ -222,8 +222,8 @@ export function ChannelsPage({ notify }: AdminPageProps) {
   const enabledCount = settings.paymentChannels.filter((c) => c.enabled).length
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <div className="xl:col-span-2">
+    <div>
+      <div>
         <Card
           title={`ช่องทางรับชำระเงิน (เปิดใช้ ${enabledCount}/${settings.paymentChannels.length})`}
           icon={CreditCard}
@@ -277,7 +277,7 @@ export function ChannelsPage({ notify }: AdminPageProps) {
       </div>
 
       {editing && (
-        <Card title={editing.id ? 'แก้ไขช่องทาง' : 'เพิ่มช่องทาง'} outline="info">
+        <Modal title={editing.id ? 'แก้ไขช่องทาง' : 'เพิ่มช่องทาง'} icon={CreditCard} onClose={() => setEditing(null)}>
           <form onSubmit={submit}>
             {error && <div className="mb-3 p-2.5 rounded bg-[#f8d7da] text-[#721c24] text-sm border border-[#f5c6cb]">{error}</div>}
             <FormRow label="ประเภท">
@@ -335,7 +335,7 @@ export function ChannelsPage({ notify }: AdminPageProps) {
               </Button>
             </div>
           </form>
-        </Card>
+        </Modal>
       )}
     </div>
   )

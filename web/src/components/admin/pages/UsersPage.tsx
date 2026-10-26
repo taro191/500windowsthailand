@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Ban, ImageOff, LayoutGrid, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Ban, ImageOff, LayoutGrid, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users } from 'lucide-react'
 import type { ExtraWindows, User } from '@shared/types'
 import {
   createUser,
@@ -15,7 +15,7 @@ import {
 import { maskCitizenId, maskPhone } from '@shared/identity'
 import { BASE_REGIONAL_WINDOWS, BASE_THAILAND_WINDOWS, MAX_EXTRA_WINDOWS, quotaLimits } from '@shared/windowQuota'
 import type { AdminPageProps } from '../adminData'
-import { Badge, baht, Button, Card, DataTable, FormRow, inputClass, thaiDateTime } from '../ui'
+import { Badge, baht, Button, Card, DataTable, FormRow, inputClass, Modal, thaiDateTime } from '../ui'
 import { Avatar } from '../../Avatar'
 
 type RoleFilter = 'all' | 'admin' | 'user'
@@ -45,16 +45,7 @@ function NewUserCard({ onClose, refresh, notify }: { onClose: () => void } & Pic
   }
 
   return (
-    <Card
-      title="เพิ่มผู้ใช้ใหม่"
-      icon={UserPlus}
-      outline="primary"
-      tools={
-        <button type="button" onClick={onClose} className="text-[#6c757d] hover:text-[#212529] cursor-pointer" aria-label="ปิด">
-          <X className="w-4 h-4" />
-        </button>
-      }
-    >
+    <Modal title="เพิ่มผู้ใช้ใหม่" icon={UserPlus} onClose={onClose}>
       <form onSubmit={submit} className="grid gap-x-4 sm:grid-cols-2">
         <FormRow label="ชื่อ">
           <input required value={form.name} onChange={(e) => set({ name: e.target.value })} className={inputClass} maxLength={120} />
@@ -80,7 +71,7 @@ function NewUserCard({ onClose, refresh, notify }: { onClose: () => void } & Pic
           </Button>
         </div>
       </form>
-    </Card>
+    </Modal>
   )
 }
 
@@ -88,10 +79,6 @@ function NewUserCard({ onClose, refresh, notify }: { onClose: () => void } & Pic
 function EditUserCard({ user, onClose, refresh, notify }: { user: User; onClose: () => void } & Pick<AdminPageProps, 'refresh' | 'notify'>) {
   const [form, setForm] = useState({ name: user.name, email: user.email, phone: user.phone, citizenId: '', bio: user.bio ?? '', password: '' })
   const [saving, setSaving] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
   const set = (changes: Partial<typeof form>) => setForm((f) => ({ ...f, ...changes }))
 
   const submit = async (e: React.FormEvent) => {
@@ -107,54 +94,43 @@ function EditUserCard({ user, onClose, refresh, notify }: { user: User; onClose:
   }
 
   return (
-    <div ref={ref} className="scroll-mt-4">
-      <Card
-        title={`แก้ไขข้อมูลผู้ใช้ · ${user.name}`}
-        icon={Pencil}
-        outline="primary"
-        tools={
-          <button type="button" onClick={onClose} className="text-[#6c757d] hover:text-[#212529] cursor-pointer" aria-label="ปิด">
-            <X className="w-4 h-4" />
-          </button>
-        }
-      >
-        <form onSubmit={submit} className="grid gap-x-4 sm:grid-cols-2">
-          <FormRow label="ชื่อ">
-            <input required value={form.name} onChange={(e) => set({ name: e.target.value })} className={inputClass} maxLength={120} />
-          </FormRow>
-          <FormRow label="อีเมล" hint="ใช้เป็นชื่อเข้าสู่ระบบ">
-            <input required type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} className={inputClass} />
-          </FormRow>
-          <FormRow label="เบอร์โทรศัพท์" hint={user.isVerified ? 'ผู้ใช้ที่ยืนยันตัวตนแล้วต้องมีเบอร์โทร' : 'เว้นว่างได้'}>
-            <input type="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} className={inputClass} placeholder="08x-xxx-xxxx" />
-          </FormRow>
-          <FormRow label="เลขบัตรประชาชน" hint={`ปัจจุบัน ${maskCitizenId(user.citizenId) || 'ยังไม่มี'} · เว้นว่างเพื่อใช้เลขเดิม`}>
-            <input
-              inputMode="numeric"
-              autoComplete="off"
-              value={form.citizenId}
-              onChange={(e) => set({ citizenId: e.target.value })}
-              className={inputClass}
-              placeholder="เลข 13 หลัก"
-            />
-          </FormRow>
-          <FormRow label="แนะนำตัว">
-            <input value={form.bio} onChange={(e) => set({ bio: e.target.value })} className={inputClass} maxLength={500} />
-          </FormRow>
-          <FormRow label="ตั้งรหัสผ่านใหม่" hint="เว้นว่างเพื่อใช้รหัสเดิม · อย่างน้อย 8 ตัวอักษร">
-            <input type="text" autoComplete="off" minLength={8} value={form.password} onChange={(e) => set({ password: e.target.value })} className={inputClass} />
-          </FormRow>
-          <div className="sm:col-span-2 flex justify-end gap-2">
-            <Button tone="secondary" outline onClick={onClose}>
-              ยกเลิก
-            </Button>
-            <Button type="submit" disabled={saving}>
-              <Save className="w-4 h-4" /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
-            </Button>
-          </div>
-        </form>
-      </Card>
-    </div>
+    <Modal title={`แก้ไขข้อมูลผู้ใช้ · ${user.name}`} icon={Pencil} onClose={onClose}>
+      <form onSubmit={submit} className="grid gap-x-4 sm:grid-cols-2">
+        <FormRow label="ชื่อ">
+          <input required value={form.name} onChange={(e) => set({ name: e.target.value })} className={inputClass} maxLength={120} />
+        </FormRow>
+        <FormRow label="อีเมล" hint="ใช้เป็นชื่อเข้าสู่ระบบ">
+          <input required type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} className={inputClass} />
+        </FormRow>
+        <FormRow label="เบอร์โทรศัพท์" hint={user.isVerified ? 'ผู้ใช้ที่ยืนยันตัวตนแล้วต้องมีเบอร์โทร' : 'เว้นว่างได้'}>
+          <input type="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} className={inputClass} placeholder="08x-xxx-xxxx" />
+        </FormRow>
+        <FormRow label="เลขบัตรประชาชน" hint={`ปัจจุบัน ${maskCitizenId(user.citizenId) || 'ยังไม่มี'} · เว้นว่างเพื่อใช้เลขเดิม`}>
+          <input
+            inputMode="numeric"
+            autoComplete="off"
+            value={form.citizenId}
+            onChange={(e) => set({ citizenId: e.target.value })}
+            className={inputClass}
+            placeholder="เลข 13 หลัก"
+          />
+        </FormRow>
+        <FormRow label="แนะนำตัว">
+          <input value={form.bio} onChange={(e) => set({ bio: e.target.value })} className={inputClass} maxLength={500} />
+        </FormRow>
+        <FormRow label="ตั้งรหัสผ่านใหม่" hint="เว้นว่างเพื่อใช้รหัสเดิม · อย่างน้อย 8 ตัวอักษร">
+          <input type="text" autoComplete="off" minLength={8} value={form.password} onChange={(e) => set({ password: e.target.value })} className={inputClass} />
+        </FormRow>
+        <div className="sm:col-span-2 flex justify-end gap-2">
+          <Button tone="secondary" outline onClick={onClose}>
+            ยกเลิก
+          </Button>
+          <Button type="submit" disabled={saving}>
+            <Save className="w-4 h-4" /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -168,10 +144,6 @@ function ExtraWindowsCard({
 }: { user: User; held: { thailand: number; regional: number }; onClose: () => void } & Pick<AdminPageProps, 'refresh' | 'notify'>) {
   const [form, setForm] = useState(user.extraWindows ?? { thailand: 0, regional: 0 })
   const [saving, setSaving] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
   const limits = quotaLimits(form)
 
   const submit = async (e: React.FormEvent) => {
@@ -201,34 +173,23 @@ function ExtraWindowsCard({
   )
 
   return (
-    <div ref={ref} className="scroll-mt-4">
-      <Card
-        title={`โควตาบานเพิ่มพิเศษ · ${user.name}`}
-        icon={LayoutGrid}
-        outline="primary"
-        tools={
-          <button type="button" onClick={onClose} className="text-[#6c757d] hover:text-[#212529] cursor-pointer" aria-label="ปิด">
-            <X className="w-4 h-4" />
-          </button>
-        }
-      >
-        <form onSubmit={submit} className="grid gap-x-4 sm:grid-cols-2">
-          {field('thailand', 'บานประเทศไทยเพิ่ม', BASE_THAILAND_WINDOWS)}
-          {field('regional', 'บานภูมิภาคเพิ่ม (ภาคใดก็ได้)', BASE_REGIONAL_WINDOWS)}
-          <p className="sm:col-span-2 text-[0.8rem] text-[#6c757d] mb-3">
-            ใส่ 0 ทั้งสองช่องเพื่อกลับไปใช้โควตาปกติ · การลดโควตาไม่ดึงบานที่ถือครองอยู่คืน แต่จะจับจองหรือซื้อเพิ่มไม่ได้จนกว่าจะต่ำกว่าโควตา
-          </p>
-          <div className="sm:col-span-2 flex justify-end gap-2">
-            <Button tone="secondary" outline onClick={onClose}>
-              ยกเลิก
-            </Button>
-            <Button type="submit" disabled={saving}>
-              <Save className="w-4 h-4" /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
-            </Button>
-          </div>
-        </form>
-      </Card>
-    </div>
+    <Modal title={`โควตาบานเพิ่มพิเศษ · ${user.name}`} icon={LayoutGrid} onClose={onClose}>
+      <form onSubmit={submit} className="grid gap-x-4 sm:grid-cols-2">
+        {field('thailand', 'บานประเทศไทยเพิ่ม', BASE_THAILAND_WINDOWS)}
+        {field('regional', 'บานภูมิภาคเพิ่ม (ภาคใดก็ได้)', BASE_REGIONAL_WINDOWS)}
+        <p className="sm:col-span-2 text-[0.8rem] text-[#6c757d] mb-3">
+          ใส่ 0 ทั้งสองช่องเพื่อกลับไปใช้โควตาปกติ · การลดโควตาไม่ดึงบานที่ถือครองอยู่คืน แต่จะจับจองหรือซื้อเพิ่มไม่ได้จนกว่าจะต่ำกว่าโควตา
+        </p>
+        <div className="sm:col-span-2 flex justify-end gap-2">
+          <Button tone="secondary" outline onClick={onClose}>
+            ยกเลิก
+          </Button>
+          <Button type="submit" disabled={saving}>
+            <Save className="w-4 h-4" /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

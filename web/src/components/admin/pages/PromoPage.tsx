@@ -4,7 +4,7 @@ import { decidePromoRequest } from '@/lib/adminApi'
 import { PROMO_LAYOUT_LABELS, type PromoRequest, type PromoRequestStatus } from '@/lib/promo'
 import { PromoDisplay } from '../../promo/PromoDisplay'
 import type { AdminPageProps } from '../adminData'
-import { Badge, baht, Button, Callout, Card, DataTable, thaiDateTime } from '../ui'
+import { Badge, baht, Button, Callout, Card, DataTable, Modal, thaiDateTime } from '../ui'
 
 const STATUS_LABELS: Record<PromoRequestStatus, string> = { pending: 'รอตรวจสอบ', approved: 'อนุมัติแล้ว', rejected: 'ไม่อนุมัติ' }
 
@@ -112,7 +112,16 @@ export function PromoPage({ data, refresh, notify }: AdminPageProps) {
       </Card>
 
       {preview && (
-        <Card title={`รายละเอียด: ${preview.brand}`} outline="info" tools={<Button size="sm" tone="secondary" outline onClick={() => setPreview(null)}>ปิด</Button>}>
+        <Modal
+          title={`รายละเอียด: ${preview.brand}`}
+          size="lg"
+          onClose={() => setPreview(null)}
+          footer={
+            <Button tone="secondary" outline onClick={() => setPreview(null)}>
+              ปิด
+            </Button>
+          }
+        >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div className="md:col-span-2 space-y-1">
               <p className="whitespace-pre-wrap m-0">{preview.tagline || '(ไม่มีข้อความ)'}</p>
@@ -130,7 +139,7 @@ export function PromoPage({ data, refresh, notify }: AdminPageProps) {
               ))}
             </div>
           </div>
-        </Card>
+        </Modal>
       )}
       {preview && showPage && <PromoDisplay simulated ad={preview} onClose={() => setShowPage(false)} />}
     </>

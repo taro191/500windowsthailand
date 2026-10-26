@@ -1,7 +1,8 @@
 // AdminLTE-style building blocks recreated with Tailwind (no Bootstrap dependency):
 // light grey content, white cards with a coloured top border, coloured "small boxes".
-import type { LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { X, type LucideIcon } from 'lucide-react'
+import { useRef, type ReactNode } from 'react'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 
 export type Tone = 'primary' | 'info' | 'success' | 'warning' | 'danger' | 'secondary' | 'dark'
 
@@ -48,6 +49,31 @@ export function Card({ title, icon: Icon, outline, tools, footer, flush, classNa
       <div className={flush ? '' : 'p-5'}>{children}</div>
       {footer && <footer className="px-5 py-3 bg-black/[.03] border-t border-black/[.125] text-sm">{footer}</footer>}
     </section>
+  )
+}
+
+const MODAL_WIDTH = { md: 'max-w-xl', lg: 'max-w-3xl' }
+
+/** Popup over the admin page (AdminLTE modal): closes on ✕, Escape or a click outside. */
+export function Modal({ title, icon: Icon, onClose, footer, size = 'md', children }: { title: ReactNode; icon?: LucideIcon; onClose: () => void; footer?: ReactNode; size?: keyof typeof MODAL_WIDTH; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useDialogFocus(true, ref, onClose)
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-3" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal className={`bg-white text-[#212529] rounded-md shadow-xl w-full ${MODAL_WIDTH[size]} max-h-[95vh] flex flex-col outline-none`}>
+        <header className="flex items-center justify-between gap-3 px-5 py-3 border-b border-black/[.125]">
+          <h3 className="text-[1.05rem] font-normal flex items-center gap-2 m-0 min-w-0">
+            {Icon && <Icon className="w-4 h-4 text-[#6c757d] shrink-0" />}
+            <span className="min-w-0 break-words">{title}</span>
+          </h3>
+          <button type="button" onClick={onClose} aria-label="ปิด" className="p-1 text-[#6c757d] hover:text-[#212529] cursor-pointer">
+            <X className="w-5 h-5" />
+          </button>
+        </header>
+        <div className="p-5 overflow-auto">{children}</div>
+        {footer && <footer className="flex justify-end gap-2 px-5 py-3 border-t border-black/[.125]">{footer}</footer>}
+      </div>
+    </div>
   )
 }
 
