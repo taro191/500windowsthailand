@@ -1,0 +1,3 @@
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^500windowsthailand\.yaydang\.com$ [NC]
+RewriteRule ^ https://500windowsthailand.com%{REQUEST_URI} [R=301,L]
