@@ -31,10 +31,12 @@ const updateText = (value: unknown) => {
 
 export async function postUpdate(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: { text?: unknown }) {
   await ownedRow(ctx, user, region, num)
+  const now = nowIso()
   await ctx.db
     .insertInto('window_updates')
-    .values({ id: newId('up'), region, num, owner_id: user.id, text: updateText(input.text), created_at: nowIso(), edited_at: null })
+    .values({ id: newId('up'), region, num, owner_id: user.id, text: updateText(input.text), created_at: now, edited_at: null })
     .execute()
+  await ctx.db.updateTable('windows').set({ content_updated_at: now }).where('region', '=', region).where('num', '=', num).execute()
   return loadWindow(ctx, region, num, user.id)
 }
 

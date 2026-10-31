@@ -408,6 +408,13 @@ const migrations: Record<string, Migration> = {
       await db.updateTable('windows').set({ welcomed_at: new Date().toISOString() }).where('owner_id', 'is not', null).execute()
     },
   },
+  '015_content_updated': {
+    // When the owner last changed what visitors see (for Co Center's "updated today" lane).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('windows').addColumn('content_updated_at', time).execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

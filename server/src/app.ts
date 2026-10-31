@@ -20,6 +20,7 @@ import * as users from './services/users'
 import * as windows from './services/windows'
 import * as purchases from './services/purchases'
 import * as promo from './services/promo'
+import * as coCenter from './services/coCenter'
 import * as admin from './services/admin'
 import * as windowProfiles from './services/windowProfiles'
 import * as community from './services/windowCommunity'
@@ -154,6 +155,7 @@ export function createApp(ctx: AppContext) {
     return ok(c, { counted, window: await windows.loadWindow(ctx, region, num, c.get('user')?.id ?? null) })
   })
 
+  api.get('/co-center', async (c) => ok(c, await coCenter.coCenterWindows(ctx)))
   api.get('/promo', async (c) => ok(c, { ads: await promo.activeAds(ctx), reservedRounds: await promo.reservedRounds(ctx) }))
 
   // ------------------------------------------------------------ account

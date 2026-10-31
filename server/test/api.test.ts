@@ -327,6 +327,46 @@ describe('window status', () => {
     assert.equal((await client().get('/windows/central/30')).window.title, content.title)
   })
 })
+
+describe('Kapsulep & Co', () => {
+  it('lists owned public windows for Co Center and keeps Co Store links safe', async () => {
+    const data = await client().get('/co-center')
+    assert.ok(Date.parse(data.serverTime) > 0)
+    const w = data.windows.find((x: any) => x.url === '/w/thailand/2')
+    assert.ok(w, 'an owned window is listed')
+    assert.equal(w.group, 'thailand')
+    assert.equal(w.rank, 2)
+    assert.ok(w.updatedAt)
+    assert.ok(data.windows.every((x: any) => x.name !== undefined && x.ownerId === undefined), 'public fields only')
+
+    const admin = await adminClient()
+    await admin.post('/admin/windows/thailand/2/suspend', { suspended: true, reason: 'ทดสอบ' })
+    assert.ok(!(await client().get('/co-center')).windows.some((x: any) => x.url === '/w/thailand/2'), 'held windows are left out')
+    await admin.post('/admin/windows/thailand/2/suspend', { suspended: false, reason: 'ทดสอบ' })
+
+    const { settings } = await client().get('/config')
+    const app = { id: 'a1', name: 'สร้างโลโก้', description: 'ฟรี', url: 'https://example.com/logo', icon: '🎨', iconUrl: '', category: 'ออกแบบ', badge: 'ใหม่' }
+    const bad = await admin.put('/admin/settings', { settings: { ...settings, coStore: { title: 'Kapsulep & Co', apps: [{ ...app, url: 'javascript:alert(1)' }] } }, what: 'x' })
+    assert.equal(bad.status, 400)
+    const saved = await admin.put('/admin/settings', { settings: { ...settings, coStore: { title: 'Kapsulep & Co', apps: [app] } }, what: 'Co Store' })
+    assert.equal(saved.success, true, saved.error)
+    assert.equal((await client().get('/config')).settings.coStore.apps[0].name, 'สร้างโลโก้')
+    await admin.put('/admin/settings', { settings, what: 'คืนค่าเดิม' })
+  })
+
+  it('counts a profile save as an update only when visitors see a change', async () => {
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 500)
+    await c.post('/windows/south/77/claim', { content, payment: wallet(500) })
+    const at = async () => (await ctx.db.selectFrom('windows').select('content_updated_at').where('region', '=', 'south').where('num', '=', 77).executeTakeFirstOrThrow()).content_updated_at
+    await ctx.db.updateTable('windows').set({ content_updated_at: '2020-01-01T00:00:00.000Z' }).where('region', '=', 'south').where('num', '=', 77).execute()
+    const { window } = await c.get('/windows/south/77')
+    await c.put('/windows/south/77/profile', { ...window.profile, display: { ...window.profile.display, views: false } })
+    assert.equal(await at(), '2020-01-01T00:00:00.000Z', 'hiding a counter is not an update')
+    await c.put('/windows/south/77/profile', { ...window.profile, about: 'ร้านใหม่' })
+    assert.notEqual(await at(), '2020-01-01T00:00:00.000Z')
+  })
+})
 describe('resale', () => {
   it('lists after 30 days within the cap and pays the seller 95%', async () => {
     const seller = await verifiedUser('ผู้ขาย')

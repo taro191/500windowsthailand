@@ -104,7 +104,13 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     endsAt: null,
   },
   contact: DEFAULT_CONTACT,
+  coStore: { title: 'Kapsulep & Co', apps: [] },
 }
+
+export const CO_STORE_LIMITS = { apps: 12, title: 60, name: 40, description: 120, url: 300, icon: 4, category: 20, badge: 12 }
+
+/** https:// links or paths in this site; anything else (javascript:, //host…) is refused. */
+export const isCoStoreUrl = (url: string) => /^https:\/\/\S+$/.test(url) || /^\/(?!\/)\S*$/.test(url)
 
 /** The bonus a new account gets right now (0 when off or outside the period). */
 export function activeSignupBonus({ signupBonus }: PlatformSettings, now: Date = new Date()): number {
@@ -221,7 +227,27 @@ export function validateSettings(settings: PlatformSettings): string | null {
   if (signupBonus.startsAt && signupBonus.endsAt && Date.parse(signupBonus.endsAt) <= Date.parse(signupBonus.startsAt))
     return 'วันเวลาสิ้นสุดโบนัสต้องหลังวันเวลาเริ่ม'
 
-  return validateContact(settings.contact)
+  return validateContact(settings.contact) ?? validateCoStore(settings.coStore)
+}
+
+function validateCoStore(coStore: PlatformSettings['coStore'] | undefined): string | null {
+  const L = CO_STORE_LIMITS
+  if (!coStore || typeof coStore.title !== 'string' || !Array.isArray(coStore.apps)) return 'ข้อมูล Kapsulep & Co ไม่ครบ'
+  if (coStore.title.length > L.title) return `ชื่อการ์ด Kapsulep & Co ยาวเกิน ${L.title} ตัวอักษร`
+  if (coStore.apps.length > L.apps) return `เว็บแอปใน Co Store ได้ไม่เกิน ${L.apps} รายการ`
+  const ids = new Set<string>()
+  for (const app of coStore.apps) {
+    if (!app.id || ids.has(app.id)) return 'รหัสเว็บแอปต้องไม่ว่างและไม่ซ้ำกัน'
+    ids.add(app.id)
+    if (!app.name?.trim() || app.name.length > L.name) return `ชื่อเว็บแอปต้องมี 1–${L.name} ตัวอักษร`
+    if (typeof app.description !== 'string' || app.description.length > L.description) return `คำอธิบายเว็บแอปยาวเกิน ${L.description} ตัวอักษร`
+    if (!isCoStoreUrl(app.url) || app.url.length > L.url) return `ลิงก์ของ "${app.name}" ต้องขึ้นต้นด้วย https:// หรือ / (หน้าในเว็บนี้)`
+    if (typeof app.icon !== 'string' || [...app.icon].length > L.icon) return 'ไอคอนอีโมจิยาวเกินไป'
+    if (app.iconUrl && !isCoStoreUrl(app.iconUrl)) return `รูปไอคอนของ "${app.name}" ต้องขึ้นต้นด้วย https:// หรือ /`
+    if (typeof app.category !== 'string' || app.category.length > L.category) return `หมวดของเว็บแอปยาวเกิน ${L.category} ตัวอักษร`
+    if (typeof app.badge !== 'string' || app.badge.length > L.badge) return `ป้ายของเว็บแอปยาวเกิน ${L.badge} ตัวอักษร`
+  }
+  return null
 }
 
 const TEXT_LIMITS: [keyof ContactInfo, string, number][] = [

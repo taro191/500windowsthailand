@@ -14,6 +14,7 @@ const withDefaults = (stored: Partial<PlatformSettings>, updatedAt: string): Pla
   ...stored,
   rules: { ...DEFAULT_SETTINGS.rules, ...stored.rules },
   contact: { ...DEFAULT_SETTINGS.contact, ...stored.contact },
+  coStore: { ...DEFAULT_SETTINGS.coStore, ...stored.coStore },
   updatedAt,
 })
 
@@ -31,8 +32,8 @@ export async function getSettings(ctx: AppContext): Promise<PlatformSettings> {
 export async function saveSettings(ctx: AppContext, settings: PlatformSettings): Promise<PlatformSettings> {
   const error = validateSettings(settings)
   if (error) throw badRequest(error)
-  const { priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact } = settings
-  const value_json = JSON.stringify({ priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact })
+  const { priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact, coStore } = settings
+  const value_json = JSON.stringify({ priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact, coStore })
   const updated_at = nowIso()
   const updated = await ctx.db.updateTable('settings').set({ value_json, updated_at }).where('id', '=', 'platform').executeTakeFirst()
   if (Number(updated.numUpdatedRows) === 0) {

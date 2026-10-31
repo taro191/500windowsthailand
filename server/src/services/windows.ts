@@ -65,6 +65,7 @@ export function emptyWindowRow(region: RegionId, num: number, now = nowIso(), cl
     reserved_order_id: null,
     suspended_at: null,
     welcomed_at: null,
+    content_updated_at: null,
     profile_json: null,
     updated_at: now,
   }
@@ -480,6 +481,7 @@ export async function editWindow(ctx: AppContext, user: UserRow, region: RegionI
         edit_day: today,
         edit_count: edit.usedToday + 1,
         ...(content.dailyNote ? { note_day: thaiDayKey(), note_text: content.dailyNote, note_at: now } : {}),
+        content_updated_at: now,
         updated_at: now,
       })
       .where('region', '=', region)

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ProfileDisplay, WindowItem } from '@shared/types'
 import { followerCount, likesToday } from '@shared/windowBadges'
 import { PROFILE_LIMITS } from '@shared/windowProfile'
 import { useDialogFocus } from '@/hooks/useDialogFocus'
 import { deleteReview, fetchWindow, saveReview } from '@/lib/store'
 import { deleteReviewAsAdmin } from '@/lib/adminApi'
+import { LifeSpace } from './LifeSpace'
 import { btn, btnPri, card, check, CardHead, field, Hint, muted, para, useCardDraft, type DetailContext } from './ui'
 
 const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '')}K` : n.toLocaleString())
@@ -22,10 +23,12 @@ export function StatsCard({ ctx, onLike, onToggleFollow, onShowFollowing }: { ct
   const editor = useCardDraft(ctx, ['display'])
   const display = editor.draft.display
   const [reviewsOpen, setReviewsOpen] = useState(false)
+  const [lifeOpen, setLifeOpen] = useState(false)
   const following = !!currentUser && !!w.followerIds?.includes(currentUser.id)
   const canFollow = display.follow || following
   const set = (key: keyof ProfileDisplay, on: boolean) => editor.set({ display: { ...display, [key]: on } })
   const shown = STATS.filter((s) => display[s.key])
+  const closeLife = useCallback(() => setLifeOpen(false), [])
 
   return (
     <section className={`${card} !py-3`}>
@@ -81,6 +84,9 @@ export function StatsCard({ ctx, onLike, onToggleFollow, onShowFollowing }: { ct
         <button type="button" onClick={() => setReviewsOpen(true)} className={`${btn} flex-1`}>
           ★ รีวิว ({w.reviewStats?.count ?? 0})
         </button>
+        <button type="button" onClick={() => setLifeOpen(true)} className={`${btn} flex-1`}>
+          ✨ Life Space
+        </button>
       </div>
       {following && (
         <p className={`${para} !mb-0 text-[12.5px]`}>
@@ -91,6 +97,7 @@ export function StatsCard({ ctx, onLike, onToggleFollow, onShowFollowing }: { ct
         </p>
       )}
       {reviewsOpen && <ReviewsDialog ctx={ctx} onClose={() => setReviewsOpen(false)} />}
+      {lifeOpen && <LifeSpace userId={currentUser?.id} onClose={closeLife} />}
     </section>
   )
 }

@@ -619,4 +619,7 @@ export const translationOverrides = {
   "ติดต่อทีมงาน": "Contact the team",
   "หน้าต่างนี้ถูกระงับเพื่อตรวจสอบ": "This window is on hold for review",
   "หน้าต่างนี้ถูกระงับชั่วคราว อยู่ระหว่างรอการตรวจสอบจากทีมงาน": "This window is temporarily on hold while our team reviews it",
+  "Co Center · หน้าต่างแนะนำ สุ่มเปลี่ยนทุก 2 ชั่วโมง": "Co Center · featured windows, picked again every 2 hours",
+  "Co Store · เว็บแอปในระบบ เลือกใช้ได้เลย": "Co Store · web apps in the system, ready to use",
+  "หมวดเว็บแอป": "App categories",
 } as const;

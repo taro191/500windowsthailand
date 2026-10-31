@@ -404,7 +404,25 @@ export interface PlatformSettings {
     endsAt: string | null
   }
   contact: ContactInfo
+  /** Web apps in the "Co Store" tab of the window page's "Kapsulep & Co" card. */
+  coStore: { title: string; apps: CoStoreApp[] }
   updatedAt?: string
+}
+
+/** A web app offered to window owners and visitors (admin-managed). */
+export interface CoStoreApp {
+  id: string
+  name: string
+  description: string
+  /** https:// opens in a new tab; /path stays in the site. */
+  url: string
+  /** Emoji shown when there is no icon image. */
+  icon: string
+  iconUrl: string
+  /** Apps can be filtered by category when there are two or more. */
+  category: string
+  /** Short label such as "ใหม่" or "ฟรี". */
+  badge: string
 }
 
 export interface WindowContentInput {

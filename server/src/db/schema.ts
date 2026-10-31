@@ -89,6 +89,8 @@ export interface WindowsTable {
   suspended_at: string | null
   /** When the owner saw the "welcome" screen; null until then (cleared when the window changes hands). */
   welcomed_at: string | null
+  /** Last change to what visitors see (images, works, products, about, links, daily updates). */
+  content_updated_at: string | null
   /** The owner's public page (WindowProfile as JSON); cleared when the window changes hands. */
   profile_json: string | null
   updated_at: string

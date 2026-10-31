@@ -10,6 +10,7 @@ import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import { loadBoard, markWelcomed, saveWindowProfile } from '@/lib/store'
 import { STAR_LABELS } from '../board/WindowBadges'
 import { Lightbox, type LightboxCaption } from '../Lightbox'
+import { CoCard } from './detail/CoCard'
 import { DetailsCard } from './detail/DetailsCard'
 import { FriendCard } from './detail/FriendCard'
 import { Gallery } from './detail/Gallery'
@@ -168,7 +169,11 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
           <span className={pill} title="ตำแหน่งจัดวางบนหน้าต่างในรอบปัจจุบัน">
             ตำแหน่ง #{w.slotPosition || w.id}
           </span>
-          {region && <span className={pill}>{region.name}</span>}
+          {region && (
+            <span className={`${pill} !border-(--kap-gold)/70 text-(--kap-gold) font-semibold`} title="ภูมิภาค">
+              📍 {region.name}
+            </span>
+          )}
           {category && (
             <span className={pill}>
               {category.icon} {category.label}
@@ -255,6 +260,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
             <Showcase ctx={ctx} kind="products" />
             <LinksCard ctx={ctx} />
             <FriendCard ctx={ctx} />
+            <CoCard ctx={ctx} />
             <TagsCard ctx={ctx} footer={!isForResale && !isOwner ? <p className={`${para} mt-3.5`}>หน้าต่างนี้มีเจ้าของแล้ว และไม่ได้เปิดขายต่อในขณะนี้</p> : undefined} />
             {isOwner && (
               <OwnerStudio

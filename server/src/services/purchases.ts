@@ -238,6 +238,7 @@ async function applyClaim(
       note_at: null,
       reserved_order_id: null,
       welcomed_at: null,
+      content_updated_at: now,
       updated_at: now,
     })
     .where('region', '=', args.region)

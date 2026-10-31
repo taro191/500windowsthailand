@@ -1,6 +1,6 @@
 // The owner's public page for a window (gallery, works, products, links, contacts, switches) and
 // visitors' reviews. Profile edits are free and don't count toward the daily content edits.
-import type { RegionId } from '@shared/types'
+import type { RegionId, WindowProfile } from '@shared/types'
 import { cleanProfile, PROFILE_LIMITS, profileImages } from '@shared/windowProfile'
 import type { UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
@@ -30,9 +30,13 @@ export async function updateWindowProfile(ctx: AppContext, user: UserRow, region
   profile.gallery = (await Promise.all(profile.gallery.map(resolve))).filter(Boolean)
   for (const item of [...profile.works, ...profile.products]) item.images = (await Promise.all(item.images.map(resolve))).filter(Boolean)
 
+  // Only a change visitors see counts as an update (saving the same page again does not).
+  const shown = (p: WindowProfile) => JSON.stringify([p.logoUrl, p.gallery, p.works, p.products, p.about, p.links])
+  const now = nowIso()
+  const changed = shown(profile) !== shown(parseProfile(row.profile_json))
   await ctx.db
     .updateTable('windows')
-    .set({ profile_json: JSON.stringify(profile), updated_at: nowIso() })
+    .set({ profile_json: JSON.stringify(profile), updated_at: now, ...(changed ? { content_updated_at: now } : {}) })
     .where('region', '=', region)
     .where('num', '=', num)
     .where('owner_id', '=', user.id)
