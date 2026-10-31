@@ -85,11 +85,8 @@ export function Lightbox({ images, index, onIndex, onClose, caption, captions, s
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     closeRef.current?.focus()
     return () => {
-      document.body.style.overflow = previousOverflow
       if (previousFocus?.isConnected) previousFocus.focus()
     }
   }, [])

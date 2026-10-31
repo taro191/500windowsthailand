@@ -27,7 +27,7 @@ export function BottomNav(props: BottomNavProps) {
   ]
 
   return (
-    <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-[#09080e]/95 backdrop-blur-md border-t border-purple-900/40 shadow-2xl pb-[env(safe-area-inset-bottom)] font-['Prompt',sans-serif]">
+    <nav className="kap-bottom-nav sm:hidden fixed bottom-0 inset-x-0 z-40 bg-[#09080e]/95 backdrop-blur-md border-t border-purple-900/40 shadow-2xl pb-[env(safe-area-inset-bottom)] font-['Prompt',sans-serif]">
       <div className="grid grid-cols-5">
         {items.map(({ label, icon: Icon, onClick, active, badge }) => (
           <button

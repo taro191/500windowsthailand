@@ -74,6 +74,23 @@
   --kap-warn: #f0a050;
 }
 
+/* ---------------------------------------------------------------- mobile typing */
+
+/* iOS zooms the page into any field with text under 16px, which makes the layout jump. */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* The bottom bar would float over the keyboard or show through overlays (see lib/scrollLock.ts). */
+html[data-overlay] .kap-bottom-nav,
+html[data-typing] .kap-bottom-nav {
+  display: none;
+}
+
 /* ---------------------------------------------------------------- base */
 
 html,

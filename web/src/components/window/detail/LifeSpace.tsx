@@ -24,12 +24,9 @@ export function LifeSpace({ userId, onClose }: { userId?: string; onClose: () =>
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('message', onMessage)
     window.addEventListener('keydown', onKey)
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     return () => {
       window.removeEventListener('message', onMessage)
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = overflow
     }
   }, [onClose])
 

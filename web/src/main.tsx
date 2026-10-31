@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { init } from './lib/store'
 import { startDomTranslator } from './i18n/domTranslator'
+import { watchOverlays, watchTyping } from './lib/scrollLock'
 import './index.css'
 
 /** Loads data from the API before showing the app; while the server is down it shows a maintenance notice. */
@@ -65,3 +66,5 @@ createRoot(root).render(
   </StrictMode>,
 )
 startDomTranslator(root)
+watchOverlays()
+watchTyping()
