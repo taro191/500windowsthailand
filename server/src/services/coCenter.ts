@@ -5,13 +5,15 @@ import type { RegionId } from '@shared/types'
 import { nowIso, type AppContext } from '../context'
 import { parseProfile } from './windows'
 
-/** Every owned window open to visitors, with only public fields. */
+/** Every owned window open to visitors and showing content, with only public fields. */
 export async function coCenterWindows(ctx: AppContext) {
   const rows = await ctx.db
     .selectFrom('windows')
     .select(['region', 'num', 'code', 'title', 'image_url', 'profile_json', 'content_updated_at', 'last_image_updated_at', 'claimed_at'])
     .where('owner_id', 'is not', null)
     .where('suspended_at', 'is', null)
+    // Taken-down windows (no main image, title replaced by a notice) are not featured.
+    .where('image_url', '!=', '')
     .execute()
   const windows = rows.map((r) => {
     const region = r.region as RegionId

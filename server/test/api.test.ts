@@ -342,6 +342,7 @@ describe('Kapsulep & Co', () => {
     const admin = await adminClient()
     await admin.post('/admin/windows/thailand/2/suspend', { suspended: true, reason: 'ทดสอบ' })
     assert.ok(!(await client().get('/co-center')).windows.some((x: any) => x.url === '/w/thailand/2'), 'held windows are left out')
+    assert.ok(data.windows.every((x: any) => x.cover), 'windows without a main image (taken down) are left out')
     await admin.post('/admin/windows/thailand/2/suspend', { suspended: false, reason: 'ทดสอบ' })
 
     const { settings } = await client().get('/config')
