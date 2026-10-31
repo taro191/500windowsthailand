@@ -390,6 +390,13 @@ input[type='tel'] {
 }
 
 /* Modal overlays */
+/* Overlays cover exactly what is visible: iOS pans the view down when the keyboard opens,
+   and an overlay pinned to the page top would leave the board showing below it. */
+html[data-overlay] .fixed.inset-0 {
+  top: var(--app-top, 0px);
+  bottom: auto;
+  height: var(--app-height);
+}
 .fixed.inset-0.z-50 {
   --overlay-top: max(1rem, var(--app-safe-top));
   --overlay-bottom: max(1rem, var(--app-safe-bottom));

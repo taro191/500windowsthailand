@@ -14,6 +14,8 @@ export function lockScroll() {
   style.top = `-${savedY}px`
   style.left = '0'
   style.right = '0'
+  // Clipped at the screen's bottom edge, so nothing of the page shows if iOS pans the view.
+  style.bottom = '0'
   style.overflow = 'hidden'
   document.documentElement.dataset.overlay = ''
 }
@@ -25,6 +27,7 @@ export function unlockScroll() {
   style.top = ''
   style.left = ''
   style.right = ''
+  style.bottom = ''
   style.overflow = ''
   delete document.documentElement.dataset.overlay
   window.scrollTo(0, savedY)
