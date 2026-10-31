@@ -35,7 +35,7 @@ import { emptyWindowRow, loadBoards, loadWindow, parseProfile } from './windows'
 export async function adminOverview(ctx: AppContext) {
   const [users, windows, transactions, promoRequests, orders, auditLog, contactMessages] = await Promise.all([
     ctx.db.selectFrom('users').selectAll().orderBy('created_at', 'asc').execute(),
-    loadBoards(ctx, null),
+    loadBoards(ctx, null, true),
     ctx.db.selectFrom('transactions').selectAll().orderBy('date', 'desc').limit(1000).execute(),
     ctx.db.selectFrom('promo_requests').selectAll().orderBy('created_at', 'desc').execute(),
     ctx.db.selectFrom('payment_orders').selectAll().orderBy('created_at', 'desc').limit(1000).execute(),
@@ -429,3 +429,27 @@ export async function verifyUserKyc(ctx: AppContext, admin: UserRow, userId: str
   return adminUserDto(ctx, verified)
 }
 
+
+/**
+ * Holds a window for review: visitors (and the owner) see only "รอการตรวจสอบ", and the window
+ * takes no edits, likes, follows, reviews, link requests or purchases until released.
+ */
+export async function setWindowSuspended(ctx: AppContext, admin: UserRow, region: RegionId, num: number, suspended: boolean, reasonInput: string) {
+  const reason = requireReason(reasonInput)
+  const row = await ctx.db.selectFrom('windows').select(['code', 'owner_id', 'suspended_at']).where('region', '=', region).where('num', '=', num).executeTakeFirst()
+  if (!row) throw notFound('ไม่พบบานหน้าต่าง')
+  if (suspended && !row.owner_id) throw badRequest('ระงับได้เฉพาะบานที่มีเจ้าของ')
+  if (suspended === !!row.suspended_at) throw badRequest(suspended ? 'บานนี้ถูกระงับอยู่แล้ว' : 'บานนี้ไม่ได้ถูกระงับ')
+  const now = nowIso()
+  await ctx.db.transaction().execute(async (trx) => {
+    await trx
+      .updateTable('windows')
+      // A resale listing is withdrawn while the window is on hold.
+      .set(suspended ? { suspended_at: now, status: 'occupied', resale_price: null, updated_at: now } : { suspended_at: null, updated_at: now })
+      .where('region', '=', region)
+      .where('num', '=', num)
+      .execute()
+    await audit(trx, admin, suspended ? 'ระงับหน้าต่างเพื่อตรวจสอบ' : 'ปลดระงับหน้าต่าง', `${row.code} · ${reason}`)
+  })
+  return loadWindow(ctx, region, num, admin.id)
+}

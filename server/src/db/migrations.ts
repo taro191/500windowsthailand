@@ -398,6 +398,16 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('users').addColumn('extra_regional_windows', 'integer', (c) => c.notNull().defaultTo(0)).execute()
     },
   },
+  '014_window_status': {
+    // Per-window review hold by an admin, and whether the owner has seen the "welcome" screen.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('windows').addColumn('suspended_at', time).execute()
+      await db.schema.alterTable('windows').addColumn('welcomed_at', time).execute()
+      // Owners from before this screen existed have already set their windows up.
+      await db.updateTable('windows').set({ welcomed_at: new Date().toISOString() }).where('owner_id', 'is not', null).execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

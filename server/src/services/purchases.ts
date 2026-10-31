@@ -237,6 +237,7 @@ async function applyClaim(
       note_text: null,
       note_at: null,
       reserved_order_id: null,
+      welcomed_at: null,
       updated_at: now,
     })
     .where('region', '=', args.region)
@@ -356,6 +357,7 @@ async function applyResale(
       edit_day: null,
       edit_count: 0,
       reserved_order_id: null,
+      welcomed_at: null,
       updated_at: now,
     })
     .where('region', '=', args.region)
@@ -407,6 +409,7 @@ export async function buyResale(
 ): Promise<PurchaseResult> {
   assertCanTrade(user)
   const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
+  if (row?.suspended_at) throw forbidden('หน้าต่างนี้ถูกระงับชั่วคราว อยู่ระหว่างรอการตรวจสอบจากทีมงาน')
   if (!row) throw notFound('ไม่พบหน้าต่าง')
   if (row.status !== 'for_resale' || !row.resale_price || !row.owner_id) throw badRequest('หน้าต่างบานนี้ไม่ได้เปิดขายต่อในขณะนี้')
   if (row.owner_id === user.id) throw badRequest('คุณเป็นเจ้าของหน้าต่างบานนี้อยู่แล้ว')

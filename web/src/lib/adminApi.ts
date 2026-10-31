@@ -40,6 +40,13 @@ export async function releaseWindow(region: RegionId, windowId: number, reason: 
   return result
 }
 
+/** Holds a window for review (visitors see only its status) or releases it. */
+export async function setWindowSuspended(region: RegionId, windowId: number, suspended: boolean, reason: string): Promise<Result> {
+  const result = await post(`/admin/windows/${region}/${windowId}/suspend`, { suspended, reason })
+  if (result.success) await refreshBoards()
+  return result
+}
+
 export const setUserSuspended = (userId: string, suspended: boolean) => post<{ user: User }>(`/admin/users/${userId}/suspend`, { suspended })
 
 export const revokeKyc = (userId: string) => post<{ user: User }>(`/admin/users/${userId}/revoke-kyc`)

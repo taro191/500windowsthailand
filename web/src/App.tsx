@@ -56,7 +56,7 @@ import { buildQuota } from '@shared/windowQuota'
 const EMPTY_QUOTA: Quota = buildQuota([])
 
 const countAvailable = (windows: WindowItem[]) =>
-  windows.filter((w) => w.status === 'available' && !isPromoSlot(w.id)).length
+  windows.filter((w) => w.status === 'available' && !w.lifecycle && !isPromoSlot(w.id)).length
 
 interface PendingPayment {
   mode: 'claim' | 'resale'

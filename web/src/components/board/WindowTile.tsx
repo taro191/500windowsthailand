@@ -6,6 +6,13 @@ import { useRules } from '@/lib/settings'
 import { adForSlot, isPromoSlot, safeImageUrl, showPromo, type PromoAd } from '@/lib/promo'
 import { HighlightPill, HotSparks, StarBadge } from './WindowBadges'
 
+/** Board look of a window whose content is not shown (see WindowItem.lifecycle). */
+const LIFECYCLE_LOOK = {
+  pending: { label: 'จองแล้ว', title: 'จองแล้ว รอยืนยัน', image: '/img/status/pending.webp', tile: 'border-dashed border-[#e8b84a] bg-[#e8b84a]/10 text-[#e8b84a]' },
+  building: { label: 'กำลังพัฒนา', title: 'กำลังพัฒนา', image: '/img/status/building.webp', tile: 'border-[#3fb8b0] bg-[#3fb8b0]/10 text-[#3fb8b0]' },
+  suspended: { label: 'รอตรวจสอบ', title: 'รอการตรวจสอบ', image: '/img/status/suspended.webp', tile: 'border-[#e0657a] bg-[#e0657a]/10 text-[#e0657a]' },
+} as const
+
 interface WindowTileProps {
   windowItem: WindowItem
   zoomLevel: ZoomLevel
@@ -34,6 +41,7 @@ function getTileInfo(windowItem: WindowItem, currentUser: User | null) {
   return {
     isMine,
     isFollowed,
+    look: windowItem.lifecycle ? LIFECYCLE_LOOK[windowItem.lifecycle] : null,
     isAvailable: windowItem.status === 'available',
     isForResale: windowItem.status === 'for_resale',
     isOccupied: windowItem.status === 'occupied',
@@ -106,7 +114,9 @@ type TileProps = Omit<WindowTileProps, 'zoomLevel'>
 function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion }: TileProps) {
   const t = getTileInfo(windowItem, currentUser)
   const rules = useRules()
-  const status = t.isAvailable
+  const status = t.look
+    ? t.look.title
+    : t.isAvailable
     ? `ว่าง ${rules.claimPrice.toLocaleString()}฿`
     : t.isForResale
       ? `เปิดขายต่อ ฿${windowItem.resalePrice?.toLocaleString()}`
@@ -124,9 +134,15 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
       onClick={() => onSelect(windowItem)}
       id={`window-${windowItem.id}`}
       title={`หน้าต่าง ${t.code} · ตำแหน่ง ${t.slot} - ${windowItem.title} (${status})${t.label ? ` · ${t.label}` : ''}`}
-      className={`relative group aspect-square rounded-sm overflow-hidden border transition-all cursor-pointer font-['Plus_Jakarta_Sans','Prompt',sans-serif] ${t.effectClass} ${t.isFollowed && !t.isMine && !isSelected ? 'kap-followed' : ''} ${ringClass} ${t.isAvailable ? 'bg-stone-900/60 hover:bg-stone-850' : 'bg-[#100d17]'}`}
+      className={`relative group aspect-square rounded-sm overflow-hidden border transition-all cursor-pointer font-['Plus_Jakarta_Sans','Prompt',sans-serif] ${t.effectClass} ${t.isFollowed && !t.isMine && !isSelected ? 'kap-followed' : ''} ${ringClass} ${t.look ? t.look.tile : t.isAvailable ? 'bg-stone-900/60 hover:bg-stone-850' : 'bg-[#100d17]'}`}
     >
-      {t.isAvailable ? (
+      {t.look ? (
+        <div className="w-full h-full flex flex-col items-center justify-center p-0.5">
+          {windowItem.lifecycle === 'suspended' && <Lock className="h-2.5 w-2.5" aria-hidden="true" />}
+          <span className="text-[9px] font-mono leading-none">{windowItem.id}</span>
+          <span className="text-[7px] mt-0.5 font-medium leading-none whitespace-nowrap">{t.look.label}</span>
+        </div>
+      ) : t.isAvailable ? (
         <div className="w-full h-full flex flex-col items-center justify-center p-0.5 text-stone-500 group-hover:text-rose-300 transition-colors">
           <span className="text-[9px] font-mono leading-none">{windowItem.id}</span>
           <span className="text-[7px] text-rose-400/90 font-mono mt-0.5 font-medium">ว่าง</span>
@@ -200,7 +216,11 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
             </span>
           )}
         </div>
-        {t.isAvailable && <span className="text-[11px] text-rose-300 font-medium">ว่าง {rules.claimPrice.toLocaleString()}฿</span>}
+        {t.look ? (
+          <span className={`text-[11px] font-semibold px-1.5 rounded border ${t.look.tile}`}>{t.look.label}</span>
+        ) : (
+          t.isAvailable && <span className="text-[11px] text-rose-300 font-medium">ว่าง {rules.claimPrice.toLocaleString()}฿</span>
+        )}
         {t.isForResale && (
           <span className="text-[11px] text-orange-300 font-mono font-bold flex items-center gap-0.5">
             <Tag className="w-3 h-3 text-orange-400" />
@@ -213,7 +233,10 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
       </div>
 
       <div className="relative aspect-[4/3] bg-stone-950 overflow-hidden flex items-center justify-center">
-        {t.isAvailable ? (
+        {t.look ? (
+          // The status poster has its text in the picture.
+          <img src={t.look.image} alt={t.look.title} className="w-full h-full object-contain bg-white" loading="lazy" />
+        ) : t.isAvailable ? (
           <div className="w-full h-full p-4 flex flex-col items-center justify-center text-center bg-radial from-[#181326] to-[#09080e] border border-dashed border-stone-800 hover:border-rose-500/50 transition-colors">
             <div className="w-10 h-10 rounded-full bg-stone-800/80 group-hover:bg-rose-500/20 text-stone-400 group-hover:text-rose-300 flex items-center justify-center transition-colors mb-2">
               <Plus className="w-5 h-5" />
@@ -246,7 +269,7 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
       <div className="p-2.5 flex flex-col gap-1 text-left flex-1 justify-between">
         <div>
           <h3 className="text-xs sm:text-sm font-semibold text-stone-200 group-hover:text-rose-200 line-clamp-1 transition-colors">
-            {windowItem.title}
+            {windowItem.lifecycle && windowItem.lifecycle !== 'building' ? `${t.code} · ${t.look?.title}` : windowItem.title}
           </h3>
           {note && (
             <p className="text-[11px] text-emerald-300/90 line-clamp-1 mt-0.5 flex items-center gap-1.5">
@@ -262,9 +285,9 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
         </div>
         <div className="flex items-center justify-between text-[11px] text-stone-400 pt-1 border-t border-stone-850/60 mt-1">
           <span className="truncate max-w-[120px]" title={ownerTitle}>
-            {t.isAvailable ? 'พร้อมให้จับจอง' : (windowItem.ownerLabel || windowItem.ownerName)}
+            {t.look && windowItem.lifecycle !== 'building' ? 'ยังไม่เปิดให้ชม' : t.isAvailable ? 'พร้อมให้จับจอง' : windowItem.ownerLabel || windowItem.ownerName}
           </span>
-          {!t.isAvailable && (
+          {!t.isAvailable && windowItem.lifecycle !== 'suspended' && (
             <span className="flex items-center gap-2 font-mono text-[10px] text-stone-500">
               {followers > 0 && (
                 <span className="flex items-center gap-1" title="ผู้ติดตาม">

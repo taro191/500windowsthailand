@@ -85,6 +85,10 @@ export interface WindowsTable {
   previous_owner_id: string | null
   /** Pending payment order holding this window (claim or resale waiting for slip check). */
   reserved_order_id: string | null
+  /** Set while an admin holds the window for review: visitors see only its status. */
+  suspended_at: string | null
+  /** When the owner saw the "welcome" screen; null until then (cleared when the window changes hands). */
+  welcomed_at: string | null
   /** The owner's public page (WindowProfile as JSON); cleared when the window changes hands. */
   profile_json: string | null
   updated_at: string

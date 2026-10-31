@@ -80,7 +80,7 @@ export function HubPanel(props: HubPanelProps) {
   const region = REGIONS_BY_ID[activeRegion]
   const counts: BoardCounts = {
     total: windows.length,
-    available: windows.filter((w) => w.status === 'available' && !isPromoSlot(w.id)).length,
+    available: windows.filter((w) => w.status === 'available' && !w.lifecycle && !isPromoSlot(w.id)).length,
     forResale: windows.filter((w) => w.status === 'for_resale').length,
     occupied: windows.filter((w) => w.status === 'occupied').length,
   }

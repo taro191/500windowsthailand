@@ -318,6 +318,11 @@ export function createApp(ctx: AppContext) {
     return ok(c, { window: await windows.cancelResale(ctx, me(c), region, num) })
   })
 
+  api.post('/windows/:region/:num/welcomed', async (c) => {
+    const { region, num } = windows.parseWindowRef(c.req.param('region'), c.req.param('num'))
+    return ok(c, { window: await windows.markWelcomed(ctx, me(c), region, num) })
+  })
+
   api.post('/windows/:region/:num/follow', async (c) => {
     const { region, num } = windowRoute(c)
     const { following } = await windows.toggleFollow(ctx, me(c), region, num)
@@ -415,6 +420,12 @@ export function createApp(ctx: AppContext) {
     const { region, num } = windowRoute(c)
     const { reason } = await body<{ reason: string }>(c)
     return ok(c, { window: await admin.releaseWindow(ctx, me(c), region, num, reason) })
+  })
+
+  adminApi.post('/windows/:region/:num/suspend', async (c) => {
+    const { region, num } = windowRoute(c)
+    const { suspended, reason } = await body<{ suspended: boolean; reason: string }>(c)
+    return ok(c, { window: await admin.setWindowSuspended(ctx, me(c), region, num, suspended === true, reason) })
   })
 
   adminApi.post('/users', async (c) => ok(c, { user: await admin.createUser(ctx, me(c), await body<admin.NewUserInput>(c)) }))

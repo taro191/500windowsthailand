@@ -7,7 +7,7 @@ import { emptyProfile } from '@shared/windowProfile'
 import { quotaFullMessage } from '@shared/windowQuota'
 import { copyToClipboard } from '@/lib/browser'
 import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
-import { loadBoard, saveWindowProfile } from '@/lib/store'
+import { loadBoard, markWelcomed, saveWindowProfile } from '@/lib/store'
 import { STAR_LABELS } from '../board/WindowBadges'
 import { Lightbox, type LightboxCaption } from '../Lightbox'
 import { DetailsCard } from './detail/DetailsCard'
@@ -17,6 +17,7 @@ import { LinksCard } from './detail/LinksCard'
 import { OwnerStudio } from './detail/OwnerStudio'
 import { ProfileCard, TagsCard, UpdatesCard } from './detail/ProfileCard'
 import { Showcase } from './detail/Showcase'
+import { StatusScreen, type StatusView } from './detail/StatusScreen'
 import { KapDialog, StatsCard } from './detail/StatsCard'
 import { btn, btnPri, card, field, h3, muted, para, pill, type DetailContext } from './detail/ui'
 
@@ -58,11 +59,14 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
   const [searching, setSearching] = useState<string | null>(null)
   const isOwner = !!currentUser && !!w && w.ownerId === currentUser.id
   const pageRef = useRef<HTMLDivElement>(null)
+  /** The owner pressed "start" on the welcome screen (shown before the server confirms). */
+  const [welcomed, setWelcomed] = useState(false)
 
   // Another window opened from this page (Friend and Co, search): start it from the top.
   useEffect(() => {
     setViewer(null)
     setSearching(null)
+    setWelcomed(false)
     pageRef.current?.scrollTo({ top: 0 })
   }, [w?.id, w?.region])
 
@@ -78,6 +82,24 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
   const highlightText = highlightLabel(w)
   const stars = starLevel(w)
   const profile = w.profile ?? emptyProfile()
+  const isAdmin = currentUser?.role === 'admin'
+  // Admins still see a suspended window's content (the server sends it to them only).
+  const statusView: StatusView | null =
+    w.lifecycle === 'suspended' && !isAdmin
+      ? 'suspended'
+      : w.lifecycle === 'pending'
+        ? 'pending'
+        : w.welcome && isOwner && !welcomed
+          ? 'welcome'
+          : w.lifecycle === 'building' && !isOwner
+            ? 'building'
+            : null
+  const startSetup = async () => {
+    setWelcomed(true)
+    pageRef.current?.scrollTo({ top: 0 })
+    const result = await markWelcomed(w.region, w.id)
+    if (result.success) props.onWindowChanged()
+  }
 
   const ctx: DetailContext = {
     w,
@@ -170,7 +192,22 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
           </span>
         </header>
 
-        {isAvailable ? (
+        {statusView ? (
+          <StatusScreen
+            view={statusView}
+            w={w}
+            onStart={startSetup}
+            onBack={onClose}
+            onContact={
+              isOwner
+                ? () => {
+                    onClose()
+                    window.location.hash = 'contact'
+                  }
+                : undefined
+            }
+          />
+        ) : isAvailable ? (
           <>
             <section className={card}>
               <div className="rounded-2xl aspect-[4/3] max-h-[60vh] border border-dashed border-(--kap-gold)/60 flex flex-col items-center justify-center text-center p-6">
@@ -187,6 +224,12 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
           </>
         ) : (
           <>
+            {w.lifecycle === 'suspended' && (
+              <section className={`${card} !border-[#e0657a] text-[13px]`}>
+                <b className="text-[#e0657a]">🔒 หน้าต่างนี้ถูกระงับเพื่อตรวจสอบ</b>
+                <p className={`${para} !mb-0`}>ผู้ชมและเจ้าของเห็นเฉพาะหน้า "รอการตรวจสอบ" ปลดระงับได้ที่เมนูผู้ดูแลระบบ › หน้าต่างทั้งหมด</p>
+              </section>
+            )}
             <Gallery
               ctx={ctx}
               onEditCover={() => props.onOpenEditor(w)}

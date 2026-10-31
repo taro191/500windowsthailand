@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { ImageOff, LayoutGrid, RotateCcw, Search } from 'lucide-react'
+import { ImageOff, LayoutGrid, Lock, LockOpen, RotateCcw, Search } from 'lucide-react'
 import type { RegionId, WindowItem, WindowStatus } from '@shared/types'
 import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES } from '@shared/categories'
-import { releaseWindow, takeDownContent } from '@/lib/adminApi'
+import { releaseWindow, setWindowSuspended, takeDownContent } from '@/lib/adminApi'
 import { isPromoSlot } from '@/lib/promo'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Card, DataTable, inputClass, thaiDateTime } from '../ui'
@@ -11,6 +11,8 @@ import { Badge, baht, Button, Card, DataTable, inputClass, thaiDateTime } from '
 const PAGE_SIZE = 25
 
 export function StatusBadge({ window: w }: { window: WindowItem }) {
+  if (w.lifecycle === 'suspended') return <Badge tone="danger">ระงับ รอตรวจสอบ</Badge>
+  if (w.lifecycle === 'pending') return <Badge tone="warning">จองแล้ว รอตรวจสลิป</Badge>
   if (isPromoSlot(w.id) && w.status === 'available') return <Badge tone="secondary">พื้นที่โปรโมท</Badge>
   if (w.status === 'available') return <Badge tone="info">ว่าง</Badge>
   if (w.status === 'for_resale') return <Badge tone="warning">ขายต่อ {baht(w.resalePrice || 0)}</Badge>
@@ -53,6 +55,17 @@ export function WindowsPage({ data, refresh, notify }: AdminPageProps) {
     if (!result.success) return notify(result.error, 'error')
     await refresh()
     notify(`ถอดเนื้อหาของ ${w.code} แล้ว`)
+  }
+  const suspend = async (w: WindowItem) => {
+    const hold = w.lifecycle !== 'suspended'
+    const reason = confirmWithReason(
+      hold ? `ระงับ ${w.code} เพื่อตรวจสอบ? ผู้ชมและเจ้าของจะเห็นเฉพาะหน้า "รอการตรวจสอบ" ระบุเหตุผล (บันทึกในประวัติ ไม่แสดงต่อผู้ชม):` : `ปลดระงับ ${w.code}? ระบุเหตุผล:`,
+    )
+    if (!reason) return
+    const result = await setWindowSuspended(w.region, w.id, hold, reason)
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
+    notify(hold ? `ระงับ ${w.code} แล้ว` : `ปลดระงับ ${w.code} แล้ว`)
   }
   const release = async (w: WindowItem) => {
     const reason = confirmWithReason(`คืน ${w.code} เป็นบานว่าง (ยกเลิกการถือครองของ ${w.ownerName})? ระบุเหตุผล:`)
@@ -126,6 +139,9 @@ export function WindowsPage({ data, refresh, notify }: AdminPageProps) {
             <td className="whitespace-nowrap">
               {w.status !== 'available' && (
                 <div className="flex gap-1">
+                  <Button size="sm" tone={w.lifecycle === 'suspended' ? 'success' : 'secondary'} onClick={() => suspend(w)} title="ผู้ชมเห็นเฉพาะหน้า รอการตรวจสอบ">
+                    {w.lifecycle === 'suspended' ? <LockOpen className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} {w.lifecycle === 'suspended' ? 'ปลดระงับ' : 'ระงับ'}
+                  </Button>
                   <Button size="sm" tone="warning" onClick={() => takeDown(w)} title="ถอดรูปและข้อความ">
                     <ImageOff className="w-3.5 h-3.5" /> ถอดเนื้อหา
                   </Button>

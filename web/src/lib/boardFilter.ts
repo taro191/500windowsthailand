@@ -14,7 +14,8 @@ export function filterWindows(
       if (!user || !w.followerIds?.includes(user.id)) return false
     } else if (status.startsWith('fx_')) {
       if (!matchesEffectFilter(w, status)) return false
-    } else if (status !== 'all' && w.status !== status) {
+    } else if (status !== 'all' && (w.status !== status || (status === 'available' && w.lifecycle))) {
+      // A reserved window (slip being checked) is not free to claim.
       return false
     }
 

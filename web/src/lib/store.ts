@@ -420,6 +420,9 @@ export const requestLink = (region: RegionId, windowId: number, from: { region: 
 export const decideLink = (region: RegionId, windowId: number, id: string, approve: boolean) => detailAction(region, windowId, `links/${id}/decide`, { approve })
 export const removeLink = (region: RegionId, windowId: number, id: string) => detailAction(region, windowId, `links/${id}/delete`)
 
+/** The owner has seen the one-time "welcome" screen of their new window. */
+export const markWelcomed = (region: RegionId, windowId: number) => detailAction(region, windowId, 'welcomed')
+
 /** One like per visitor per day; returns the updated window. */
 export async function likeWindow(region: RegionId, windowId: number): Promise<{ window: WindowItem; counted: boolean } | null> {
   const result = await post<{ window: WindowItem; counted: boolean }>(`/windows/${region}/${windowId}/like`)

@@ -27,11 +27,12 @@ export async function windowSharePage(ctx: AppContext, html: string, region: str
   if (!REGION_IDS.includes(region as RegionId) || !Number.isInteger(num)) return null
   const row = await ctx.db
     .selectFrom('windows')
-    .select(['code', 'title', 'description', 'image_url'])
+    .select(['code', 'title', 'description', 'image_url', 'suspended_at'])
     .where('region', '=', region)
     .where('num', '=', num)
     .executeTakeFirst()
-  if (!row) return null
+  // A window held for review keeps the site's own preview.
+  if (!row || row.suspended_at) return null
 
   const title = `${row.title || `บาน ${row.code}`} · ${row.code} | 500 Windows to Thailand`
   const description = (row.description || REGIONS_BY_ID[region as RegionId].description).replace(/\s+/g, ' ').trim().slice(0, 200)

@@ -8,11 +8,12 @@ import { badRequest, forbidden, notFound } from '../lib/errors'
 import { deleteUpload, isDataUrl, saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
 import { audit } from './audit'
-import { loadRow, loadWindow, parseProfile } from './windows'
+import { assertNotSuspended, loadRow, loadWindow, parseProfile } from './windows'
 
 export async function updateWindowProfile(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: unknown) {
   if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
   const row = await loadRow(ctx.db, region, num)
+  assertNotSuspended(row)
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   const { profile, error } = cleanProfile(input)
   if (error) throw badRequest(error)
@@ -47,6 +48,7 @@ export async function updateWindowProfile(ctx: AppContext, user: UserRow, region
 export async function saveReview(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: { rating?: unknown; text?: unknown }) {
   if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
   const row = await loadRow(ctx.db, region, num)
+  assertNotSuspended(row)
   if (!row.owner_id) throw badRequest('รีวิวได้เฉพาะบานที่มีเจ้าของแล้ว')
   if (row.owner_id === user.id) throw forbidden('รีวิวบานของตัวเองไม่ได้')
   const rating = Number(input.rating)

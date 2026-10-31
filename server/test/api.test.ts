@@ -282,6 +282,51 @@ describe('claiming and paying', () => {
   })
 })
 
+
+describe('window status', () => {
+  it('shows a reserved window as pending, welcomes the new owner once, and hides a suspended window', async () => {
+    const { c } = await verifiedUser('สมหญิง ใจดี')
+    const payment = { walletAmount: 0, externalAmount: 500, channelId: 'ch-kbank', slip: { slipUrl: PNG } }
+    const claim = await c.post('/windows/central/30/claim', { content, payment })
+    assert.equal(claim.pending, true, claim.error)
+    const pending = (await client().get('/windows/central/30')).window
+    assert.equal(pending.lifecycle, 'pending')
+    assert.equal(pending.reservedBy, 'สมหญ', 'only the first letters of the first name')
+    assert.equal((await client().get('/boards')).windows.find((w: any) => w.region === 'central' && w.id === 30).lifecycle, 'pending')
+
+    const admin = await adminClient()
+    await admin.post(`/admin/orders/${claim.order.id}/decide`, { decision: 'approved' })
+    const owned = (await c.get('/windows/central/30')).window
+    assert.equal(owned.lifecycle, undefined)
+    assert.equal(owned.welcome, true)
+    assert.equal((await client().get('/windows/central/30')).window.welcome, undefined, 'only the owner is welcomed')
+    assert.equal((await c.post('/windows/central/30/welcomed')).window.welcome, undefined)
+    assert.equal((await c.get('/windows/central/30')).window.welcome, undefined)
+
+    assert.equal((await admin.post('/admin/windows/central/30/suspend', { suspended: true, reason: '' })).status, 400)
+    assert.equal((await admin.post('/admin/windows/central/1/suspend', { suspended: true, reason: 'x' })).status, 400, 'an empty window cannot be held')
+    const held = await admin.post('/admin/windows/central/30/suspend', { suspended: true, reason: 'มีผู้แจ้งเนื้อหาไม่เหมาะสม' })
+    assert.equal(held.success, true, held.error)
+    for (const viewer of [client(), c]) {
+      const seen = (await viewer.get('/windows/central/30')).window
+      assert.equal(seen.lifecycle, 'suspended')
+      assert.equal(seen.title, '')
+      assert.equal(seen.imageUrl, '')
+      assert.equal(seen.ownerName, '')
+      assert.deepEqual(seen.profile.gallery, [])
+    }
+    const onBoard = (await client().get('/boards')).windows.find((w: any) => w.region === 'central' && w.id === 30)
+    assert.equal(onBoard.title, '')
+    assert.equal((await admin.get('/windows/central/30')).window.title, content.title, 'admins still see the content')
+    assert.equal((await c.put('/windows/central/30/profile', { tags: ['x'] })).status, 403)
+    assert.equal((await client().post('/windows/central/30/like')).status, 403)
+    assert.equal(await windowSharePage(ctx, '<head><title>Site</title></head>', 'central', '30', 'https://example.th'), null)
+
+    const released = await admin.post('/admin/windows/central/30/suspend', { suspended: false, reason: 'ตรวจแล้วไม่พบปัญหา' })
+    assert.equal(released.success, true, released.error)
+    assert.equal((await client().get('/windows/central/30')).window.title, content.title)
+  })
+})
 describe('resale', () => {
   it('lists after 30 days within the cap and pays the seller 95%', async () => {
     const seller = await verifiedUser('ผู้ขาย')

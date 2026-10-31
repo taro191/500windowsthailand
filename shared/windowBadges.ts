@@ -8,13 +8,16 @@ export const FRESH_WINDOW_HOURS = 72
 
 export type HighlightKind = 'hot' | 'fresh' | 'daily'
 
+/** Empty, reserved or held for review: never hot, new, updated or starred. */
+const isInactive = (window: WindowItem) => window.status === 'available' || window.lifecycle === 'suspended'
+
 export function likesToday(window: WindowItem): number {
   return window.dailyLikes && window.dailyLikes.day === thaiDayKey() ? window.dailyLikes.count : 0
 }
 
 /** 0 = not hot, 1 = hot (≥10 likes today), 2 = very hot (≥50 likes today). */
 export function hotLevel(window: WindowItem): 0 | 1 | 2 {
-  if (window.status === 'available') return 0
+  if (isInactive(window)) return 0
   const likes = likesToday(window)
   if (likes >= VERY_HOT_LIKES_TODAY) return 2
   return likes >= HOT_LIKES_TODAY ? 1 : 0
@@ -22,7 +25,7 @@ export function hotLevel(window: WindowItem): 0 | 1 | 2 {
 
 /** Within 72 hours of a first claim (`new`) or a change of owner (`owner`). */
 export function freshKind(window: WindowItem): 'new' | 'owner' | null {
-  if (window.status === 'available' || !window.ownerChangedAt) return null
+  if (isInactive(window) || !window.ownerChangedAt) return null
   const hoursSince = (Date.now() - new Date(window.ownerChangedAt).getTime()) / 3_600_000
   if (hoursSince < 0 || hoursSince > FRESH_WINDOW_HOURS) return null
   return window.ownerChangeKind === 'owner' ? 'owner' : 'new'
@@ -33,7 +36,7 @@ export function todaysNote(window: WindowItem): string | null {
 }
 
 export function isUpdatedToday(window: WindowItem): boolean {
-  if (window.status === 'available') return false
+  if (isInactive(window)) return false
   if (todaysNote(window)) return true
   return window.lastImageUpdatedAt ? thaiDayKey(new Date(window.lastImageUpdatedAt)) === thaiDayKey() : false
 }
@@ -44,7 +47,7 @@ export function followerCount(window: WindowItem): number {
 
 /** 0 = none, 1 = ≥1,000, 2 = ≥5,000, 3 = ≥10,000 likes or followers. */
 export function starLevel(window: WindowItem): 0 | 1 | 2 | 3 {
-  if (window.status === 'available') return 0
+  if (isInactive(window)) return 0
   const score = Math.max(window.likesCount, followerCount(window))
   if (score >= 10000) return 3
   if (score >= 5000) return 2

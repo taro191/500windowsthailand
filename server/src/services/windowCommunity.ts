@@ -8,13 +8,14 @@ import { newId } from '../lib/crypto'
 import { badRequest, forbidden, notFound } from '../lib/errors'
 import { nowIso, type AppContext } from '../context'
 import { audit } from './audit'
-import { loadLinks, loadRow, loadWindow, parseProfile, parseWindowRef } from './windows'
+import { assertNotSuspended, loadLinks, loadRow, loadWindow, parseProfile, parseWindowRef } from './windows'
 
 const SUSPENDED = 'บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน'
 
 async function ownedRow(ctx: AppContext, user: UserRow, region: RegionId, num: number) {
   if (user.suspended) throw forbidden(SUSPENDED)
   const row = await loadRow(ctx.db, region, num)
+  assertNotSuspended(row)
   if (!row.owner_id || row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   return row
 }
@@ -82,10 +83,12 @@ export async function requestLink(ctx: AppContext, user: UserRow, region: Region
   const from = parseWindowRef(String(input.fromRegion ?? ''), String(input.fromNum ?? ''))
   if (from.region === region && from.num === num) throw badRequest('เลือกบานอื่นที่ไม่ใช่บานนี้')
   const target = await loadRow(ctx.db, region, num)
+  assertNotSuspended(target)
   if (!target.owner_id) throw badRequest('ขอเชื่อมลิงก์ได้เฉพาะบานที่มีเจ้าของแล้ว')
   const status = friendStatus(parseProfile(target.profile_json).friend, thaiDayKey())
   if (!status.open) throw badRequest(status.reason)
   const source = await loadRow(ctx.db, from.region, from.num)
+  assertNotSuspended(source)
   if (source.owner_id !== user.id) throw forbidden('ขอเชื่อมลิงก์ได้เฉพาะบานที่คุณเป็นเจ้าของ')
   const message = String(input.message ?? '').trim().slice(0, PROFILE_LIMITS.linkMessage)
 

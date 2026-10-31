@@ -252,6 +252,16 @@ export interface WindowItem {
   slotPosition: number
   /** Held for a buyer whose transfer slip is waiting for an admin; nobody else can buy it meanwhile. */
   reserved?: boolean
+  /**
+   * Shown instead of the content: `pending` = an empty window reserved, slip not yet checked;
+   * `building` = owned but nothing to show yet; `suspended` = held for review by an admin
+   * (sent without its content, except to admins).
+   */
+  lifecycle?: 'pending' | 'building' | 'suspended'
+  /** Detail only, `pending`: first letters of who reserved it. */
+  reservedBy?: string
+  /** Detail only, for the owner: show the one-time "welcome" screen. */
+  welcome?: true
   /** Detail only (not on the boards): the owner's public page, and reviews from the current owner's time. */
   profile?: WindowProfile
   reviews?: WindowReview[]
