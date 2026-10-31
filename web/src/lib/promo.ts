@@ -65,10 +65,12 @@ export const loadPromoRequests = (): PromoRequest[] => myRequests
 /** Rounds still free on `date` (4 per day minus booked rounds). */
 export const promoRoundsAvailable = (date: string) => roundsLeft(reservedRounds[date] || 0)
 
-/** Approved ads from the API plus any configured in index.html. */
-export function getActiveAds(): PromoAd[] {
+/** Ads to place in the round at `time`: booked API ads during their rounds, plus any configured in index.html. */
+export function getActiveAds(time = Date.now()): PromoAd[] {
   const configured = Array.isArray(getConfig().promoAds) ? getConfig().promoAds! : []
-  return [...configured, ...activeAds]
+  const round = sixHourBlockIndex(time)
+  const booked = activeAds.filter((ad) => ad.fromRound === undefined || ad.toRound === undefined || (ad.fromRound <= round && round < ad.toRound))
+  return [...configured, ...booked]
 }
 
 /** Downscales an uploaded image to a JPEG data URL no larger than `maxSize` px. */
@@ -147,7 +149,7 @@ export function assignAdsToSlots(time = Date.now()) {
   const random = seededRandom(round * 131 + 7)
   const freeNumbers = PROMO_SLOTS.slice().sort(() => random() - 0.5)
   const placed: { ad: PromoAd; nums: number[]; layout: PromoLayout }[] = []
-  for (const ad of getActiveAds()) {
+  for (const ad of getActiveAds(time)) {
     const size = Math.min(6, Math.max(1, ad.size))
     if (freeNumbers.length < size) continue
     const nums = freeNumbers.splice(0, size).sort((a, b) => a - b)

@@ -17,6 +17,7 @@ import type {
   ZoomLevel,
 } from '@shared/types'
 import { REGION_IDS } from '@shared/regions'
+import { sixHourBlock } from '@shared/thaiTime'
 import * as store from '@/lib/store'
 import { claimPriceOf, loadSettings, rulesView } from '@/lib/settings'
 import { isPromoSlot, OPEN_PROMO_EVENT, SHOW_PROMO_EVENT, type PromoAd } from '@/lib/promo'
@@ -117,6 +118,15 @@ export default function App() {
   // ------------------------------------------------------------ derived data
 
   const refreshBoard = useCallback((region: RegionId = activeRegion) => setBoard(store.loadBoard(region)), [activeRegion])
+
+  // Promo ads change every 6-hour round: reload them and redraw the board when a round starts.
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      await store.refreshPromo()
+      refreshBoard()
+    }, sixHourBlock().remainingMs + 1000)
+    return () => clearTimeout(timer)
+  })
   /** Re-reads the signed-in user and their transactions from the store cache. */
   const syncAccount = () => {
     setCurrentUser(store.loadCurrentUser())

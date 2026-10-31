@@ -1,8 +1,8 @@
 // Promo bookings for windows 481–486: paid when submitted, reviewed by an admin,
 // refunded to the wallet if rejected.
 import type { PromoAd, PromoDetails, PromoRequest } from '@shared/promo'
-import { cleanPromoDetails, emptyPromoDetails, isChoosableLayout, PROMO_MAX_IMAGES, PROMO_ROUND_OPTIONS, PROMO_ROUNDS_PER_DAY, PROMO_SIZES, promoPrice } from '@shared/promo'
-import { thaiDayKey } from '@shared/thaiTime'
+import { cleanPromoDetails, emptyPromoDetails, freePromoRounds, isChoosableLayout, PROMO_MAX_IMAGES, PROMO_ROUND_OPTIONS, PROMO_ROUNDS_PER_DAY, PROMO_SIZES, promoPrice, schedulePromoRounds } from '@shared/promo'
+import { sixHourBlockIndex, thaiDayKey } from '@shared/thaiTime'
 import type { PromoRow, UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
@@ -44,25 +44,36 @@ export function toPromoRequest(row: PromoRow): PromoRequest {
   }
 }
 
-/** Approved ads in the order they were approved (placed on the board each round). */
-export async function activeAds(ctx: AppContext): Promise<PromoAd[]> {
-  const rows = await ctx.db.selectFrom('promo_requests').selectAll().where('status', '=', 'approved').orderBy('decided_at', 'asc').execute()
-  return rows.map((row) => {
-    const r = toPromoRequest(row)
-    return { id: r.id, brand: r.brand, tagline: r.tagline, link: r.link, contact: r.contact, image: r.image, images: r.images, size: r.size, layout: r.layout, details: r.details }
-  })
+/** Non-rejected bookings from today on with the rounds each one gets. */
+async function bookedSchedule(db: AppContext['db']) {
+  const rows = await db.selectFrom('promo_requests').selectAll().where('status', '!=', 'rejected').where('start_date', '>=', thaiDayKey()).execute()
+  const bookings = rows.map((r) => ({ id: r.id, startDate: r.start_date, rounds: r.rounds, createdAt: r.created_at }))
+  return { rows, ...schedulePromoRounds(bookings) }
 }
 
-/** Rounds booked per start date from today on (non-rejected requests). */
+/** Approved ads whose booked rounds are not over yet; the board shows each one only during its rounds. */
+export async function activeAds(ctx: AppContext): Promise<PromoAd[]> {
+  const { rows, schedule } = await bookedSchedule(ctx.db)
+  const now = sixHourBlockIndex()
+  return rows
+    .filter((row) => row.status === 'approved')
+    .map((row) => ({ row, rounds: schedule.get(row.id)! }))
+    .filter(({ rounds }) => rounds.to > rounds.from && rounds.to > now)
+    .sort((a, b) => a.rounds.from - b.rounds.from)
+    .map(({ row, rounds }) => {
+      const r = toPromoRequest(row)
+      return { id: r.id, brand: r.brand, tagline: r.tagline, link: r.link, contact: r.contact, image: r.image, images: r.images, size: r.size, layout: r.layout, details: r.details, fromRound: rounds.from, toRound: rounds.to }
+    })
+}
+
+/**
+ * Rounds no longer bookable per date from today on (booked, or already past today), so the
+ * web app can show what is left as `4 - n`. Today is always included.
+ */
 export async function reservedRounds(ctx: AppContext): Promise<Record<string, number>> {
-  const rows = await ctx.db
-    .selectFrom('promo_requests')
-    .select(['start_date', 'rounds'])
-    .where('status', '!=', 'rejected')
-    .where('start_date', '>=', thaiDayKey())
-    .execute()
+  const { nextFree } = await bookedSchedule(ctx.db)
   const reserved: Record<string, number> = {}
-  for (const r of rows) reserved[r.start_date] = (reserved[r.start_date] || 0) + r.rounds
+  for (const date of new Set([thaiDayKey(), ...nextFree.keys()])) reserved[date] = PROMO_ROUNDS_PER_DAY - freePromoRounds(date, nextFree)
   return reserved
 }
 
@@ -116,16 +127,9 @@ export async function submitPromoRequest(ctx: AppContext, user: UserRow, input: 
   const now = nowIso()
   await ctx.db.transaction().execute(async (trx) => {
     await trx.updateTable('users').set({ updated_at: now }).where('id', '=', user.id).execute()
-    const booked = await trx
-      .selectFrom('promo_requests')
-      .select('rounds')
-      .where('start_date', '=', startDate)
-      .where('status', '!=', 'rejected')
-      .execute()
-    const used = booked.reduce((sum, r) => sum + r.rounds, 0)
-    if (used + rounds > PROMO_ROUNDS_PER_DAY) {
-      throw conflict(`วันที่ ${startDate} เหลือ ${Math.max(0, PROMO_ROUNDS_PER_DAY - used)} รอบ กรุณาเลือกจำนวนรอบหรือวันอื่น`)
-    }
+    const { nextFree } = await bookedSchedule(trx)
+    const free = freePromoRounds(startDate, nextFree)
+    if (rounds > free) throw conflict(`วันที่ ${startDate} เหลือ ${free} รอบ กรุณาเลือกจำนวนรอบหรือวันอื่น`)
     const payment = await payForPromo(trx, ctx, { user, requestId: id, brand, size, rounds, price, paymentInput })
     await trx
       .insertInto('promo_requests')

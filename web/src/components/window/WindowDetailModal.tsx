@@ -250,7 +250,7 @@ function SearchDialog({ initial, onClose, onOpenWindow }: { initial: string; onC
   const all = useMemo(() => REGION_IDS.flatMap((r) => loadBoard(r)).filter((x) => x.status !== 'available'), [])
   const q = query.trim().toLowerCase()
   const results = all
-    .filter((x) => !q || [x.title, x.description, x.code, x.province, x.ownerName, CATEGORIES[x.category]?.label, ...(x.profile?.tags ?? [])].join(' ').toLowerCase().includes(q))
+    .filter((x) => !q || [x.title, x.description, x.code, x.province, x.ownerName, x.ownerLabel, CATEGORIES[x.category]?.label, ...(x.profile?.tags ?? [])].join(' ').toLowerCase().includes(q))
     .slice(0, 30)
   return (
     <KapDialog title="🔍 ค้นหาหน้าต่าง" label="ค้นหาหน้าต่าง" onClose={onClose}>

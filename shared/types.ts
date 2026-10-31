@@ -150,8 +150,10 @@ export interface FriendSettings {
 
 /** The owner's public page for the window (detail popup); every field is optional to fill in. */
 export interface WindowProfile {
-  /** Shown on partner cards in "Friend and Co"; kept from the older profile editor. */
+  /** Square logo beside the name on the window page and on "Friend and Co" partner cards. */
   logoUrl: string
+  /** Name shown as the owner of this window (e.g. the shop); the account name when empty. */
+  ownerLabel: string
   tags: string[]
   /** Extra photos after the main window image. */
   gallery: string[]
@@ -222,6 +224,8 @@ export interface WindowItem {
   claimPrice: number
   resalePrice?: number
   ownerName: string
+  /** The owner's name for this window (profile.ownerLabel), when set; show it instead of ownerName. */
+  ownerLabel?: string
   ownerId: string
   ownerCitizenId?: string
   ownerPhone?: string

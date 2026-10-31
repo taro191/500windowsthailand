@@ -1,41 +1,104 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CATEGORIES } from '@shared/categories'
 import { todaysNote } from '@shared/windowBadges'
 import { PROFILE_LIMITS } from '@shared/windowProfile'
+import { compressImage } from '@/lib/browser'
 import { getEditStatus } from '@/lib/ownershipRules'
 import { useSettings } from '@/lib/settings'
 import { deleteUpdate, editUpdate, fetchWindow, postUpdate } from '@/lib/store'
 import { deleteUpdateAsAdmin } from '@/lib/adminApi'
-import { btn, btnPri, card, CardHead, ConfirmButton, field, h3, Hint, muted, para, pill, useCardDraft, type DetailContext } from './ui'
+import { btn, btnPri, card, CardHead, ConfirmButton, field, h3, Hint, LogoTile, ModeButton, muted, para, pill, useCardDraft, type DetailContext } from './ui'
 
 const thaiDateTime = (iso: string) => new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
 
-/** Name, place, owner, tags and the short introduction (the window's title and description). */
+/** Logo, name, place, owner, tags and the short introduction (the window's title and description). */
 export function ProfileCard({ ctx, onOpenEditor }: { ctx: DetailContext; onOpenEditor: () => void }) {
   const { w, profile, isOwner } = ctx
   const { editPolicy } = useSettings()
+  const editor = useCardDraft(ctx, ['logoUrl', 'ownerLabel'])
+  const fileRef = useRef<HTMLInputElement>(null)
   const note = todaysNote(w)
   const edit = isOwner ? getEditStatus(w, editPolicy) : null
+  const { logoUrl, ownerLabel } = editor.draft
+  const pickLogo = async (file?: File) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) return ctx.notify(`ไฟล์ "${file.name}" ไม่ใช่รูปภาพ`, 'error')
+    try {
+      editor.set({ logoUrl: await compressImage(file, 512, 0.9) })
+    } catch {
+      ctx.notify(`เปิดไฟล์ "${file.name}" ไม่ได้ (รองรับ JPG, PNG, WebP)`, 'error')
+    }
+  }
+  const logo = <LogoTile src={logoUrl} name={w.title} hueKey={w.code} />
   return (
     <section className={card}>
       <div className="flex justify-between items-start gap-2 mb-1">
-        <h3 className={`${h3} flex-1 min-w-0 text-[18px]`}>{w.title}</h3>
-        {edit && (
-          <button type="button" onClick={onOpenEditor} disabled={!edit.canEdit} className={btn}>
-            ✏️ โหมดเจ้าของ
-          </button>
+        <div className="flex gap-3 items-center flex-1 min-w-0">
+          {logoUrl && !editor.editing ? (
+            <button type="button" onClick={() => ctx.showImages([logoUrl], 0)} aria-label="ดูโลโก้ขยาย" title="กดเพื่อดูขยาย" className="cursor-zoom-in rounded-[14px] leading-none">
+              {logo}
+            </button>
+          ) : (
+            logo
+          )}
+          <div className="min-w-0 flex-1">
+            <h3 className={`${h3} text-[18px]`}>{w.title}</h3>
+            <p className={`${muted} text-[12.5px] mt-0.5 mb-0`}>
+              📍 {w.code}
+              {w.province && ` · ${w.province}`}
+            </p>
+          </div>
+        </div>
+        {isOwner && (
+          <span className="flex gap-2 shrink-0">
+            {editor.editing && !editor.busy && (
+              <button type="button" onClick={editor.cancel} className={btn}>
+                ยกเลิก
+              </button>
+            )}
+            <ModeButton on={editor.editing} busy={editor.busy} onClick={() => editor.toggle({ ownerLabel: ownerLabel.trim() })} />
+          </span>
         )}
       </div>
-      {edit && (
-        <Hint>
-          ชื่อ คำแนะนำ หมวดหมู่ จังหวัด และรูปปก แก้ผ่านสิทธิ์แก้ไขรายวัน ·{' '}
-          {!edit.paid ? `ฟรีอีก ${edit.freeLeft} ครั้งวันนี้` : edit.canEdit ? `ครั้งละ ฿${edit.price.toLocaleString()}` : 'ครบสิทธิ์ของวันนี้แล้ว'}
-        </Hint>
+      {editor.editing && edit && (
+        <div className="grid gap-2 my-2">
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" onClick={() => fileRef.current?.click()} className={btn}>
+              {logoUrl ? '📷 เปลี่ยนโลโก้' : '＋ เพิ่มโลโก้ / รูปโปรไฟล์'}
+            </button>
+            {logoUrl && (
+              <button type="button" onClick={() => editor.set({ logoUrl: '' })} className={btn}>
+                🗑 ลบโลโก้
+              </button>
+            )}
+            <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => pickLogo(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
+          </div>
+          <Hint>โลโก้หรือรูปโปรไฟล์ของหน้าต่างนี้ (แยกจากแกลเลอรี) แนะนำภาพจัตุรัส · ถ้าไม่ใส่จะแสดงตัวอักษรย่อของชื่อ</Hint>
+          <label className={`text-[13px] ${muted}`}>
+            ชื่อที่แสดงเป็นเจ้าของหน้าต่างนี้ (เช่น ชื่อร้าน)
+            <input
+              value={ownerLabel}
+              maxLength={PROFILE_LIMITS.ownerLabel}
+              onChange={(e) => editor.set({ ownerLabel: e.target.value })}
+              placeholder={w.ownerName}
+              className={`${field} mt-1 !mb-0`}
+            />
+          </label>
+          <Hint>แสดงบนการ์ดหน้าต่างและในหน้านี้ แยกกันแต่ละบาน · เว้นว่างไว้จะใช้ชื่อบัญชี ({w.ownerName})</Hint>
+          <div className="border-t border-(--kap-line) pt-2">
+            <button type="button" onClick={onOpenEditor} disabled={!edit.canEdit} className={btn}>
+              ✏️ แก้ชื่อ คำแนะนำ หมวดหมู่ จังหวัด และรูปปก
+            </button>
+            <Hint>
+              <span className="block mt-1.5">
+                ใช้สิทธิ์แก้ไขรายวัน ·{' '}
+                {!edit.paid ? `ฟรีอีก ${edit.freeLeft} ครั้งวันนี้` : edit.canEdit ? `ครั้งละ ฿${edit.price.toLocaleString()}` : 'ครบสิทธิ์ของวันนี้แล้ว'}
+              </span>
+            </Hint>
+          </div>
+        </div>
       )}
-      <p className={`${para} !my-2`}>
-        📍 {w.code}
-        {w.province && ` · ${w.province}`} · 👤 {w.ownerName}
-      </p>
+      <p className={`${para} !my-2`}>👤 {w.ownerLabel || w.ownerName}</p>
       {profile.tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {profile.tags.map((tag) => (

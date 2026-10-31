@@ -132,3 +132,30 @@ export function ConfirmButton({ onConfirm, label = '🗑', className = btn, aria
 
 /** Owner-mode helper text under a card heading. */
 export const Hint = ({ children }: { children: React.ReactNode }) => <p className={`${para} !mt-0 mb-2`}>{children}</p>
+
+const hueOf = (key: string) => [...key].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0)
+
+/** One or two letters for a logo placeholder: "Kapsulep Co" → "KC", "ตลาดอาหารใต้" → "ต". */
+export function initials(name: string) {
+  const n = name.trim()
+  if (!n) return '?'
+  const words = n.split(/\s+/)
+  if (words.length > 1 && /^[A-Za-z0-9]/.test(words[0]) && /^[A-Za-z0-9]/.test(words[1])) return (words[0][0] + words[1][0]).toUpperCase()
+  // Thai leading vowels and quotes are skipped so the tile shows a consonant.
+  const chars = [...(n.replace(/^[เแโใไ"'“”‘’([\s_-]+/, '') || n)]
+  return chars[0]?.toUpperCase() || '?'
+}
+
+const LOGO_SIZE = { md: 'w-14 h-14 sm:w-16 sm:h-16 rounded-[14px] text-[22px] sm:text-[26px]', sm: 'w-9 h-9 rounded-[9px] text-[15px]', partner: 'w-12 h-12 rounded-xl text-[20px] mb-1' }
+
+/** Square logo with rounded corners; without one, the name's initials on a colour fixed by `hueKey`. */
+export function LogoTile({ src, name, hueKey, size = 'md' }: { src?: string; name: string; hueKey: string; size?: keyof typeof LOGO_SIZE }) {
+  return (
+    <span
+      className={`${LOGO_SIZE[size]} shrink-0 overflow-hidden flex items-center justify-center font-semibold leading-none text-white border border-(--kap-line)`}
+      style={{ background: `hsl(${hueOf(hueKey)} 55% 36%)` }}
+    >
+      {src ? <img src={src} alt="" className="w-full h-full object-cover block" /> : <span aria-hidden="true">{initials(name)}</span>}
+    </span>
+  )
+}

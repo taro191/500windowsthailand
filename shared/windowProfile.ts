@@ -3,6 +3,7 @@
 import type { FriendSettings, ProfileDisplay, ProfileLink, ShowcaseItem, WindowProfile } from './types'
 
 export const PROFILE_LIMITS = {
+  ownerLabel: 80,
   tags: 6,
   tagLength: 24,
   gallery: 5,
@@ -47,6 +48,7 @@ export const defaultFriend = (): FriendSettings => ({ open: true, from: '', to: 
 
 export const emptyProfile = (): WindowProfile => ({
   logoUrl: '',
+  ownerLabel: '',
   tags: [],
   gallery: [],
   works: [],
@@ -149,6 +151,7 @@ export function normalizeProfile(input: unknown): WindowProfile {
   const to = text(friend.to, 10)
   return {
     logoUrl: String(raw.logoUrl ?? ''),
+    ownerLabel: text(raw.ownerLabel, L.ownerLabel),
     tags: [...new Set(list(raw.tags).map((t) => text(t, L.tagLength).replace(/^#/, '').trim()).filter(Boolean))].slice(0, L.tags),
     gallery: list(raw.gallery).map((x) => String(x ?? '')).filter(Boolean).slice(0, L.gallery),
     works: showcase(raw.works, L.works),

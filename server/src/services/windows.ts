@@ -103,6 +103,7 @@ export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem
     claimPrice: row.claim_price,
     resalePrice: row.resale_price ?? undefined,
     ownerName: row.owner_id ? row.owner_name || 'ผู้ใช้' : 'ยังไม่มีเจ้าของ',
+    ownerLabel: (row.owner_id && row.profile_json && parseProfile(row.profile_json).ownerLabel) || undefined,
     ownerId: row.owner_id || '',
     ownerContact: isOwner ? row.owner_contact ?? undefined : undefined,
     externalLink: row.external_link ?? undefined,

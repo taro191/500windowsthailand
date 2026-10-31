@@ -26,6 +26,7 @@ export function filterWindows(
         w.title.toLowerCase().includes(q) ||
         w.description.toLowerCase().includes(q) ||
         w.ownerName.toLowerCase().includes(q) ||
+        !!w.ownerLabel?.toLowerCase().includes(q) ||
         !!w.province?.toLowerCase().includes(q)
       if (!matchesNumber && !matchesText) return false
     }

@@ -13,6 +13,7 @@ import { createSecrets } from '../src/lib/crypto'
 import { createApp } from '../src/app'
 import { pushFinanceFeed } from '../src/services/financeFeed'
 import { requestOrigin, windowSharePage } from '../src/services/sharePage'
+import { firstRoundOfDay, freePromoRounds, schedulePromoRounds } from '@shared/promo'
 import type { AppContext } from '../src/context'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 
@@ -386,6 +387,33 @@ describe('promo', () => {
     assert.equal(full.success, true, full.error)
     const over = await c.post('/promo/requests', { request: request(day), payment: wallet(60) })
     assert.equal(over.status, 409)
+  })
+
+  it('gives each booking its own rounds of the day and drops ads once their rounds are over', async () => {
+    const day = '2030-01-15'
+    const first = firstRoundOfDay(day)
+    const at = (h: number) => new Date(Date.parse(`${day}T00:00:00+07:00`) + h * 3_600_000).toISOString()
+    const { schedule, nextFree } = schedulePromoRounds([
+      { id: 'b', startDate: day, rounds: 1, createdAt: '2030-01-02T00:00:00Z' },
+      { id: 'a', startDate: day, rounds: 2, createdAt: '2030-01-01T00:00:00Z' },
+      { id: 'late', startDate: day, rounds: 2, createdAt: at(19) },
+    ])
+    assert.deepEqual(schedule.get('a'), { from: first, to: first + 2 })
+    assert.deepEqual(schedule.get('b'), { from: first + 2, to: first + 3 })
+    assert.deepEqual(schedule.get('late'), { from: first + 3, to: first + 4 }, 'booked in the last round, gets only that one')
+    assert.equal(freePromoRounds(day, nextFree, Date.parse(at(-48))), 0)
+    assert.equal(freePromoRounds('2030-01-16', nextFree, Date.parse(at(13))), 4)
+    assert.equal(freePromoRounds('2030-01-16', new Map(), Date.parse(`2030-01-16T13:00:00+07:00`)), 2, 'past rounds of today are not bookable')
+
+    // An approved ad whose day is over is no longer placed on the board.
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 100)
+    const res = await c.post('/promo/requests', { request: { ...request(future), brand: 'โฆษณาเก่า' }, payment: wallet(60) })
+    const admin = await adminClient()
+    await admin.post(`/admin/promo/${res.request.id}/decide`, { decision: 'approved' })
+    assert.ok((await client().get('/promo')).ads.some((ad: any) => ad.id === res.request.id))
+    await ctx.db.updateTable('promo_requests').set({ start_date: '2020-01-01' }).where('id', '=', res.request.id).execute()
+    assert.ok(!(await client().get('/promo')).ads.some((ad: any) => ad.id === res.request.id))
   })
 
   it('keeps the optional promo page details, checked, and shows them on the live ad', async () => {
@@ -941,6 +969,7 @@ describe('window profile and reviews', () => {
       ],
       phone: '081-234-5678',
       lineId: '@baansuan',
+      ownerLabel: '  ร้านบ้านสวน  ',
       about: 'ร้านของครอบครัว',
       display: { views: false, likes: true, today: true, followers: true, follow: true, reviews: true },
       friend: { open: true, from: '2026-01-01', to: '2026-12-31', note: 'รับเฉพาะธุรกิจในภาคตะวันออก' },
@@ -968,6 +997,10 @@ describe('window profile and reviews', () => {
     ])
     assert.equal(p.display.views, false)
     assert.equal(p.friend.note, 'รับเฉพาะธุรกิจในภาคตะวันออก')
+    // The owner's name for this window shows on the board instead of the account name.
+    assert.equal(p.ownerLabel, 'ร้านบ้านสวน')
+    assert.equal(saved.window.ownerLabel, 'ร้านบ้านสวน')
+    assert.equal((await client().get('/boards')).windows.find((x: any) => x.region === 'east' && x.id === 40).ownerLabel, 'ร้านบ้านสวน')
     // Profile edits are free and don't use the daily content edits.
     assert.equal(saved.window.editsToday, undefined)
 
@@ -997,6 +1030,7 @@ describe('window profile and reviews', () => {
       offerings: [{ imageUrl: '/uploads/windows/img_old.jpg', name: 'น้ำผึ้ง', note: 'แท้ 100%' }],
       phone: '081-234-5678',
       lineId: '@baansuan',
+      ownerLabel: '  ร้านบ้านสวน  ',
       email: 'shop@test.th',
       website: 'https://baansuan.example.com',
       facebook: 'https://www.facebook.com/baansuan',

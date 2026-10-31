@@ -1,6 +1,8 @@
 // Promo area: windows 481–486 are reserved for sponsored ads. Pricing, request shape and
 // booking limits are shared by the web app and the API; board placement lives in the web app.
 
+import { sixHourBlockIndex } from './thaiTime'
+
 export const PROMO_SLOTS = [481, 482, 483, 484, 485, 486]
 export const PROMO_SIZES = [2, 3, 4, 6]
 
@@ -122,6 +124,9 @@ export interface PromoAd {
   /** How its windows sit on the board; random each round when missing. */
   layout?: PromoLayout
   details?: PromoDetails
+  /** Booked rounds as 6-hour block indexes (`to` exclusive); missing = always shown (index.html ads). */
+  fromRound?: number
+  toRound?: number
 }
 
 export const PROMO_PRICE_PER_WINDOW_ROUND = 30
@@ -191,3 +196,38 @@ export const roundsLeft = (reserved: number) => Math.max(0, PROMO_ROUNDS_PER_DAY
 /** Only http(s) or inline image data; anything else becomes ''. */
 export const safeImageUrl = (url?: string) => (url && /^(https?:\/\/|data:image\/|\/uploads\/)/i.test(url) ? url : '')
 export const safeHttpUrl = (url?: string) => (url && /^https?:\/\//i.test(url) ? url : '')
+
+/** Index of the first 6-hour round (00:00–06:00 Thai time) of `date` (`YYYY-MM-DD`). */
+export const firstRoundOfDay = (date: string) => sixHourBlockIndex(Date.parse(`${date}T00:00:00+07:00`))
+
+export interface BookedPromo {
+  id: string
+  startDate: string
+  rounds: number
+  createdAt: string
+}
+
+/**
+ * Which rounds each booking gets: a day's four rounds go to its bookings in the order they
+ * were made, one booking per round, never earlier than the round the booking was made in.
+ * `to` is exclusive; a booking squeezed out of its day gets `from === to`.
+ */
+export function schedulePromoRounds(bookings: BookedPromo[]) {
+  const schedule = new Map<string, { from: number; to: number }>()
+  const nextFree = new Map<string, number>()
+  for (const b of [...bookings].sort((x, y) => x.createdAt.localeCompare(y.createdAt))) {
+    const dayStart = firstRoundOfDay(b.startDate)
+    const dayEnd = dayStart + PROMO_ROUNDS_PER_DAY
+    const from = Math.min(dayEnd, Math.max(nextFree.get(b.startDate) ?? dayStart, sixHourBlockIndex(Date.parse(b.createdAt))))
+    const to = Math.min(dayEnd, from + b.rounds)
+    schedule.set(b.id, { from, to })
+    nextFree.set(b.startDate, to)
+  }
+  return { schedule, nextFree }
+}
+
+/** Rounds of `date` that can still be booked: after the last booked round and not already past. */
+export function freePromoRounds(date: string, nextFree: Map<string, number>, now = Date.now()) {
+  const dayStart = firstRoundOfDay(date)
+  return Math.max(0, dayStart + PROMO_ROUNDS_PER_DAY - Math.max(nextFree.get(date) ?? dayStart, sixHourBlockIndex(now)))
+}

@@ -112,7 +112,7 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
       ? `เปิดขายต่อ ฿${windowItem.resalePrice?.toLocaleString()}`
       : t.isMine
         ? 'บานของฉัน'
-        : windowItem.ownerName
+        : (windowItem.ownerLabel || windowItem.ownerName)
   const ringClass = isSelected
     ? 'ring-2 ring-rose-400 border-rose-300 scale-125 z-20 shadow-lg shadow-rose-500/30'
     : t.isMine
@@ -171,8 +171,8 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
   const ownerTitle = t.isAvailable
     ? 'พร้อมให้จับจอง'
     : windowItem.previousOwnerId
-      ? `เจ้าของ: ${windowItem.ownerName} (อ้างอิง ID เดิม: ${windowItem.previousOwnerId})`
-      : windowItem.ownerName
+      ? `เจ้าของ: ${(windowItem.ownerLabel || windowItem.ownerName)} (อ้างอิง ID เดิม: ${windowItem.previousOwnerId})`
+      : (windowItem.ownerLabel || windowItem.ownerName)
 
   return (
     <div
@@ -262,7 +262,7 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
         </div>
         <div className="flex items-center justify-between text-[11px] text-stone-400 pt-1 border-t border-stone-850/60 mt-1">
           <span className="truncate max-w-[120px]" title={ownerTitle}>
-            {t.isAvailable ? 'พร้อมให้จับจอง' : windowItem.ownerName}
+            {t.isAvailable ? 'พร้อมให้จับจอง' : (windowItem.ownerLabel || windowItem.ownerName)}
           </span>
           {!t.isAvailable && (
             <span className="flex items-center gap-2 font-mono text-[10px] text-stone-500">
