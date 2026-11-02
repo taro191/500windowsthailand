@@ -7,7 +7,7 @@ import { loadAdminOverview } from '@/lib/adminApi'
 import { AdminLayout, PAGE_TITLES, type AdminPage } from './AdminLayout'
 import type { AdminData, AdminPageProps } from './adminData'
 import { DashboardPage } from './pages/DashboardPage'
-import { ModerationPage, WindowsPage } from './pages/WindowsPage'
+import { ModerationPage, WindowArchivesPage, WindowsPage } from './pages/WindowsPage'
 import { PromoPage } from './pages/PromoPage'
 import { PaymentsPage } from './pages/PaymentsPage'
 import { UsersPage } from './pages/UsersPage'
@@ -92,6 +92,7 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
           {page === 'dashboard' && <DashboardPage {...props} onNavigate={setPage} />}
           {page === 'windows' && <WindowsPage {...props} />}
           {page === 'moderation' && <ModerationPage {...props} />}
+          {page === 'window-archives' && (admin.superAdmin ? <WindowArchivesPage {...props} /> : <Callout tone="warning">เฉพาะ Super Admin</Callout>)}
           {page === 'promo' && <PromoPage {...props} />}
           {page === 'users' && <UsersPage {...props} />}
           {page === 'payments' && <PaymentsPage {...props} />}

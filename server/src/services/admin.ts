@@ -2,7 +2,6 @@
 import { isLineAlertTopic, LINE_ALERT_GROUPS, LINE_ALERT_TOPICS, type LineAlertTopics } from '@shared/lineAlerts'
 import type { PlatformSettings, RegionId } from '@shared/types'
 import { isValidCitizenId, isValidThaiMobile } from '@shared/identity'
-import { profileImages } from '@shared/windowProfile'
 import { MAX_EXTRA_WINDOWS, parseExtraWindows, quotaLimits } from '@shared/windowQuota'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId } from '../lib/crypto'
@@ -29,7 +28,7 @@ import {
   savedLineRecipients,
   sendLineAlert,
 } from './notify'
-import { emptyWindowRow, loadBoards, loadWindow, parseProfile } from './windows'
+import { emptyWindowRow, loadBoards, loadWindow } from './windows'
 
 /** Everything the admin pages show. */
 export async function adminOverview(ctx: AppContext) {
@@ -86,34 +85,28 @@ const requireReason = (reason: unknown) => {
   return text
 }
 
-/** Content moderation: removes the image and text (rule 5) but keeps the owner. */
-export async function takeDownContent(ctx: AppContext, admin: UserRow, region: RegionId, num: number, reasonInput: string) {
+/**
+ * Content moderation (rule 5): hides the window's content from visitors ("กำลังพัฒนา") but keeps
+ * all of it for the owner and admins. It goes public again once the owner edits it and publishes,
+ * or when an admin lifts the takedown (`hidden` false).
+ */
+export async function takeDownContent(ctx: AppContext, admin: UserRow, region: RegionId, num: number, reasonInput: string, hidden = true) {
   const reason = requireReason(reasonInput)
-  const row = await ctx.db.selectFrom('windows').select(['code', 'owner_id', 'profile_json']).where('region', '=', region).where('num', '=', num).executeTakeFirst()
+  const row = await ctx.db.selectFrom('windows').select(['code', 'owner_id', 'taken_down_at']).where('region', '=', region).where('num', '=', num).executeTakeFirst()
   if (!row) throw notFound('ไม่พบบานหน้าต่าง')
   if (!row.owner_id) throw badRequest('บานนี้ยังไม่มีเจ้าของ')
-  await ctx.db
-    .updateTable('windows')
-    .set({
-      image_url: '',
-      title: `เนื้อหาถูกระงับโดยผู้ดูแลระบบ (${row.code})`,
-      description: `เนื้อหาของบานนี้ถูกถอดออกเนื่องจากขัดต่อเงื่อนไขการใช้งาน: ${reason}`,
-      external_link: null,
-      profile_json: null,
-      note_day: null,
-      note_text: null,
-      note_at: null,
-      // Hidden as "กำลังพัฒนา" until the owner adds new content and publishes again.
-      published_at: null,
-      updated_at: nowIso(),
-    })
-    .where('region', '=', region)
-    .where('num', '=', num)
-    .execute()
-  for (const image of profileImages(parseProfile(row.profile_json))) await deleteUpload(ctx.config.uploadDir, image)
-  await ctx.db.deleteFrom('window_updates').where('region', '=', region).where('num', '=', num).execute()
-  await audit(ctx.db, admin, 'ถอดเนื้อหาบาน', `${row.code} · ${reason}`)
-  return loadWindow(ctx, region, num, null)
+  if (hidden === !!row.taken_down_at) throw badRequest(hidden ? 'เนื้อหาบานนี้ถูกระงับอยู่แล้ว' : 'เนื้อหาบานนี้ไม่ได้ถูกระงับ')
+  const now = nowIso()
+  await ctx.db.transaction().execute(async (trx) => {
+    await trx
+      .updateTable('windows')
+      .set(hidden ? { taken_down_at: now, takedown_reason: reason, published_at: null, updated_at: now } : { taken_down_at: null, takedown_reason: null, published_at: now, updated_at: now })
+      .where('region', '=', region)
+      .where('num', '=', num)
+      .execute()
+    await audit(trx, admin, hidden ? 'ระงับเนื้อหาบาน' : 'ยกเลิกการระงับเนื้อหาบาน', `${row.code} · ${reason}`)
+  })
+  return loadWindow(ctx, region, num, admin.id)
 }
 
 /** Returns a window to the pool as an empty, available window (ownership is removed). */

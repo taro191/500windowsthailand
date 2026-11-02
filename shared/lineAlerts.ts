@@ -38,6 +38,7 @@ export const LINE_ALERT_TOPICS = [
   { id: 'security.suspend', group: 'security', label: 'ระงับ / ปิดใช้งานบัญชี' },
   { id: 'security.role', group: 'security', label: 'เปลี่ยนสิทธิ์แอดมิน' },
   { id: 'security.kyc', group: 'security', label: 'แอดมินยืนยัน / เพิกถอน KYC' },
+  { id: 'security.windowArchive', group: 'security', label: 'ลบบาน / นำข้อมูลบานกลับมาลง (Super Admin)' },
   { id: 'contact.message', group: 'contact', label: 'ข้อความจากฟอร์มติดต่อเรา' },
 ] as const satisfies readonly { id: string; group: LineAlertGroup; label: string }[]
 

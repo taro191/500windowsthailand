@@ -28,6 +28,7 @@ import {
   Palette,
   Puzzle,
   FolderOpen,
+  Archive,
   type LucideIcon,
 } from 'lucide-react'
 import type { User } from '@shared/types'
@@ -37,6 +38,7 @@ import { Avatar } from '../Avatar'
 export type AdminPage =
   | 'dashboard'
   | 'windows'
+  | 'window-archives'
   | 'moderation'
   | 'promo'
   | 'users'
@@ -93,6 +95,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   'co-store': 'Kapsulep & Co',
   themes: 'ธีมเว็บไซต์',
   files: 'คลังเอกสาร',
+  'window-archives': 'บานที่ถูกลบ',
   'line-alerts': 'แจ้งเตือนทาง LINE',
   audit: 'บันทึกการใช้งาน',
 }
@@ -120,6 +123,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
       items: [
         { id: 'windows', label: PAGE_TITLES.windows, icon: LayoutGrid },
         { id: 'moderation', label: PAGE_TITLES.moderation, icon: ImageOff },
+        ...(admin.superAdmin ? [{ id: 'window-archives' as const, label: PAGE_TITLES['window-archives'], icon: Archive }] : []),
         { id: 'promo', label: PAGE_TITLES.promo, icon: Megaphone, badge: badges.promo },
       ],
     },

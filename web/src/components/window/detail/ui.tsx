@@ -36,11 +36,11 @@ export interface DetailContext {
   showImages: (images: string[], index: number, caption?: LightboxCaption) => void
 }
 
-/** "✏️ โหมดเจ้าของ" / "✓ เสร็จสิ้น"; only the owner sees it. */
+/** Pencil icon (owner mode) / "✓ เสร็จสิ้น"; only the owner sees it. */
 export function ModeButton({ on, busy, onClick }: { on: boolean; busy?: boolean; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} disabled={busy} aria-pressed={on} className={`${btn} ${on ? btnOn : ''}`}>
-      {busy ? 'กำลังบันทึก…' : on ? '✓ เสร็จสิ้น' : '✏️ โหมดเจ้าของ'}
+    <button type="button" onClick={onClick} disabled={busy} aria-pressed={on} aria-label="โหมดเจ้าของ" title="โหมดเจ้าของ" className={`${btn} ${on ? btnOn : ''}`}>
+      {busy ? 'กำลังบันทึก…' : on ? '✓ เสร็จสิ้น' : '✏️'}
     </button>
   )
 }

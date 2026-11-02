@@ -1,5 +1,5 @@
 // Admin-only API calls (server/src/services/admin.ts). Every change is audit-logged on the server.
-import type { AuditEntry, ContactMessageEntry, ExtraWindows, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowItem } from '@shared/types'
+import type { AuditEntry, ContactMessageEntry, ExtraWindows, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowArchive, WindowItem } from '@shared/types'
 import type { LineAlertTopics } from '@shared/lineAlerts'
 import type { PromoRequest } from '@shared/promo'
 import { download, get, post, put } from './api'
@@ -26,9 +26,9 @@ export async function updateSettings(settings: PlatformSettings, what: string): 
   return result
 }
 
-/** Content moderation: removes the image and text but keeps the owner. */
-export async function takeDownContent(region: RegionId, windowId: number, reason: string): Promise<Result> {
-  const result = await post(`/admin/windows/${region}/${windowId}/takedown`, { reason })
+/** Content moderation: hides the content from visitors (kept for the owner and admins); `hidden` false lifts it. */
+export async function takeDownContent(region: RegionId, windowId: number, reason: string, hidden = true): Promise<Result> {
+  const result = await post(`/admin/windows/${region}/${windowId}/takedown`, { reason, hidden })
   if (result.success) await refreshBoards()
   return result
 }
@@ -36,6 +36,23 @@ export async function takeDownContent(region: RegionId, windowId: number, reason
 /** Returns a window to the pool as an empty, available window (ownership is removed). */
 export async function releaseWindow(region: RegionId, windowId: number, reason: string): Promise<Result> {
   const result = await post(`/admin/windows/${region}/${windowId}/release`, { reason })
+  if (result.success) await refreshBoards()
+  return result
+}
+
+/** Super admin: windows removed into the archive, newest first. */
+export const loadWindowArchives = () => get<{ archives: WindowArchive[] }>('/admin/window-archives')
+
+/** Super admin: keeps the window's content and owner in the archive and empties the window. */
+export async function archiveWindow(region: RegionId, windowId: number, reason: string) {
+  const result = await post<{ archives: WindowArchive[] }>(`/admin/windows/${region}/${windowId}/archive`, { reason })
+  if (result.success) await refreshBoards()
+  return result
+}
+
+/** Super admin: puts archived content and its owner on an empty window. */
+export async function restoreWindowArchive(id: string, region: RegionId, num: number) {
+  const result = await post<{ archives: WindowArchive[] }>(`/admin/window-archives/${id}/restore`, { region, num })
   if (result.success) await refreshBoards()
   return result
 }

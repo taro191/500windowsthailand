@@ -271,6 +271,8 @@ export interface WindowItem {
   unpublished?: true
   /** Owner and admins only: a free trial window not paid yet; end of the free period (shared/trial.ts). */
   trialEndsAt?: string
+  /** Owner and admins only: an admin hid the content from visitors (content kept); edit and publish again to lift it. */
+  takenDown?: { at: string; reason: string }
   /** Detail only, for the owner: show the one-time "welcome" screen. */
   welcome?: true
   /** Detail only (not on the boards): the owner's public page, and reviews from the current owner's time. */
@@ -538,4 +540,23 @@ export interface AuditEntry {
   adminName: string
   action: string
   detail: string
+}
+
+/** A window a super admin removed; its content can be put back on another empty window. */
+export interface WindowArchive {
+  id: string
+  region: RegionId
+  num: number
+  code: string
+  ownerId?: string
+  ownerName: string
+  title: string
+  imageUrl: string
+  reason: string
+  archivedAt: string
+  archivedBy: string
+  restoredAt?: string
+  /** Code of the window it was put back on. */
+  restoredTo?: string
+  restoredBy?: string
 }

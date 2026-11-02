@@ -99,6 +99,9 @@ export interface WindowsTable {
   published_at: string | null
   /** Free trial window not paid yet: end of the free period (see shared/trial.ts). */
   trial_ends_at: string | null
+  /** An admin hid the content from visitors (kept for the owner and admins) until it is edited and published again. */
+  taken_down_at: string | null
+  takedown_reason: string | null
   /** The owner's public page (WindowProfile as JSON); cleared when the window changes hands. */
   profile_json: string | null
   updated_at: string
@@ -314,6 +317,24 @@ export interface ContactMessagesTable {
   handled_at: string | null
 }
 
+/** A window a super admin removed; `data` = its content (WindowArchiveData JSON). */
+export interface WindowArchivesTable {
+  id: string
+  region: string
+  num: number
+  code: string
+  owner_id: string | null
+  owner_name: string
+  title: string
+  data: string
+  reason: string
+  archived_at: string
+  archived_by: string
+  restored_at: string | null
+  restored_to: string | null
+  restored_by: string | null
+}
+
 /** Life Space (Vote my life) data, kept only after the user consents in the page. */
 export interface LifeSpaceTable {
   user_id: string
@@ -344,6 +365,7 @@ export interface Database {
   audit_log: AuditLogTable
   contact_messages: ContactMessagesTable
   life_space: LifeSpaceTable
+  window_archives: WindowArchivesTable
 }
 
 export type UserRow = Selectable<UsersTable>

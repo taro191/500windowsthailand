@@ -69,6 +69,8 @@ export function emptyWindowRow(region: RegionId, num: number, now = nowIso(), cl
     content_updated_at: null,
     published_at: null,
     trial_ends_at: null,
+    taken_down_at: null,
+    takedown_reason: null,
     profile_json: null,
     updated_at: now,
   }
@@ -114,7 +116,10 @@ export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem
   if (!lifecycle) return item
   if (lifecycle === 'pending') return { ...item, lifecycle, reservedBy: extras.reservedBy, reservedByMe: extras.reservedByViewer || undefined }
   const isOwner = !!extras.viewerId && row.owner_id === extras.viewerId
-  if (isOwner || extras.showHidden) return { ...item, lifecycle, unpublished: row.published_at ? undefined : true, trialEndsAt: row.trial_ends_at ?? undefined }
+  if (isOwner || extras.showHidden) {
+    const takenDown = row.taken_down_at ? { at: row.taken_down_at, reason: row.takedown_reason ?? '' } : undefined
+    return { ...item, lifecycle, unpublished: row.published_at ? undefined : true, trialEndsAt: row.trial_ends_at ?? undefined, takenDown }
+  }
   return {
     ...item,
     lifecycle,
@@ -686,8 +691,10 @@ export async function publishWindow(ctx: AppContext, user: UserRow, region: Regi
   if (row.trial_ends_at) throw forbidden('บานทดลองใช้ต้องชำระค่าจับจองก่อนจึงจะเผยแพร่ได้')
   if (!row.published_at) {
     if (!row.image_url && !profileImages(parseProfile(row.profile_json)).length) throw badRequest('เพิ่มรูปภาพอย่างน้อย 1 รูปก่อนเผยแพร่')
+    // Content an admin took down goes public again only after the owner changes it.
+    if (row.taken_down_at && ((row.content_updated_at ?? '') < row.taken_down_at)) throw badRequest('เนื้อหาถูกระงับโดยผู้ดูแลระบบ กรุณาแก้ไขเนื้อหาก่อนเผยแพร่อีกครั้ง')
     const now = nowIso()
-    await ctx.db.updateTable('windows').set({ published_at: now, content_updated_at: now }).where('region', '=', region).where('num', '=', num).execute()
+    await ctx.db.updateTable('windows').set({ published_at: now, content_updated_at: now, taken_down_at: null, takedown_reason: null }).where('region', '=', region).where('num', '=', num).execute()
   }
   return loadWindow(ctx, region, num, user.id)
 }

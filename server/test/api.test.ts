@@ -357,10 +357,20 @@ describe('window status', () => {
     const own = (await c.get('/windows/central/31')).window
     assert.equal(own.lifecycle, 'building')
     assert.equal(own.unpublished, true)
-    assert.notEqual(own.title, '')
+    assert.equal(own.title, claim.window.title, 'the content is kept for the owner')
+    assert.equal(own.imageUrl, claim.window.imageUrl)
+    assert.equal(own.takenDown.reason, 'ภาพไม่เหมาะสม')
+    assert.equal((await admin.get('/windows/central/31')).window.title, claim.window.title, 'admins see it too')
+    assert.equal((await client().get('/windows/central/31')).window.takenDown, undefined)
     assert.ok(!(await client().get('/co-center')).windows.some((x: any) => x.url === '/w/central/31'))
 
-    assert.equal((await c.post('/windows/central/31/publish')).status, 400, 'needs a picture first')
+    // An admin can lift it; taking it down again keeps it hidden until the owner edits.
+    const lifted = await admin.post('/admin/windows/central/31/takedown', { reason: 'ตรวจแล้วไม่ผิด', hidden: false })
+    assert.equal(lifted.success, true, lifted.error)
+    assert.equal((await client().get('/windows/central/31')).window.title, claim.window.title)
+    assert.equal((await admin.post('/admin/windows/central/31/takedown', { reason: 'ภาพไม่เหมาะสม' })).success, true)
+
+    assert.equal((await c.post('/windows/central/31/publish')).status, 400, 'needs an edit first')
     const { c: other } = await verifiedUser()
     assert.equal((await other.post('/windows/central/31/publish')).status, 403)
     assert.equal((await client().post('/windows/central/31/publish')).status, 401)
@@ -1841,5 +1851,44 @@ describe('Life Space journal', () => {
     assert.equal((await a.post('/me/life-space/delete')).success, true)
     assert.equal((await a.get('/me/life-space')).data, null)
     assert.equal((await client().get('/me/life-space')).status, 401)
+  })
+})
+
+describe('window archive (super admin)', () => {
+  it('removes a window into the archive, frees it, and restores it onto another empty window', async () => {
+    const { c, user } = await verifiedUser()
+    await topUpByCard(c, 500)
+    assert.equal((await c.post('/windows/central/50/claim', { content: { ...content, title: 'บานที่จะย้าย' }, payment: wallet(500) })).success, true)
+    assert.equal((await c.put('/windows/central/50/profile', { gallery: [PNG] })).success, true)
+
+    const { c: other, user: otherUser } = await verifiedUser()
+    const admin = await adminClient()
+    await admin.post(`/admin/users/${otherUser.id}/role`, { role: 'admin' })
+    assert.equal((await other.post('/admin/windows/central/50/archive', { reason: 'x' })).status, 403, 'super admin only')
+    assert.equal((await other.get('/admin/window-archives')).status, 403)
+    assert.equal((await admin.post('/admin/windows/central/50/archive', {})).status, 400, 'needs a reason')
+
+    const archived = await admin.post('/admin/windows/central/50/archive', { reason: 'ย้ายตามคำขอ' })
+    assert.equal(archived.success, true, archived.error)
+    assert.equal(archived.window.status, 'available')
+    const entry = archived.archives.find((a: any) => a.code === 'KAP-C-TH-050')
+    assert.equal(entry.title, 'บานที่จะย้าย')
+    assert.equal(entry.ownerId, user.id)
+    assert.equal((await admin.post('/admin/windows/central/50/archive', { reason: 'x' })).status, 400, 'already empty')
+
+    // The freed window can be claimed as usual.
+    const { c: buyer } = await verifiedUser()
+    await topUpByCard(buyer, 500)
+    assert.equal((await buyer.post('/windows/central/50/claim', { content, payment: wallet(500) })).success, true)
+
+    assert.equal((await admin.post(`/admin/window-archives/${entry.id}/restore`, { region: 'central', num: 50 })).status, 409, 'target must be empty')
+    const restored = await admin.post(`/admin/window-archives/${entry.id}/restore`, { region: 'central', num: 51 })
+    assert.equal(restored.success, true, restored.error)
+    const w = (await c.get('/windows/central/51')).window
+    assert.equal(w.ownerId, user.id)
+    assert.equal(w.title, 'บานที่จะย้าย')
+    assert.equal(w.profile.gallery.length, 1)
+    assert.equal(restored.archives.find((a: any) => a.id === entry.id).restoredTo, 'KAP-C-TH-051')
+    assert.equal((await admin.post(`/admin/window-archives/${entry.id}/restore`, { region: 'central', num: 52 })).status, 409, 'only once')
   })
 })

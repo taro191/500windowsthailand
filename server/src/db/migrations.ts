@@ -454,6 +454,37 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('users').addColumn('trial_archive_json', sql`mediumtext`).execute()
     },
   },
+  '019_window_archives': {
+    // Windows a super admin removed: their content kept to put back on another window.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('window_archives')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('region', varchar(16), (c) => c.notNull())
+        .addColumn('num', 'integer', (c) => c.notNull())
+        .addColumn('code', varchar(32), (c) => c.notNull())
+        .addColumn('owner_id', id)
+        .addColumn('owner_name', varchar(255), (c) => c.notNull())
+        .addColumn('title', varchar(255), (c) => c.notNull())
+        .addColumn('data', sql`mediumtext`, (c) => c.notNull())
+        .addColumn('reason', varchar(500), (c) => c.notNull())
+        .addColumn('archived_at', time, (c) => c.notNull())
+        .addColumn('archived_by', varchar(255), (c) => c.notNull())
+        .addColumn('restored_at', time)
+        .addColumn('restored_to', varchar(32))
+        .addColumn('restored_by', varchar(255))
+        .execute()
+    },
+  },
+  '020_window_takedown': {
+    // An admin hides a window's content from visitors but keeps it (the owner and admins still see it).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('windows').addColumn('taken_down_at', time).execute()
+      await db.schema.alterTable('windows').addColumn('takedown_reason', varchar(500)).execute()
+    },
+  },
 }
 
 /** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */

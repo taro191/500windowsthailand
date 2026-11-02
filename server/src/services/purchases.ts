@@ -245,6 +245,8 @@ async function applyClaim(
       content_updated_at: now,
       // The claim form already holds the content the buyer chose to show.
       published_at: now,
+      taken_down_at: null,
+      takedown_reason: null,
       updated_at: now,
     })
     .where('region', '=', args.region)
@@ -378,6 +380,8 @@ export async function startTrial(ctx: AppContext, user: UserRow, region: RegionI
         welcomed_at: null,
         content_updated_at: now,
         published_at: null,
+        taken_down_at: null,
+        takedown_reason: null,
         trial_ends_at: trialEndsAt(new Date(now)).toISOString(),
         updated_at: now,
       })

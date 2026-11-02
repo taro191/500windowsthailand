@@ -91,7 +91,7 @@ export function OwnerStudio({ windowItem: w, currentUser, onOpenEditor, onListFo
           <b>📷 สิทธิ์แก้ไขรูปปกและข้อความ</b>
           <span className={`text-[11px] ${muted}`}>(ฟรี {editPolicy.freeEditsPerDay} ครั้ง / วัน)</span>
         </div>
-        <p className={`m-0 text-[12px] ${muted}`}>รูปปก ชื่อ คำแนะนำ หมวดหมู่ และจังหวัด คือสิ่งที่แสดงบนกระดาน ส่วนการ์ดอื่นๆ แก้ได้ฟรีไม่จำกัดผ่านปุ่ม “โหมดเจ้าของ”</p>
+        <p className={`m-0 text-[12px] ${muted}`}>รูปปก ชื่อ คำแนะนำ หมวดหมู่ และจังหวัด คือสิ่งที่แสดงบนกระดาน ส่วนการ์ดอื่นๆ แก้ได้ฟรีไม่จำกัดผ่านปุ่มดินสอ ✏️ ที่มุมขวาของแต่ละการ์ด</p>
         {!edit.paid ? (
           <p className="m-0 p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 text-[12px]">✓ แก้ไขฟรีได้อีก {edit.freeLeft} ครั้งในวันนี้</p>
         ) : (

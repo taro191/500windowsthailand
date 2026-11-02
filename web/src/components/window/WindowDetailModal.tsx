@@ -255,6 +255,24 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
                 <p className={`${para} !mb-0`}>ผู้ชมเห็นเฉพาะหน้า "รอการตรวจสอบ" เจ้าของยังแก้ไขข้อมูลได้แต่เผยแพร่ไม่ได้ ปลดระงับได้ที่เมนูผู้ดูแลระบบ › หน้าต่างทั้งหมด</p>
               </section>
             )}
+            {w.takenDown && (
+              <section className={`${card} !border-[#e0657a] text-[13px] flex flex-wrap items-center gap-3`}>
+                <div className="flex-1 min-w-[200px]">
+                  <b className="text-[#e0657a]">⚠️ เนื้อหาถูกระงับโดยผู้ดูแลระบบ</b>
+                  <p className={`${para} !mb-0`}>เหตุผล: {w.takenDown.reason}</p>
+                  <p className={`${para} !mb-0`}>
+                    {isOwner
+                      ? 'ข้อมูลและรูปของคุณยังอยู่ครบ เห็นได้เฉพาะคุณและผู้ดูแลระบบ ผู้ชมจะเห็นหน้า "กำลังพัฒนา" แก้ไขเนื้อหาให้เหมาะสมแล้วกดเผยแพร่อีกครั้ง'
+                      : 'ผู้ชมเห็นหน้า "กำลังพัฒนา" เจ้าของต้องแก้ไขแล้วกดเผยแพร่ใหม่ หรือคืนเนื้อหาได้ที่เมนูผู้ดูแลระบบ › หน้าต่างทั้งหมด'}
+                  </p>
+                </div>
+                {isOwner && (
+                  <button type="button" onClick={contactTeam} className={btn}>
+                    ติดต่อทีมงาน
+                  </button>
+                )}
+              </section>
+            )}
             {w.trialEndsAt && isOwner && (
               <TrialBar w={w} price={claimPriceOf(w)} onPay={requireKyc(() => props.onPayTrial(w))} />
             )}

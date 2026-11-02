@@ -19,6 +19,7 @@ import { getSettings } from './services/settings'
 import * as users from './services/users'
 import * as windows from './services/windows'
 import * as purchases from './services/purchases'
+import * as windowArchive from './services/windowArchive'
 import * as promo from './services/promo'
 import * as coCenter from './services/coCenter'
 import * as admin from './services/admin'
@@ -442,14 +443,28 @@ export function createApp(ctx: AppContext) {
 
   adminApi.post('/windows/:region/:num/takedown', async (c) => {
     const { region, num } = windowRoute(c)
-    const { reason } = await body<{ reason: string }>(c)
-    return ok(c, { window: await admin.takeDownContent(ctx, me(c), region, num, reason) })
+    const { reason, hidden } = await body<{ reason: string; hidden?: boolean }>(c)
+    return ok(c, { window: await admin.takeDownContent(ctx, me(c), region, num, reason, hidden !== false) })
   })
 
   adminApi.post('/windows/:region/:num/release', async (c) => {
     const { region, num } = windowRoute(c)
     const { reason } = await body<{ reason: string }>(c)
     return ok(c, { window: await admin.releaseWindow(ctx, me(c), region, num, reason) })
+  })
+
+  adminApi.get('/window-archives', async (c) => ok(c, { archives: await windowArchive.listArchives(ctx, me(c)) }))
+
+  adminApi.post('/windows/:region/:num/archive', async (c) => {
+    const { region, num } = windowRoute(c)
+    const { reason } = await body<{ reason: string }>(c)
+    return ok(c, await windowArchive.archiveWindow(ctx, me(c), region, num, reason))
+  })
+
+  adminApi.post('/window-archives/:id/restore', async (c) => {
+    const { region, num } = await body<{ region: string; num: number }>(c)
+    const ref = windows.parseWindowRef(region, String(num))
+    return ok(c, await windowArchive.restoreArchive(ctx, me(c), c.req.param('id')!, ref.region, ref.num))
   })
 
   adminApi.post('/windows/:region/:num/suspend', async (c) => {

@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
-import { ImageOff, LayoutGrid, Lock, LockOpen, RotateCcw, Search } from 'lucide-react'
-import type { RegionId, WindowItem, WindowStatus } from '@shared/types'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Archive, ArchiveRestore, ImageOff, LayoutGrid, Lock, LockOpen, RotateCcw, Search } from 'lucide-react'
+import type { RegionId, WindowArchive, WindowItem, WindowStatus } from '@shared/types'
 import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES } from '@shared/categories'
-import { releaseWindow, setWindowSuspended, takeDownContent } from '@/lib/adminApi'
+import { archiveWindow, loadWindowArchives, releaseWindow, restoreWindowArchive, setWindowSuspended, takeDownContent } from '@/lib/adminApi'
 import { isPromoSlot } from '@/lib/promo'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Card, DataTable, inputClass, thaiDateTime } from '../ui'
@@ -15,6 +15,7 @@ export function StatusBadge({ window: w }: { window: WindowItem }) {
   if (w.lifecycle === 'pending') return <Badge tone="warning">จองแล้ว รอตรวจสลิป</Badge>
   if (w.lifecycle === 'unpaid') return <Badge tone="warning">ทดลองใช้ครบ รอชำระเงิน</Badge>
   if (w.trialEndsAt) return <Badge tone="info">ทดลองใช้ฟรี</Badge>
+  if (w.takenDown) return <Badge tone="danger">ระงับเนื้อหา</Badge>
   if (w.lifecycle === 'building') return <Badge tone="secondary">ยังไม่เผยแพร่</Badge>
   if (isPromoSlot(w.id) && w.status === 'available') return <Badge tone="secondary">พื้นที่โปรโมท</Badge>
   if (w.status === 'available') return <Badge tone="info">ว่าง</Badge>
@@ -28,7 +29,22 @@ function confirmWithReason(question: string): string | null {
   return reason && reason.trim() ? reason.trim() : null
 }
 
-export function WindowsPage({ data, refresh, notify }: AdminPageProps) {
+/** Hides a window's content from visitors (kept for the owner and admins), or lifts it. */
+async function toggleTakedown(w: WindowItem, refresh: AdminPageProps['refresh'], notify: AdminPageProps['notify']) {
+  const hide = !w.takenDown
+  const reason = confirmWithReason(
+    hide
+      ? `ระงับเนื้อหาของ ${w.code}? ผู้ชมจะเห็นหน้า "กำลังพัฒนา" ส่วนข้อมูลและรูปยังอยู่ครบ (เห็นได้เฉพาะเจ้าของและผู้ดูแล) เจ้าของต้องแก้ไขแล้วกดเผยแพร่ใหม่ ระบุเหตุผล (เจ้าของจะเห็นเหตุผลนี้):`
+      : `ยกเลิกการระงับเนื้อหาของ ${w.code} และเผยแพร่ตามเดิม? ระบุเหตุผล:`,
+  )
+  if (!reason) return
+  const result = await takeDownContent(w.region, w.id, reason, hide)
+  if (!result.success) return notify(result.error, 'error')
+  await refresh()
+  notify(hide ? `ระงับเนื้อหาของ ${w.code} แล้ว` : `ยกเลิกการระงับเนื้อหาของ ${w.code} แล้ว`)
+}
+
+export function WindowsPage({ admin, data, refresh, notify }: AdminPageProps) {
   const [region, setRegion] = useState<RegionId | 'all'>('all')
   const [status, setStatus] = useState<WindowStatus | 'all'>('all')
   const [query, setQuery] = useState('')
@@ -51,14 +67,7 @@ export function WindowsPage({ data, refresh, notify }: AdminPageProps) {
   const current = Math.min(page, pages - 1)
   const rows = filtered.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE)
 
-  const takeDown = async (w: WindowItem) => {
-    const reason = confirmWithReason(`ถอดรูปและข้อความของ ${w.code}? ระบุเหตุผล:`)
-    if (!reason) return
-    const result = await takeDownContent(w.region, w.id, reason)
-    if (!result.success) return notify(result.error, 'error')
-    await refresh()
-    notify(`ถอดเนื้อหาของ ${w.code} แล้ว`)
-  }
+  const takeDown = (w: WindowItem) => toggleTakedown(w, refresh, notify)
   const suspend = async (w: WindowItem) => {
     const hold = w.lifecycle !== 'suspended'
     const reason = confirmWithReason(
@@ -77,6 +86,16 @@ export function WindowsPage({ data, refresh, notify }: AdminPageProps) {
     if (!result.success) return notify(result.error, 'error')
     await refresh()
     notify(`คืน ${w.code} เป็นบานว่างแล้ว`)
+  }
+  const archive = async (w: WindowItem) => {
+    const reason = confirmWithReason(
+      `ลบ ${w.code} «${w.title}» ออกจากบาน? ข้อมูลและเจ้าของ (${w.ownerName}) จะถูกเก็บไว้ที่เมนู «บานที่ถูกลบ» เพื่อนำกลับมาลงบานอื่นได้ และบานนี้จะว่างให้จับจองได้ตามปกติ ระบุเหตุผล:`,
+    )
+    if (!reason) return
+    const result = await archiveWindow(w.region, w.id, reason)
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
+    notify(`ลบ ${w.code} และเก็บข้อมูลไว้แล้ว`)
   }
 
   return (
@@ -145,12 +164,17 @@ export function WindowsPage({ data, refresh, notify }: AdminPageProps) {
                   <Button size="sm" tone={w.lifecycle === 'suspended' ? 'success' : 'secondary'} onClick={() => suspend(w)} title="ผู้ชมเห็นเฉพาะหน้า รอการตรวจสอบ">
                     {w.lifecycle === 'suspended' ? <LockOpen className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} {w.lifecycle === 'suspended' ? 'ปลดระงับ' : 'ระงับ'}
                   </Button>
-                  <Button size="sm" tone="warning" onClick={() => takeDown(w)} title="ถอดรูปและข้อความ">
-                    <ImageOff className="w-3.5 h-3.5" /> ถอดเนื้อหา
+                  <Button size="sm" tone={w.takenDown ? 'success' : 'warning'} onClick={() => takeDown(w)} title="ซ่อนเนื้อหาจากผู้ชม ข้อมูลยังอยู่ครบ">
+                    <ImageOff className="w-3.5 h-3.5" /> {w.takenDown ? 'คืนเนื้อหา' : 'ระงับเนื้อหา'}
                   </Button>
                   <Button size="sm" tone="danger" onClick={() => release(w)} title="ยกเลิกการถือครอง คืนเป็นบานว่าง">
                     <RotateCcw className="w-3.5 h-3.5" /> คืนบาน
                   </Button>
+                  {admin.superAdmin && (
+                    <Button size="sm" tone="dark" onClick={() => archive(w)} title="ย้ายข้อมูลไปเก็บ แล้วให้บานนี้ว่าง (Super Admin)">
+                      <Archive className="w-3.5 h-3.5" /> ลบบาน
+                    </Button>
+                  )}
                 </div>
               )}
             </td>
@@ -171,14 +195,7 @@ export function ModerationPage({ data, refresh, notify }: AdminPageProps) {
     [data.windows],
   )
 
-  const takeDown = async (w: WindowItem) => {
-    const reason = confirmWithReason(`ถอดรูปและข้อความของ ${w.code}? ระบุเหตุผล:`)
-    if (!reason) return
-    const result = await takeDownContent(w.region, w.id, reason)
-    if (!result.success) return notify(result.error, 'error')
-    await refresh()
-    notify(`ถอดเนื้อหาของ ${w.code} แล้ว`)
-  }
+  const takeDown = (w: WindowItem) => toggleTakedown(w, refresh, notify)
 
   return (
     <>
@@ -213,8 +230,8 @@ export function ModerationPage({ data, refresh, notify }: AdminPageProps) {
                   <div className="text-[0.8rem] text-[#6c757d]">เจ้าของ: {w.ownerName}</div>
                 </div>
                 <div className="p-2 border-t border-[#dee2e6] flex justify-end">
-                  <Button size="sm" tone="danger" onClick={() => takeDown(w)}>
-                    <ImageOff className="w-3.5 h-3.5" /> ถอดเนื้อหา
+                  <Button size="sm" tone={w.takenDown ? 'success' : 'danger'} onClick={() => takeDown(w)}>
+                    <ImageOff className="w-3.5 h-3.5" /> {w.takenDown ? 'คืนเนื้อหา' : 'ระงับเนื้อหา'}
                   </Button>
                 </div>
               </div>
@@ -223,5 +240,91 @@ export function ModerationPage({ data, refresh, notify }: AdminPageProps) {
         )}
       </Card>
     </>
+  )
+}
+
+/** Super admin: windows removed into the archive; put one back on any empty window. */
+export function WindowArchivesPage({ refresh, notify }: AdminPageProps) {
+  const [archives, setArchives] = useState<WindowArchive[] | null>(null)
+  const [targets, setTargets] = useState<Record<string, { region: RegionId; num: string }>>({})
+  const [busy, setBusy] = useState('')
+
+  const load = useCallback(async () => {
+    const result = await loadWindowArchives()
+    if (!result.success) return notify(result.error, 'error')
+    setArchives(result.archives)
+  }, [notify])
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const targetOf = (a: WindowArchive) => targets[a.id] ?? { region: a.region, num: '' }
+  const setTarget = (a: WindowArchive, next: Partial<{ region: RegionId; num: string }>) => setTargets((t) => ({ ...t, [a.id]: { ...targetOf(a), ...next } }))
+  const restore = async (a: WindowArchive) => {
+    const { region, num } = targetOf(a)
+    const n = Number(num)
+    if (!Number.isInteger(n) || n < 1) return notify('กรุณาระบุหมายเลขบานว่างที่จะนำข้อมูลไปลง', 'error')
+    if (!window.confirm(`นำข้อมูล ${a.code} «${a.title}» ของ ${a.ownerName} ไปลงบานหมายเลข ${n} (${REGIONS_BY_ID[region].name})?`)) return
+    setBusy(a.id)
+    const result = await restoreWindowArchive(a.id, region, n)
+    setBusy('')
+    if (!result.success) return notify(result.error, 'error')
+    setArchives(result.archives)
+    await refresh()
+    notify(`นำข้อมูล ${a.code} กลับมาลงบานใหม่แล้ว`)
+  }
+
+  return (
+    <Card title={`บานที่ถูกลบ (${archives?.length ?? 0})`} icon={Archive} outline="secondary" flush>
+      <DataTable head={['รูป', 'บานเดิม', 'ชื่อบาน', 'เจ้าของ', 'เหตุผล', 'ลบเมื่อ', 'นำกลับมาลง']} empty={archives ? 'ยังไม่มีบานที่ถูกลบ' : 'กำลังโหลด…'}>
+        {(archives ?? []).map((a) => {
+          const t = targetOf(a)
+          return (
+            <tr key={a.id}>
+              <td>{a.imageUrl ? <img src={a.imageUrl} alt="" className="w-14 h-10 object-cover rounded" /> : '-'}</td>
+              <td className="font-mono whitespace-nowrap">{a.code}</td>
+              <td className="max-w-[200px] truncate" title={a.title}>
+                {a.title}
+              </td>
+              <td className="whitespace-nowrap">{a.ownerName}</td>
+              <td className="max-w-[220px] truncate" title={a.reason}>
+                {a.reason}
+              </td>
+              <td className="whitespace-nowrap text-[#6c757d]">
+                {thaiDateTime(a.archivedAt)}
+                <div className="text-[0.75rem]">โดย {a.archivedBy}</div>
+              </td>
+              <td className="whitespace-nowrap">
+                {a.restoredAt ? (
+                  <Badge tone="success">
+                    ลงบาน {a.restoredTo} แล้ว · {thaiDateTime(a.restoredAt)}
+                  </Badge>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <select value={t.region} onChange={(e) => setTarget(a, { region: e.target.value as RegionId })} className={`${inputClass} w-auto`}>
+                      {REGIONS.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={t.num}
+                      onChange={(e) => setTarget(a, { num: e.target.value.replace(/\D/g, '') })}
+                      inputMode="numeric"
+                      placeholder="เลขบานว่าง"
+                      className={`${inputClass} w-24`}
+                    />
+                    <Button size="sm" tone="success" disabled={busy === a.id} onClick={() => restore(a)}>
+                      <ArchiveRestore className="w-3.5 h-3.5" /> นำกลับมาลง
+                    </Button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          )
+        })}
+      </DataTable>
+    </Card>
   )
 }
