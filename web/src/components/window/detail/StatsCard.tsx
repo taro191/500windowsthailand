@@ -84,7 +84,8 @@ export function StatsCard({ ctx, onLike, onToggleFollow, onShowFollowing }: { ct
         <button type="button" onClick={() => setReviewsOpen(true)} className={`${btn} flex-1`}>
           ★ รีวิว ({w.reviewStats?.count ?? 0})
         </button>
-        <button type="button" onClick={() => setLifeOpen(true)} className={`${btn} flex-1`}>
+        {/* Life Space is for signed-in users only: signing in comes first. */}
+        <button type="button" onClick={() => (currentUser ? setLifeOpen(true) : ctx.openAuth())} className={`${btn} flex-1`}>
           ✨ Life Space
         </button>
       </div>
@@ -97,7 +98,7 @@ export function StatsCard({ ctx, onLike, onToggleFollow, onShowFollowing }: { ct
         </p>
       )}
       {reviewsOpen && <ReviewsDialog ctx={ctx} onClose={() => setReviewsOpen(false)} />}
-      {lifeOpen && <LifeSpace userId={currentUser?.id} onClose={closeLife} />}
+      {lifeOpen && currentUser && <LifeSpace userId={currentUser.id} onClose={closeLife} />}
     </section>
   )
 }
