@@ -141,6 +141,11 @@ export function CoCard({ ctx }: { ctx: DetailContext }) {
         </>
       )}
       <div ref={centerRef} style={EMBED_VARS} hidden={shown !== 'center'} />
+      {shown === 'center' && (
+        <a href="/kap/co-center.html" className="block mt-2.5 text-right text-[13px] text-(--kap-teal) no-underline hover:underline">
+          เปิดหน้า Co Center เต็ม ›
+        </a>
+      )}
     </section>
   )
 }

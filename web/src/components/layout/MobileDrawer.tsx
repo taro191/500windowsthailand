@@ -1,4 +1,4 @@
-import { Check, ChevronRight, CircleAlert, Compass, Gauge, LogOut, MapPin, MessageCircle, ShieldCheck, Sparkles, UserCog, Wallet, X } from 'lucide-react'
+import { Check, ChevronRight, CircleAlert, Compass, Gauge, Globe2, LogOut, MapPin, MessageCircle, ShieldCheck, Sparkles, UserCog, Wallet, X } from 'lucide-react'
 import type { AuthMode, HubTab, RegionId, StatusCounts, StatusFilter, User } from '@shared/types'
 import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { maskPhone } from '@shared/identity'
@@ -312,6 +312,16 @@ export function MobileDrawer({
                 <ChevronRight className="w-4 h-4 text-stone-500" />
               </button>
             ))}
+            <a
+              href="/kap/co-center.html"
+              className="w-full p-2.5 bg-stone-950 hover:bg-stone-850 border border-stone-800 rounded-xl text-left flex items-center justify-between cursor-pointer text-stone-200 hover:text-amber-300 transition-colors no-underline"
+            >
+              <span className="flex items-center gap-2">
+                <Globe2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>Co Center · หน้าต่างแนะนำ</span>
+              </span>
+              <ChevronRight className="w-4 h-4 text-stone-500" />
+            </a>
             <button
               onClick={then(onOpenContact)}
               className="w-full p-2.5 bg-stone-950 hover:bg-stone-850 border border-stone-800 rounded-xl text-left flex items-center justify-between cursor-pointer text-stone-200 hover:text-amber-300 transition-colors"

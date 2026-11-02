@@ -15,6 +15,7 @@ const withDefaults = (stored: Partial<PlatformSettings>, updatedAt: string): Pla
   rules: { ...DEFAULT_SETTINGS.rules, ...stored.rules },
   contact: { ...DEFAULT_SETTINGS.contact, ...stored.contact },
   coStore: { ...DEFAULT_SETTINGS.coStore, ...stored.coStore },
+  paidOnly: { ...DEFAULT_SETTINGS.paidOnly, ...stored.paidOnly },
   updatedAt,
 })
 
@@ -32,8 +33,9 @@ export async function getSettings(ctx: AppContext): Promise<PlatformSettings> {
 export async function saveSettings(ctx: AppContext, settings: PlatformSettings): Promise<PlatformSettings> {
   const error = validateSettings(settings)
   if (error) throw badRequest(error)
-  const { priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact, coStore } = settings
-  const value_json = JSON.stringify({ priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact, coStore })
+  const { priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact, coStore, paidOnly } = settings
+  // Codes are kept as the admin wrote them, tidied to upper case.
+  const value_json = JSON.stringify({ priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact, coStore, paidOnly: { codes: paidOnly.codes.trim().toUpperCase() } })
   const updated_at = nowIso()
   const updated = await ctx.db.updateTable('settings').set({ value_json, updated_at }).where('id', '=', 'platform').executeTakeFirst()
   if (Number(updated.numUpdatedRows) === 0) {

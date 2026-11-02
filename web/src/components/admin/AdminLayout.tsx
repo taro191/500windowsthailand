@@ -29,6 +29,7 @@ import {
   Puzzle,
   FolderOpen,
   Archive,
+  Lock,
   type LucideIcon,
 } from 'lucide-react'
 import type { User } from '@shared/types'
@@ -39,6 +40,7 @@ export type AdminPage =
   | 'dashboard'
   | 'windows'
   | 'window-archives'
+  | 'paid-only'
   | 'moderation'
   | 'promo'
   | 'users'
@@ -96,6 +98,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   themes: 'ธีมเว็บไซต์',
   files: 'คลังเอกสาร',
   'window-archives': 'บานที่ถูกลบ',
+  'paid-only': 'รหัสสงวน (ผู้จ่ายเงิน)',
   'line-alerts': 'แจ้งเตือนทาง LINE',
   audit: 'บันทึกการใช้งาน',
 }
@@ -124,6 +127,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'windows', label: PAGE_TITLES.windows, icon: LayoutGrid },
         { id: 'moderation', label: PAGE_TITLES.moderation, icon: ImageOff },
         ...(admin.superAdmin ? [{ id: 'window-archives' as const, label: PAGE_TITLES['window-archives'], icon: Archive }] : []),
+        { id: 'paid-only', label: PAGE_TITLES['paid-only'], icon: Lock },
         { id: 'promo', label: PAGE_TITLES.promo, icon: Megaphone, badge: badges.promo },
       ],
     },

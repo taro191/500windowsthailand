@@ -20,3 +20,11 @@ export function trialPhase(endsAt: string, now = new Date()): 'trial' | 'unpaid'
 
 /** Whole days left until `until` (at least 0, rounded up). */
 export const daysLeft = (until: string | Date, now = new Date()) => Math.max(0, Math.ceil((new Date(until).getTime() - now.getTime()) / DAY_MS))
+
+// ---------------------------------------------------------------- refund
+
+/** Days after paying for a window from the system during which the owner can get a full refund. */
+export const REFUND_DAYS = 15
+
+/** End of the refund period for a window paid at `paidAt`. */
+export const refundUntil = (paidAt: string | Date) => new Date(new Date(paidAt).getTime() + REFUND_DAYS * DAY_MS)

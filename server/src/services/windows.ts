@@ -8,7 +8,7 @@ import { thaiDayKey } from '@shared/thaiTime'
 import { getEditStatus, getHoldingPeriod, getPriceCap } from '@shared/ownershipRules'
 import { isPromoSlot } from '@shared/promo'
 import { emptyProfile, normalizeProfile, PROFILE_LIMITS, profileImages } from '@shared/windowProfile'
-import { trialPhase } from '@shared/trial'
+import { refundUntil, trialPhase } from '@shared/trial'
 import type { UserRow, WindowRow } from '../db/schema'
 import type { DB } from '../db'
 import { newId } from '../lib/crypto'
@@ -153,6 +153,16 @@ async function isAdminViewer(db: DB, viewerId: string | null) {
 }
 
 /**
+ * End of the owner's refund period: only for a window bought from the system (a claim or a paid
+ * trial, not a resale) while REFUND_DAYS haven't passed since paying; null otherwise.
+ */
+export function refundDeadline(row: Pick<WindowRow, 'owner_id' | 'owner_change_kind' | 'trial_ends_at' | 'last_purchase_price' | 'claimed_at'>, now = new Date()) {
+  if (!row.owner_id || row.owner_change_kind !== 'new' || row.trial_ends_at || !row.last_purchase_price || !row.claimed_at) return null
+  const until = refundUntil(row.claimed_at)
+  return until.getTime() > now.getTime() ? until.toISOString() : null
+}
+
+/**
  * Window fields as stored. Followers are sent as a count (followersBase) plus the viewer's
  * own id when they follow, so other users' ids are never exposed. Owner contact is private.
  */
@@ -175,6 +185,7 @@ function buildWindowItem(row: RowWithOwner, extras: Extras): WindowItem {
     ownerLabel: (row.owner_id && row.profile_json && parseProfile(row.profile_json).ownerLabel) || undefined,
     ownerId: row.owner_id || '',
     ownerContact: isOwner ? row.owner_contact ?? undefined : undefined,
+    refundUntil: (isOwner && refundDeadline(row)) || undefined,
     externalLink: row.external_link ?? undefined,
     claimedAt: row.claimed_at ?? undefined,
     ownerChangedAt: row.owner_changed_at ?? undefined,
@@ -366,6 +377,11 @@ export async function loadRow(db: DB, region: RegionId, num: number) {
  */
 export function assertNotSuspended(row: { suspended_at: string | null }) {
   if (row.suspended_at) throw forbidden('หน้าต่างนี้ถูกระงับชั่วคราว อยู่ระหว่างรอการตรวจสอบจากทีมงาน')
+}
+
+/** Free trial windows (not paid yet) can't use Friend and Co or the Kapsulep & Co card. */
+export function assertNotTrial(row: { trial_ends_at: string | null }, feature: string) {
+  if (row.trial_ends_at) throw forbidden(`บานทดลองใช้ฟรียังใช้ ${feature} ไม่ได้ ชำระค่าจับจองเพื่อปลดล็อก`)
 }
 
 /** Content visitors don't get: held for review, or owned but not published yet. */

@@ -273,6 +273,8 @@ export interface WindowItem {
   trialEndsAt?: string
   /** Owner and admins only: an admin hid the content from visitors (content kept); edit and publish again to lift it. */
   takenDown?: { at: string; reason: string }
+  /** Owner only: the window was bought from the system and can still be refunded until then (shared/trial.ts REFUND_DAYS). */
+  refundUntil?: string
   /** Detail only, for the owner: show the one-time "welcome" screen. */
   welcome?: true
   /** Detail only (not on the boards): the owner's public page, and reviews from the current owner's time. */
@@ -419,6 +421,8 @@ export interface PlatformSettings {
   contact: ContactInfo
   /** Web apps in the "Co Store" tab of the window page's "Kapsulep & Co" card. */
   coStore: { title: string; apps: CoStoreApp[] }
+  /** Window codes a free trial can't start on (see shared/paidOnly.ts), e.g. "KAP-TH-008, KAP-TH-088..099". */
+  paidOnly: { codes: string }
   updatedAt?: string
 }
 

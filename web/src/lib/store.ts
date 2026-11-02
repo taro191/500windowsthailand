@@ -315,6 +315,16 @@ export async function payTrial(region: RegionId, windowId: number, payment: Paym
   return afterPurchase(await post<PurchaseResponse>(`/windows/${region}/${windowId}/trial/pay`, { payment: paymentBody(payment) }))
 }
 
+/** Give back a window bought from the system within REFUND_DAYS: the price returns to the wallet. */
+export async function refundWindow(region: RegionId, windowId: number): Promise<Result<{ amount: number }>> {
+  const result = await post<{ amount: number; user: User; window: WindowItem }>(`/windows/${region}/${windowId}/refund`)
+  if (!result.success) return result
+  currentUser = result.user
+  putWindow(result.window)
+  await refreshSession()
+  return { success: true, amount: result.amount }
+}
+
 /** Buy a window listed for resale at `expectedPrice` (the seller receives it minus the commission in settings.rules). */
 export async function buyResaleWindow(region: RegionId, windowId: number, expectedPrice: number, payment: PaymentBreakdown) {
   return afterPurchase(await post<PurchaseResponse>(`/windows/${region}/${windowId}/buy`, { expectedPrice, payment: paymentBody(payment) }))

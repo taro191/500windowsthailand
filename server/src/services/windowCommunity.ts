@@ -8,7 +8,7 @@ import { newId } from '../lib/crypto'
 import { badRequest, forbidden, notFound } from '../lib/errors'
 import { nowIso, type AppContext } from '../context'
 import { audit } from './audit'
-import { assertNotSuspended, loadLinks, loadRow, loadWindow, parseProfile, parseWindowRef } from './windows'
+import { assertNotSuspended, assertNotTrial, loadLinks, loadRow, loadWindow, parseProfile, parseWindowRef } from './windows'
 
 const SUSPENDED = 'บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน'
 
@@ -86,11 +86,13 @@ export async function requestLink(ctx: AppContext, user: UserRow, region: Region
   const target = await loadRow(ctx.db, region, num)
   assertNotSuspended(target)
   if (!target.owner_id) throw badRequest('ขอเชื่อมลิงก์ได้เฉพาะบานที่มีเจ้าของแล้ว')
+  if (target.trial_ends_at) throw forbidden('บานนี้อยู่ระหว่างทดลองใช้ฟรี ยังรับคำขอ Friend and Co ไม่ได้')
   const status = friendStatus(parseProfile(target.profile_json).friend, thaiDayKey())
   if (!status.open) throw badRequest(status.reason)
   const source = await loadRow(ctx.db, from.region, from.num)
   assertNotSuspended(source)
   if (source.owner_id !== user.id) throw forbidden('ขอเชื่อมลิงก์ได้เฉพาะบานที่คุณเป็นเจ้าของ')
+  assertNotTrial(source, 'Friend and Co')
   const message = String(input.message ?? '').trim().slice(0, PROFILE_LIMITS.linkMessage)
 
   const existing = await ctx.db
@@ -131,7 +133,9 @@ export async function requestLink(ctx: AppContext, user: UserRow, region: Region
 /** The owner approves (up to PROFILE_LIMITS.partners shown at once) or rejects a request. */
 export async function decideLink(ctx: AppContext, user: UserRow, region: RegionId, num: number, id: string, approve: boolean) {
   // Linking to another window is public, so it waits until the review is over.
-  assertNotSuspended(await ownedRow(ctx, user, region, num))
+  const owned = await ownedRow(ctx, user, region, num)
+  assertNotSuspended(owned)
+  assertNotTrial(owned, 'Friend and Co')
   const { links, linkRequests } = await loadLinks(ctx.db, region, num, user.id, user.id)
   if (!linkRequests?.some((r) => r.id === id)) throw notFound('ไม่พบคำขอนี้ หรือคำขอถูกจัดการไปแล้ว')
   if (approve && links.length >= PROFILE_LIMITS.partners) throw badRequest(`ครบ ${PROFILE_LIMITS.partners} ช่องแล้ว กรุณายกเลิกลิงก์เดิมก่อน`)

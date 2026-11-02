@@ -2,7 +2,8 @@ import { Heart, Lock, Plus, ShoppingBag, Tag, Users } from 'lucide-react'
 import type { User, WindowItem, ZoomLevel } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { followerCount, highlightClass, highlightLabel, todaysNote } from '@shared/windowBadges'
-import { useRules } from '@/lib/settings'
+import { isPaidOnly } from '@shared/paidOnly'
+import { useRules, useSettings } from '@/lib/settings'
 import { adForSlot, isPromoSlot, safeImageUrl, showPromo, type PromoAd } from '@/lib/promo'
 import { HighlightPill, HotSparks, StarBadge } from './WindowBadges'
 
@@ -178,6 +179,7 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
 function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: TileProps & { zoomLevel: ZoomLevel }) {
   const t = getTileInfo(windowItem, currentUser)
   const rules = useRules()
+  const paidOnlyCodes = useSettings().paidOnly.codes
   const note = todaysNote(windowItem)
   const followers = followerCount(windowItem)
   const borderClass = isSelected
@@ -244,6 +246,9 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
             </div>
             <span className="text-xs font-medium text-stone-300 group-hover:text-rose-200">จับจองบานนี้</span>
             <span className="text-[11px] text-stone-500 font-mono mt-0.5">{rules.claimPriceLabel} (ตลอดชีพ)</span>
+            {isPaidOnly(windowItem.code, paidOnlyCodes) && (
+              <span className="mt-1.5 text-[10px] px-1.5 rounded border border-rose-500/40 bg-rose-500/15 text-rose-300">สงวนสำหรับผู้ใช้งานจริง</span>
+            )}
           </div>
         ) : (
           <>

@@ -7,7 +7,8 @@ import { DEMO_IMAGES } from '@shared/seedWindows'
 import { maskCitizenId } from '@shared/identity'
 import { quotaFullMessage } from '@shared/windowQuota'
 import { TRIAL_DAYS, TRIAL_GRACE_DAYS } from '@shared/trial'
-import { claimPriceOf } from '@/lib/settings'
+import { isPaidOnly } from '@shared/paidOnly'
+import { claimPriceOf, useSettings } from '@/lib/settings'
 import { compressImage } from '@/lib/browser'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { ContentGuidelines } from './ContentGuidelines'
@@ -51,6 +52,7 @@ export function ClaimWindowModal({
   const [restoring, setRestoring] = useState(false)
   const archive = currentUser?.trialArchive
   const canTrial = !!currentUser && !currentUser.trialUsed
+  const paidOnly = isPaidOnly(windowItem.code, useSettings().paidOnly.codes)
 
   const price = claimPriceOf(windowItem)
   const hasEnoughBalance = currentUser ? currentUser.balance >= price : false
@@ -404,8 +406,14 @@ export function ClaimWindowModal({
               <p className="m-0 text-[11px] leading-relaxed text-stone-300 font-light">
                 จัดหน้าต่างบานนี้ได้เต็มที่โดยยังไม่ต้องชำระเงิน ระหว่างนี้บานจะอยู่ในสถานะ «กำลังพัฒนา» ผู้อื่นยังไม่เห็นเนื้อหา
                 ชำระค่าจับจอง ฿{price.toLocaleString()} เมื่อไรก็เผยแพร่ได้ทันที · ครบ {TRIAL_DAYS} วันแล้วมีเวลาชำระอีก {TRIAL_GRACE_DAYS} วัน
-                หลังจากนั้นบานจะกลับเป็นบานว่าง แต่ข้อมูลยังเก็บไว้ให้กู้ใส่บานว่างอื่นได้
+                หลังจากนั้นบานจะกลับเป็นบานว่าง แต่ข้อมูลยังเก็บไว้ให้กู้ใส่บานว่างอื่นได้ · ช่วงทดลองใช้ได้ทุกอย่าง ยกเว้น Friend and Co และ
+                Kapsulep & Co ที่ปลดล็อกหลังชำระ
               </p>
+              {paidOnly ? (
+                <p className="m-0 text-[11px] leading-relaxed text-rose-300 font-medium">
+                  🔒 หมายเลขนี้สงวนไว้สำหรับผู้ใช้งานจริง (ชำระเงิน) ทดลองใช้ฟรีกับบานนี้ไม่ได้ เลือกบานอื่นเพื่อทดลอง หรือจับจองบานนี้แบบชำระเงิน
+                </p>
+              ) : (
               <button
                 type="button"
                 disabled={!acceptedTerms}
@@ -414,6 +422,7 @@ export function ClaimWindowModal({
               >
                 <FlaskConical className="w-4 h-4" /> เริ่มทดลองใช้ฟรี {TRIAL_DAYS} วัน
               </button>
+              )}
             </div>
           )}
 

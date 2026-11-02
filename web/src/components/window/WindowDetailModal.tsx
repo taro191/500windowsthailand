@@ -5,10 +5,10 @@ import { CATEGORIES } from '@shared/categories'
 import { highlightKind, highlightLabel, starLevel } from '@shared/windowBadges'
 import { emptyProfile } from '@shared/windowProfile'
 import { quotaFullMessage } from '@shared/windowQuota'
-import { daysLeft, trialPayBy, TRIAL_GRACE_DAYS } from '@shared/trial'
+import { daysLeft, REFUND_DAYS, trialPayBy, TRIAL_GRACE_DAYS } from '@shared/trial'
 import { copyToClipboard } from '@/lib/browser'
 import { claimPriceOf, editPolicyLabel, useRules, useSettings } from '@/lib/settings'
-import { loadBoard, markWelcomed, publishWindow, saveWindowProfile } from '@/lib/store'
+import { loadBoard, markWelcomed, publishWindow, refundWindow, saveWindowProfile } from '@/lib/store'
 import { STAR_LABELS } from '../board/WindowBadges'
 import { Lightbox, type LightboxCaption } from '../Lightbox'
 import { CoCard } from './detail/CoCard'
@@ -117,6 +117,21 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
     props.onWindowChanged()
     onNotify('เผยแพร่แล้ว ผู้เข้าชมเห็นหน้าต่างของคุณแล้ว')
   }
+  const refund = async () => {
+    const ok = window.confirm(
+      `ขอคืนเงินค่าจับจอง ${w.code}?
+
+เงินจะคืนเข้ากระเป๋าเงินของคุณเต็มจำนวน และบานนี้จะกลับเป็นบานว่างทันที ข้อมูลและรูปในบานจะถูกลบ ยกเลิกภายหลังไม่ได้`,
+    )
+    if (!ok) return
+    const result = await refundWindow(w.region, w.id)
+    if (!result.success) return onNotify(result.error, 'error')
+    props.onWindowChanged()
+    onNotify(`คืนเงิน ฿${result.amount.toLocaleString()} เข้ากระเป๋าเงินแล้ว`)
+    onClose()
+  }
+  // requireKyc is defined further down, so it is looked up when clicked.
+  const payTrial = () => requireKyc(() => props.onPayTrial(w))()
 
   const ctx: DetailContext = {
     w,
@@ -274,7 +289,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
               </section>
             )}
             {w.trialEndsAt && isOwner && (
-              <TrialBar w={w} price={claimPriceOf(w)} onPay={requireKyc(() => props.onPayTrial(w))} />
+              <TrialBar w={w} price={claimPriceOf(w)} onPay={payTrial} />
             )}
             {w.unpublished && isOwner && !w.trialEndsAt && (
               <section className={`${card} !border-[#3fb8b0] text-[13px] flex flex-wrap items-center gap-3`}>
@@ -317,8 +332,14 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
             <Showcase ctx={ctx} kind="works" />
             <Showcase ctx={ctx} kind="products" />
             <LinksCard ctx={ctx} />
-            <FriendCard ctx={ctx} />
-            <CoCard ctx={ctx} />
+            {w.trialEndsAt ? (
+              <TrialLockedCard isOwner={isOwner} onPay={payTrial} />
+            ) : (
+              <>
+                <FriendCard ctx={ctx} />
+                <CoCard ctx={ctx} />
+              </>
+            )}
             <TagsCard ctx={ctx} footer={!isForResale && !isOwner ? <p className={`${para} mt-3.5`}>หน้าต่างนี้มีเจ้าของแล้ว และไม่ได้เปิดขายต่อในขณะนี้</p> : undefined} />
             {isOwner && (
               <OwnerStudio
@@ -332,6 +353,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
                 onOpenKyc={onOpenKyc}
               />
             )}
+            {isOwner && w.refundUntil && <RefundBar until={w.refundUntil} onRefund={refund} />}
           </>
         )}
       </div>
@@ -375,6 +397,38 @@ function SearchDialog({ initial, onClose, onOpenWindow }: { initial: string; onC
         <p className={para}>ไม่พบผลลัพธ์</p>
       )}
     </KapDialog>
+  )
+}
+
+/** Friend and Co and the Kapsulep & Co card, locked on a free trial window until it is paid. */
+function TrialLockedCard({ isOwner, onPay }: { isOwner: boolean; onPay: () => void }) {
+  return (
+    <section className={`${card} text-[13px] flex flex-wrap items-center gap-3`}>
+      <div className="flex-1 min-w-[200px]">
+        <b>🔒 Friend and Co · Kapsulep & Co</b>
+        <p className={`${para} !mb-0`}>บานทดลองใช้ฟรียังใช้ 2 ส่วนนี้ไม่ได้ ชำระค่าจับจองแล้วปลดล็อกทันที ข้อมูลเดิมอยู่ครบ</p>
+      </div>
+      {isOwner && (
+        <button type="button" onClick={onPay} className={`${btn} ${btnPri}`}>
+          อัปเกรดเป็นบานจริง
+        </button>
+      )}
+    </section>
+  )
+}
+
+/** Owner of a window bought from the system: full refund within REFUND_DAYS, giving the window back. */
+function RefundBar({ until, onRefund }: { until: string; onRefund: () => void }) {
+  return (
+    <section className={`${card} text-[13px] flex flex-wrap items-center gap-3`}>
+      <div className="flex-1 min-w-[200px]">
+        <b>↩️ ขอคืนเงินได้ภายใน {REFUND_DAYS} วัน (เหลือ {daysLeft(until)} วัน)</b>
+        <p className={`${para} !mb-0`}>คืนเงินเต็มจำนวนเข้ากระเป๋าเงิน ถ้ายังไม่ได้ใช้ Friend and Co และต้องคืนบานนี้ด้วย</p>
+      </div>
+      <button type="button" onClick={onRefund} className={btn}>
+        ขอคืนเงิน
+      </button>
+    </section>
   )
 }
 

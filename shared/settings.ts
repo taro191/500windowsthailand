@@ -1,5 +1,6 @@
 // Platform settings edited on the admin page: resale price caps, payment channels, top-up
 // limits and the owner edit policy. Defaults and validation are shared by the web app and the API.
+import { parsePaidOnly } from './paidOnly'
 import type { ContactInfo, PaymentChannel, PaymentChannelType, PlatformSettings, PriceCapTier } from './types'
 
 export const CHANNEL_TYPE_LABELS: Record<PaymentChannelType, string> = {
@@ -105,6 +106,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
   },
   contact: DEFAULT_CONTACT,
   coStore: { title: 'Kapsulep & Co', apps: [] },
+  paidOnly: { codes: '' },
 }
 
 export const CO_STORE_LIMITS = { apps: 12, title: 60, name: 40, description: 120, url: 300, icon: 4, category: 20, badge: 12 }
@@ -227,6 +229,10 @@ export function validateSettings(settings: PlatformSettings): string | null {
   if (signupBonus.startsAt && signupBonus.endsAt && Date.parse(signupBonus.endsAt) <= Date.parse(signupBonus.startsAt))
     return 'วันเวลาสิ้นสุดโบนัสต้องหลังวันเวลาเริ่ม'
 
+  if (!settings.paidOnly || typeof settings.paidOnly.codes !== 'string') return 'ข้อมูลรหัสสงวนไม่ครบ'
+  if (settings.paidOnly.codes.length > 5000) return 'รายการรหัสสงวนยาวเกิน 5,000 ตัวอักษร'
+  const paidOnlyError = parsePaidOnly(settings.paidOnly.codes).error
+  if (paidOnlyError) return paidOnlyError
   return validateContact(settings.contact) ?? validateCoStore(settings.coStore)
 }
 

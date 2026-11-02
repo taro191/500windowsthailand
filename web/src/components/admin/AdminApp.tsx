@@ -16,6 +16,7 @@ import { MessagesPage } from './pages/MessagesPage'
 import { ThemesPage } from './pages/ThemesPage'
 import { FilesPage } from './pages/FilesPage'
 import { CoStorePage } from './pages/CoStorePage'
+import { PaidOnlyPage } from './pages/PaidOnlyPage'
 import { ChannelsPage, ContactPage, EditSettingsPage, PriceCapsPage, RulesPage, SignupBonusPage, TopUpSettingsPage } from './pages/SettingsPages'
 import { LineAlertCard } from './LineAlertCard'
 import { Callout } from './ui'
@@ -108,6 +109,7 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
           {page === 'rules' && <RulesPage {...props} />}
           {page === 'contact' && <ContactPage {...props} />}
           {page === 'co-store' && <CoStorePage {...props} />}
+          {page === 'paid-only' && <PaidOnlyPage {...props} />}
           {page === 'themes' && <ThemesPage {...props} />}
           {page === 'files' && <FilesPage {...props} />}
           {page === 'messages' && <MessagesPage {...props} />}

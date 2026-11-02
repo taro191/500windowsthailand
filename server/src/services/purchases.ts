@@ -10,7 +10,8 @@ import { commissionRate, enabledChannels, resaleCommission, SLIP_CHANNEL_TYPES }
 import { REGIONS_BY_ID } from '@shared/regions'
 import { isPromoSlot } from '@shared/promo'
 import { buildQuota } from '@shared/windowQuota'
-import { TRIAL_GRACE_DAYS, trialEndsAt, trialPhase } from '@shared/trial'
+import { isPaidOnly } from '@shared/paidOnly'
+import { REFUND_DAYS, TRIAL_GRACE_DAYS, trialEndsAt, trialPhase } from '@shared/trial'
 import type { DB } from '../db'
 import type { OrderRow, UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
@@ -19,7 +20,7 @@ import { saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
 import { getSettings } from './settings'
 import { assertCanTrade, extraWindowsOf, parseTrialArchive, requireUserRow, selfDto, type TrialArchive } from './users'
-import { cleanContent, emptyWindowRow, insertImage, resolveImage, type WindowContentInput } from './windows'
+import { cleanContent, emptyWindowRow, insertImage, refundDeadline, resolveImage, type WindowContentInput } from './windows'
 import { creditWallet, debitWallet, recordTransaction } from './ledger'
 import { audit } from './audit'
 
@@ -336,6 +337,68 @@ export async function claimWindow(
 // ---------------------------------------------------------------- free trial window
 
 /** Start the user's one free trial on an available window: held and built privately for TRIAL_DAYS. */
+/**
+ * Owner's refund within REFUND_DAYS of paying the system for the window, while Friend and Co
+ * hasn't been used from it: the full price goes back to the wallet and the window to the pool.
+ */
+export async function refundWindow(ctx: AppContext, user: UserRow, region: RegionId, num: number) {
+  assertCanTrade(user)
+  const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
+  if (!row) throw notFound('ไม่พบบานหน้าต่าง')
+  if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
+  if (row.suspended_at) throw forbidden('หน้าต่างนี้ถูกระงับชั่วคราว อยู่ระหว่างรอการตรวจสอบจากทีมงาน')
+  if (!refundDeadline(row)) throw badRequest(`ขอคืนเงินได้เฉพาะบานที่ซื้อจากระบบ ภายใน ${REFUND_DAYS} วันนับจากวันชำระ`)
+  const claimedAt = row.claimed_at!
+  const usedFriend = await ctx.db
+    .selectFrom('window_links')
+    .select('id')
+    .where((eb) =>
+      eb.or([
+        eb.and([eb('region', '=', region), eb('num', '=', num), eb('owner_id', '=', user.id)]),
+        eb.and([eb('from_region', '=', region), eb('from_num', '=', num), eb('from_owner_id', '=', user.id)]),
+      ]),
+    )
+    .where('created_at', '>=', claimedAt)
+    .executeTakeFirst()
+  if (usedFriend) throw badRequest('บานนี้ใช้ Friend and Co ไปแล้ว จึงขอคืนเงินไม่ได้')
+
+  const amount = row.last_purchase_price!
+  const now = nowIso()
+  const { claimPrice } = (await getSettings(ctx)).rules
+  await ctx.db.transaction().execute(async (trx) => {
+    const { region: _r, num: _n, ...empty } = emptyWindowRow(region, num, now, claimPrice)
+    const released = await trx
+      .updateTable('windows')
+      .set({ ...empty, previous_owner_id: user.id })
+      .where('region', '=', region)
+      .where('num', '=', num)
+      .where('owner_id', '=', user.id)
+      .where('claimed_at', '=', claimedAt)
+      .executeTakeFirst()
+    if (Number(released.numUpdatedRows) === 0) throw conflict('บานนี้เพิ่งมีการเปลี่ยนแปลง กรุณาลองใหม่อีกครั้ง')
+    await trx.insertInto('window_owners').values({ id: newId('wo'), region, num, owner_id: user.id, transferred_at: now, type: 'released' }).execute()
+    await trx.deleteFrom('window_follows').where('region', '=', region).where('num', '=', num).execute()
+    await creditWallet(trx, user.id, amount)
+    await recordTransaction(trx, {
+      windowId: num,
+      windowCode: row.code,
+      region,
+      windowTitle: `คืนเงินค่าจับจอง "${row.title}" (คืนบานภายใน ${REFUND_DAYS} วัน)`,
+      fromOwner: '500 Windows Thailand',
+      fromOwnerId: 'platform',
+      toOwner: user.name,
+      toOwnerId: user.id,
+      amount,
+      type: 'refund',
+      walletAmount: amount,
+      externalAmount: 0,
+    })
+  })
+  return { amount, user: selfDto(ctx, await requireUserRow(ctx, user.id)) }
+}
+
+const PAID_ONLY = 'หน้าต่างหมายเลขนี้สงวนไว้สำหรับผู้ใช้งานจริง (ชำระเงิน) ทดลองใช้ฟรีกับบานนี้ไม่ได้ กรุณาเลือกบานอื่น'
+
 export async function startTrial(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: WindowContentInput) {
   assertCanTrade(user)
   if (user.trial_used_at) throw forbidden('คุณใช้สิทธิ์ทดลองใช้ฟรีไปแล้ว (1 บานต่อ 1 บัญชี)')
@@ -343,6 +406,7 @@ export async function startTrial(ctx: AppContext, user: UserRow, region: RegionI
   const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
   if (!row) throw notFound('ไม่พบบานหน้าต่างที่ต้องการ')
   if (row.status !== 'available' || row.owner_id || row.reserved_order_id) throw conflict('หน้าต่างนี้มีผู้จับจองแล้ว')
+  if (isPaidOnly(row.code, (await getSettings(ctx)).paidOnly.codes)) throw forbidden(PAID_ONLY)
   if (!input?.imageUrl) throw badRequest('กรุณาเลือกรูปภาพสำหรับหน้าต่าง')
   const cleaned = cleanContent(input, region)
   const imageUrl = await resolveImage(ctx, input.imageUrl)

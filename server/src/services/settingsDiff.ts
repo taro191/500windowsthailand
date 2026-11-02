@@ -123,5 +123,8 @@ export function settingsChanges(before: PlatformSettings, after: PlatformSetting
   }
   add('settings.signupBonus', bonus)
   add('settings.contact', contactLines(before.contact, after.contact))
+  if (before.paidOnly.codes !== after.paidOnly.codes) {
+    add('settings.paidOnly', [`• รหัสสงวนสำหรับผู้ใช้งานจริง: ${before.paidOnly.codes || '-'} → ${after.paidOnly.codes || '-'}`])
+  }
   return changes
 }

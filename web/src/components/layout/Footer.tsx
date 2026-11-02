@@ -31,6 +31,10 @@ export function Footer({ currentUser, onBackToWelcome, onOpenHub, onOpenAuth, on
           กติกา & สิทธิ์การใช้งาน
         </button>
         <span>·</span>
+        <a href="/kap/co-center.html" className="hover:text-rose-300 font-['Prompt',sans-serif]">
+          Co Center
+        </a>
+        <span>·</span>
         <button onClick={() => onOpenHub('wallet')} className="hover:text-rose-300 cursor-pointer font-['Prompt',sans-serif]">
           กระเป๋าเงิน & บัญชี
         </button>

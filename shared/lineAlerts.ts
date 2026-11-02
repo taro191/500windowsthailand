@@ -32,6 +32,7 @@ export const LINE_ALERT_TOPICS = [
   { id: 'settings.editPolicy', group: 'settings', label: 'การแก้ไขบาน' },
   { id: 'settings.signupBonus', group: 'settings', label: 'โบนัสสมัครสมาชิก' },
   { id: 'settings.contact', group: 'settings', label: 'ข้อมูลติดต่อเรา' },
+  { id: 'settings.paidOnly', group: 'settings', label: 'รหัสสงวนสำหรับผู้ใช้งานจริง' },
   { id: 'users.signup', group: 'users', label: 'สมัครสมาชิกใหม่' },
   { id: 'users.kyc', group: 'users', label: 'ยืนยันตัวตน (KYC) ด้วย OTP สำเร็จ' },
   { id: 'security.userEdit', group: 'security', label: 'สร้าง / แก้ไขข้อมูลผู้ใช้' },

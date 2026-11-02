@@ -273,6 +273,12 @@ export function createApp(ctx: AppContext) {
     return withWindow(c, await purchases.payTrial(ctx, me(c), region, num, payment))
   })
 
+  api.post('/windows/:region/:num/refund', async (c) => {
+    const { region, num } = windowRoute(c)
+    const result = await purchases.refundWindow(ctx, me(c), region, num)
+    return ok(c, { ...result, window: await windows.loadWindow(ctx, region, num, me(c).id) })
+  })
+
   api.post('/windows/:region/:num/buy', async (c) => {
     const { region, num } = windowRoute(c)
     const { expectedPrice, payment } = await body<{ expectedPrice: number; payment: purchases.PaymentInput }>(c)
