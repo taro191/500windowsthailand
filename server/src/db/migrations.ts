@@ -485,6 +485,30 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('windows').addColumn('takedown_reason', varchar(500)).execute()
     },
   },
+  '021_central_news': {
+    // "500WinTH & Co" on the central page: announcements written and published by admins.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('central_news')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('type', varchar(16), (c) => c.notNull())
+        .addColumn('title', varchar(200), (c) => c.notNull())
+        .addColumn('body', 'text', (c) => c.notNull())
+        .addColumn('by_name', varchar(120), (c) => c.notNull())
+        .addColumn('url', varchar(500), (c) => c.notNull())
+        .addColumn('img', varchar(500), (c) => c.notNull())
+        .addColumn('pin', 'integer', (c) => c.notNull())
+        .addColumn('status', varchar(16), (c) => c.notNull())
+        .addColumn('publish_at', time, (c) => c.notNull())
+        .addColumn('end_at', time)
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('created_by', varchar(255), (c) => c.notNull())
+        .addColumn('updated_at', time, (c) => c.notNull())
+        .addColumn('published_by', varchar(255))
+        .execute()
+    },
+  },
 }
 
 /** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */

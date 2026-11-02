@@ -30,6 +30,7 @@ import {
   FolderOpen,
   Archive,
   Lock,
+  Newspaper,
   type LucideIcon,
 } from 'lucide-react'
 import type { User } from '@shared/types'
@@ -58,6 +59,7 @@ export type AdminPage =
   | 'rules'
   | 'contact'
   | 'co-store'
+  | 'central-news'
   | 'themes'
   | 'files'
   | 'line-alerts'
@@ -95,6 +97,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   rules: 'กติกาทั่วไป',
   contact: 'ติดต่อเรา',
   'co-store': 'Kapsulep & Co',
+  'central-news': '500WinTH & Co (ประกาศ)',
   themes: 'ธีมเว็บไซต์',
   files: 'คลังเอกสาร',
   'window-archives': 'บานที่ถูกลบ',
@@ -159,6 +162,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'rules', label: PAGE_TITLES.rules, icon: BookOpen },
         { id: 'contact', label: PAGE_TITLES.contact, icon: Contact },
         { id: 'co-store', label: PAGE_TITLES['co-store'], icon: Puzzle },
+        { id: 'central-news', label: PAGE_TITLES['central-news'], icon: Newspaper },
         { id: 'themes', label: PAGE_TITLES.themes, icon: Palette },
       ],
     },

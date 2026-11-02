@@ -335,6 +335,28 @@ export interface WindowArchivesTable {
   restored_by: string | null
 }
 
+/** An announcement in "500WinTH & Co" on the central page (public/kap/central.html). */
+export interface CentralNewsTable {
+  id: string
+  type: 'system' | 'partner' | 'product' | 'news'
+  title: string
+  body: string
+  /** Shown as the author line. */
+  by_name: string
+  url: string
+  img: string
+  pin: number
+  /** Draft until an admin publishes it; editing a published one makes it a draft again. */
+  status: 'draft' | 'published'
+  publish_at: string
+  /** null = no end. */
+  end_at: string | null
+  created_at: string
+  created_by: string
+  updated_at: string
+  published_by: string | null
+}
+
 /** Life Space (Vote my life) data, kept only after the user consents in the page. */
 export interface LifeSpaceTable {
   user_id: string
@@ -366,6 +388,7 @@ export interface Database {
   contact_messages: ContactMessagesTable
   life_space: LifeSpaceTable
   window_archives: WindowArchivesTable
+  central_news: CentralNewsTable
 }
 
 export type UserRow = Selectable<UsersTable>

@@ -31,6 +31,10 @@ export function Footer({ currentUser, onBackToWelcome, onOpenHub, onOpenAuth, on
           กติกา & สิทธิ์การใช้งาน
         </button>
         <span>·</span>
+        <a href="/kap/central.html" className="hover:text-rose-300 font-['Prompt',sans-serif]">
+          ส่วนกลาง
+        </a>
+        <span>·</span>
         <a href="/kap/co-center.html" className="hover:text-rose-300 font-['Prompt',sans-serif]">
           Co Center
         </a>

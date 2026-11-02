@@ -426,6 +426,25 @@ export interface PlatformSettings {
   updatedAt?: string
 }
 
+/** An announcement in "500WinTH & Co" on the central page; visitors get only published ones. */
+export interface CentralNews {
+  id: string
+  type: 'system' | 'partner' | 'product' | 'news'
+  title: string
+  body: string
+  by: string
+  url: string
+  img: string
+  pin: boolean
+  status: 'draft' | 'published'
+  publishAt: string
+  endAt?: string
+  /** Admin only. */
+  createdBy?: string
+  publishedBy?: string
+  updatedAt?: string
+}
+
 /** A web app offered to window owners and visitors (admin-managed). */
 export interface CoStoreApp {
   id: string

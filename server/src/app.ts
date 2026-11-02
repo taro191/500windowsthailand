@@ -28,6 +28,7 @@ import * as community from './services/windowCommunity'
 import * as themes from './services/themes'
 import * as adminFiles from './services/adminFiles'
 import * as lifeSpace from './services/lifeSpace'
+import * as central from './services/central'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
 import { sendContactMessage, updateContactMessage } from './services/contact'
@@ -158,6 +159,9 @@ export function createApp(ctx: AppContext) {
   })
 
   api.get('/co-center', async (c) => ok(c, await coCenter.coCenterWindows(ctx)))
+  // The central page (public/kap/central.html); 'me' is null when signed out.
+  api.get('/central', async (c) => ok(c, await central.centralData(ctx)))
+  api.get('/central/me', async (c) => ok(c, { me: await central.myCentral(ctx, c.get('user') ?? null) }))
   api.get('/promo', async (c) => ok(c, { ads: await promo.activeAds(ctx), reservedRounds: await promo.reservedRounds(ctx) }))
 
   // ------------------------------------------------------------ account
@@ -458,6 +462,15 @@ export function createApp(ctx: AppContext) {
     const { reason } = await body<{ reason: string }>(c)
     return ok(c, { window: await admin.releaseWindow(ctx, me(c), region, num, reason) })
   })
+
+  adminApi.get('/central-news', async (c) => ok(c, { news: await central.listNews(ctx) }))
+  adminApi.post('/central-news', async (c) => ok(c, { news: await central.saveNews(ctx, me(c), null, await body<central.NewsInput>(c)) }))
+  adminApi.post('/central-news/:id', async (c) => ok(c, { news: await central.saveNews(ctx, me(c), c.req.param('id'), await body<central.NewsInput>(c)) }))
+  adminApi.post('/central-news/:id/publish', async (c) => {
+    const { publish } = await body<{ publish?: boolean }>(c)
+    return ok(c, { news: await central.setNewsPublished(ctx, me(c), c.req.param('id'), publish !== false) })
+  })
+  adminApi.post('/central-news/:id/delete', async (c) => ok(c, { news: await central.deleteNews(ctx, me(c), c.req.param('id')) }))
 
   adminApi.get('/window-archives', async (c) => ok(c, { archives: await windowArchive.listArchives(ctx, me(c)) }))
 

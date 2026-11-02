@@ -1960,3 +1960,50 @@ describe('window archive (super admin)', () => {
     assert.equal((await admin.post(`/admin/window-archives/${entry.id}/restore`, { region: 'central', num: 52 })).status, 409, 'only once')
   })
 })
+
+describe('central page', () => {
+  it('lists published announcements, at most 4 at once, and the user\'s own windows', async () => {
+    assert.equal((await client().get('/central/me')).me, null, 'signed out')
+    const admin = await adminClient()
+    assert.equal((await client().post('/admin/central-news', {})).status, 401)
+    const at = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString()
+    const add = (title: string, publishAt = at(-1), endAt = '') => admin.post('/admin/central-news', { type: 'system', title, body: 'ทดสอบ', publishAt, endAt })
+    assert.equal((await add('')).status, 400)
+    assert.equal((await add('ลิงก์ไม่ดี', at(-1), at(-2))).status, 400, 'end before start')
+    const created = await add('ประกาศ 1')
+    assert.equal(created.success, true, created.error)
+    const first = created.news.find((n: any) => n.title === 'ประกาศ 1')
+    assert.equal(first.status, 'draft')
+    assert.ok(!(await client().get('/central')).news.some((n: any) => n.id === first.id), 'drafts stay hidden')
+
+    assert.equal((await admin.post(`/admin/central-news/${first.id}/publish`, { publish: true })).success, true)
+    assert.ok((await client().get('/central')).news.some((n: any) => n.id === first.id))
+    for (const title of ['ประกาศ 2', 'ประกาศ 3', 'ประกาศ 4', 'ประกาศ 5']) {
+      const list = (await add(title)).news
+      const id = list.find((n: any) => n.title === title).id
+      const published = await admin.post(`/admin/central-news/${id}/publish`, { publish: true })
+      assert.equal(published.success, title !== 'ประกาศ 5', title)
+    }
+    // Later, after the others ended, a fifth fits.
+    const later = (await add('ประกาศ 6', at(400))).news.find((n: any) => n.title === 'ประกาศ 6')
+    assert.equal((await admin.post(`/admin/central-news/${later.id}/publish`, { publish: true })).status, 409, 'the others have no end')
+
+    // Editing a published one makes it a draft again.
+    const edited = await admin.post(`/admin/central-news/${first.id}`, { type: 'news', title: 'ประกาศ 1 แก้', publishAt: at(-1) })
+    assert.equal(edited.news.find((n: any) => n.id === first.id).status, 'draft')
+    assert.equal((await admin.post(`/admin/central-news/${first.id}/delete`)).success, true)
+
+    const { c } = await verifiedUser('เจ้าของบาน')
+    await topUpByCard(c, 500)
+    assert.equal((await c.post('/windows/thailand/170/claim', { content, payment: wallet(500) })).success, true)
+    const mine = (await c.get('/central/me')).me
+    assert.match(mine.user.name, /^เจ้าของบาน/)
+    assert.equal(mine.windows.length, 1)
+    assert.equal(mine.windows[0].group, 'central')
+    assert.equal(mine.windows[0].url, '/w/thailand/170')
+    assert.equal(mine.windows[0].plan.type, 'paid')
+    assert.ok(mine.create.region && !mine.create.central)
+    const data = await client().get('/central')
+    assert.ok(Array.isArray(data.apps) && data.serverTime)
+  })
+})

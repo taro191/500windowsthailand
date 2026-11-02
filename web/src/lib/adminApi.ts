@@ -1,5 +1,5 @@
 // Admin-only API calls (server/src/services/admin.ts). Every change is audit-logged on the server.
-import type { AuditEntry, ContactMessageEntry, ExtraWindows, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowArchive, WindowItem } from '@shared/types'
+import type { AuditEntry, CentralNews, ContactMessageEntry, ExtraWindows, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowArchive, WindowItem } from '@shared/types'
 import type { LineAlertTopics } from '@shared/lineAlerts'
 import type { PromoRequest } from '@shared/promo'
 import { download, get, post, put } from './api'
@@ -41,6 +41,14 @@ export async function releaseWindow(region: RegionId, windowId: number, reason: 
 }
 
 /** Super admin: windows removed into the archive, newest first. */
+/** '500WinTH & Co' announcements on the central page (drafts and published). */
+export const loadCentralNews = () => get<{ news: CentralNews[] }>('/admin/central-news')
+export type CentralNewsInput = Pick<CentralNews, 'type' | 'title' | 'body' | 'by' | 'url' | 'img' | 'pin' | 'publishAt'> & { endAt: string }
+/** Saves as a draft; `id` edits an existing one (published ones need publishing again). */
+export const saveCentralNews = (input: CentralNewsInput, id?: string) => post<{ news: CentralNews[] }>(id ? `/admin/central-news/${id}` : '/admin/central-news', input)
+export const publishCentralNews = (id: string, publish: boolean) => post<{ news: CentralNews[] }>(`/admin/central-news/${id}/publish`, { publish })
+export const deleteCentralNews = (id: string) => post<{ news: CentralNews[] }>(`/admin/central-news/${id}/delete`)
+
 export const loadWindowArchives = () => get<{ archives: WindowArchive[] }>('/admin/window-archives')
 
 /** Super admin: keeps the window's content and owner in the archive and empties the window. */
