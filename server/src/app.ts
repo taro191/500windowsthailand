@@ -254,8 +254,22 @@ export function createApp(ctx: AppContext) {
 
   api.post('/windows/:region/:num/claim', async (c) => {
     const { region, num } = windowRoute(c)
-    const { content, payment } = await body<{ content: windows.WindowContentInput; payment: purchases.PaymentInput }>(c)
-    return withWindow(c, await purchases.claimWindow(ctx, me(c), region, num, content, payment))
+    const { content, payment, restoreTrial } = await body<{ content: windows.WindowContentInput; payment: purchases.PaymentInput; restoreTrial?: boolean }>(c)
+    return withWindow(c, await purchases.claimWindow(ctx, me(c), region, num, content, payment, restoreTrial === true))
+  })
+
+  api.post('/windows/:region/:num/trial', async (c) => {
+    const { region, num } = windowRoute(c)
+    const { content } = await body<{ content: windows.WindowContentInput }>(c)
+    await purchases.startTrial(ctx, me(c), region, num, content)
+    const user = await users.requireUserRow(ctx, me(c).id)
+    return ok(c, { user: users.selfDto(ctx, user), window: await windows.loadWindow(ctx, region, num, user.id) })
+  })
+
+  api.post('/windows/:region/:num/trial/pay', async (c) => {
+    const { region, num } = windowRoute(c)
+    const { payment } = await body<{ payment: purchases.PaymentInput }>(c)
+    return withWindow(c, await purchases.payTrial(ctx, me(c), region, num, payment))
   })
 
   api.post('/windows/:region/:num/buy', async (c) => {

@@ -10,6 +10,7 @@ import { seed } from './db/seed'
 import { createSecrets } from './lib/crypto'
 import { createApp } from './app'
 import { startFinanceFeed } from './services/financeFeed'
+import { startTrialSweep } from './services/purchases'
 import { requestOrigin, windowSharePage } from './services/sharePage'
 import type { AppContext } from './context'
 
@@ -20,6 +21,7 @@ async function main() {
 
   const app = createApp(ctx)
   startFinanceFeed(ctx)
+  startTrialSweep(ctx)
   const indexHtml = config.publicDir && path.join(config.publicDir, 'index.html')
   if (indexHtml && existsSync(indexHtml)) {
     const root = path.relative(process.cwd(), config.publicDir) || '.'

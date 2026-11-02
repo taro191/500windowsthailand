@@ -18,6 +18,7 @@ import type {
 } from '@shared/types'
 import { REGION_IDS } from '@shared/regions'
 import { sixHourBlock } from '@shared/thaiTime'
+import { TRIAL_DAYS } from '@shared/trial'
 import * as store from '@/lib/store'
 import { claimPriceOf, loadSettings, rulesView } from '@/lib/settings'
 import { isPromoSlot, OPEN_PROMO_EVENT, SHOW_PROMO_EVENT, type PromoAd } from '@/lib/promo'
@@ -59,11 +60,14 @@ const countAvailable = (windows: WindowItem[]) =>
   windows.filter((w) => w.status === 'available' && !w.lifecycle && !isPromoSlot(w.id)).length
 
 interface PendingPayment {
-  mode: 'claim' | 'resale'
+  /** `trial` = paying for one's free trial window. */
+  mode: 'claim' | 'resale' | 'trial'
   window: WindowItem
   amount: number
   /** Content entered in the claim form, applied once payment is approved. */
   claimContent?: WindowContentInput
+  /** The claim restores the user's released trial window. */
+  restoreTrial?: boolean
 }
 
 export default function App() {
@@ -384,12 +388,32 @@ export default function App() {
   }
 
   /** Claim form submitted → go to payment. */
-  const handleClaimContent = (windowId: number, content: WindowContentInput) => {
+  const handleClaimContent = async (windowId: number, content: WindowContentInput, options: { trial?: boolean; restoreTrial?: boolean }) => {
     if (!currentUser) return openAuth('login')
     const window = board.find((w) => w.id === windowId) || claimTarget
     if (!window) return
-    setPayment({ mode: 'claim', window, amount: claimPriceOf(window), claimContent: content })
+    if (options.trial) {
+      const result = await store.startTrial(window.region, window.id, content)
+      if (!result.success) {
+        if (result.requiresKYC) openKyc(result.error)
+        else showToast(result.error, 'error')
+        return
+      }
+      setClaimTarget(null)
+      refreshBoard()
+      syncAccount()
+      showToast(`เริ่มทดลองใช้บาน ${result.window.code} ฟรี ${TRIAL_DAYS} วันแล้ว จัดหน้าต่างให้พร้อม แล้วชำระเงินเพื่อเผยแพร่ได้ทุกเมื่อ`)
+      setSelectedWindow(result.window)
+      return
+    }
+    setPayment({ mode: 'claim', window, amount: claimPriceOf(window), claimContent: content, restoreTrial: options.restoreTrial })
     setClaimTarget(null)
+  }
+
+  /** Owner of a free trial window → pay the claim price to keep and publish it. */
+  const startPayTrial = (window: WindowItem) => {
+    setSelectedWindow(null)
+    setPayment({ mode: 'trial', window, amount: claimPriceOf(window) })
   }
 
   /** Resale confirmed → go to payment. */
@@ -407,8 +431,10 @@ export default function App() {
     const { window } = payment
     const result =
       payment.mode === 'claim'
-        ? await store.claimWindow(window.region, window.id, payment.claimContent!, breakdown)
-        : await store.buyResaleWindow(window.region, window.id, payment.amount, breakdown)
+        ? await store.claimWindow(window.region, window.id, payment.claimContent!, breakdown, payment.restoreTrial)
+        : payment.mode === 'trial'
+          ? await store.payTrial(window.region, window.id, breakdown)
+          : await store.buyResaleWindow(window.region, window.id, payment.amount, breakdown)
 
     if (!result.success) {
       if (result.requiresKYC) {
@@ -665,6 +691,7 @@ export default function App() {
         onClose={() => setSelectedWindow(null)}
         onClaim={startClaim}
         onBuyResale={startBuyResale}
+        onPayTrial={startPayTrial}
         onOpenEditor={(w) => {
           setSelectedWindow(null)
           setEditTarget(w)

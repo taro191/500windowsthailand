@@ -12,6 +12,7 @@ import { seed } from '../src/db/seed'
 import { createSecrets } from '../src/lib/crypto'
 import { createApp } from '../src/app'
 import { pushFinanceFeed } from '../src/services/financeFeed'
+import { expireTrials } from '../src/services/purchases'
 import { requestOrigin, windowSharePage } from '../src/services/sharePage'
 import { firstRoundOfDay, freePromoRounds, schedulePromoRounds } from '@shared/promo'
 import type { AppContext } from '../src/context'
@@ -372,6 +373,78 @@ describe('window status', () => {
     assert.equal(published.window.unpublished, undefined)
     assert.equal((await client().get('/windows/central/31')).window.lifecycle, undefined)
     assert.equal((await c.post('/windows/central/31/publish')).success, true, 'publishing again is harmless')
+  })
+})
+
+describe('free trial window', () => {
+  const backdate = (num: number, days: number) =>
+    ctx.db.updateTable('windows').set({ trial_ends_at: new Date(Date.now() - days * 86_400_000).toISOString() }).where('region', '=', 'central').where('num', '=', num).execute()
+
+  it('holds one window per user unpaid and hidden, and publishes once paid', async () => {
+    assert.equal((await client().post('/windows/central/40/trial', { content })).status, 401)
+    const { c } = await verifiedUser()
+    const started = await c.post('/windows/central/40/trial', { content })
+    assert.equal(started.success, true, started.error)
+    assert.equal(started.user.trialUsed, true)
+    assert.equal(started.window.lifecycle, 'building')
+    assert.ok(Date.parse(started.window.trialEndsAt) > Date.now() + 59 * 86_400_000)
+    assert.equal((await client().get('/windows/central/40')).window.title, '', 'hidden from visitors')
+    assert.equal((await c.post('/windows/central/41/trial', { content })).status, 403, 'one trial per user')
+    assert.equal((await c.post('/windows/central/40/publish')).status, 403, 'pay before publishing')
+    assert.equal((await c.post('/windows/central/40/listing', { price: 900 })).status, 403)
+
+    await backdate(40, 1)
+    assert.equal((await client().get('/windows/central/40')).window.lifecycle, 'unpaid')
+    await topUpByCard(c, 500)
+    const paid = await c.post('/windows/central/40/trial/pay', { payment: wallet(500) })
+    assert.equal(paid.success, true, paid.error)
+    assert.equal(paid.window.lifecycle, undefined, 'published right after paying')
+    assert.equal(paid.window.trialEndsAt, undefined)
+    assert.equal(paid.user.balance, 0)
+    assert.equal((await client().get('/windows/central/40')).window.title, content.title)
+    assert.equal((await c.post('/windows/central/40/trial/pay', { payment: wallet(500) })).status, 400)
+  })
+
+  it('completes a trial payment when the slip is approved', async () => {
+    const { c } = await verifiedUser()
+    assert.equal((await c.post('/windows/central/42/trial', { content })).success, true)
+    const payment = { walletAmount: 0, externalAmount: 500, channelId: 'ch-kbank', slip: { slipUrl: PNG } }
+    const pending = await c.post('/windows/central/42/trial/pay', { payment })
+    assert.equal(pending.success, true, pending.error)
+    assert.equal(pending.pending, true)
+    const admin = await adminClient()
+    const decided = await admin.post(`/admin/orders/${pending.order.id}/decide`, { decision: 'approved' })
+    assert.equal(decided.success, true, decided.error)
+    const w = (await c.get('/windows/central/42')).window
+    assert.equal(w.lifecycle, undefined)
+    assert.equal(w.trialEndsAt, undefined)
+  })
+
+  it('releases an unpaid trial after the grace period and lets the user restore it elsewhere', async () => {
+    const { c } = await verifiedUser()
+    const edited = { ...content, title: 'บานทดลองของฉัน' }
+    assert.equal((await c.post('/windows/central/43/trial', { content: edited })).success, true)
+    assert.equal((await c.put('/windows/central/43/profile', { gallery: [PNG] })).success, true)
+    await backdate(43, 29)
+    assert.equal(await expireTrials(ctx), 0, 'still in the "รอชำระเงิน" period')
+    await backdate(43, 31)
+    assert.equal(await expireTrials(ctx), 1)
+    const freed = (await client().get('/windows/central/43')).window
+    assert.equal(freed.status, 'available')
+    assert.equal(freed.lifecycle, undefined)
+
+    const me = (await c.get('/session')).user
+    assert.equal(me.trialArchive.title, 'บานทดลองของฉัน')
+    assert.equal((await c.post('/windows/central/44/trial', { content })).status, 403, 'the trial is used up')
+    await topUpByCard(c, 500)
+    const claim = await c.post('/windows/central/44/claim', {
+      content: { ...content, imageUrl: me.trialArchive.imageUrl },
+      payment: wallet(500),
+      restoreTrial: true,
+    })
+    assert.equal(claim.success, true, claim.error)
+    assert.equal(claim.user.trialArchive, undefined)
+    assert.equal(claim.window.profile.gallery.length, 1, 'profile restored')
   })
 })
 

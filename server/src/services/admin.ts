@@ -266,6 +266,8 @@ export async function createUser(ctx: AppContext, admin: UserRow, input: NewUser
     disabled: 0,
     extra_thailand_windows: 0,
     extra_regional_windows: 0,
+    trial_used_at: null,
+    trial_archive_json: null,
     payout_json: null,
     created_at: now,
     updated_at: now,

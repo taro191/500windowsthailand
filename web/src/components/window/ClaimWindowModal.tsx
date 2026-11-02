@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { CircleAlert, Image as ImageIcon, ShieldCheck, Sparkles, Upload, X } from 'lucide-react'
+import { CircleAlert, FlaskConical, History, Image as ImageIcon, ShieldCheck, Sparkles, Upload, X } from 'lucide-react'
 import type { AuthMode, CategoryId, Quota, User, WindowContentInput, WindowItem } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES, CATEGORY_IDS } from '@shared/categories'
 import { DEMO_IMAGES } from '@shared/seedWindows'
 import { maskCitizenId } from '@shared/identity'
 import { quotaFullMessage } from '@shared/windowQuota'
+import { TRIAL_DAYS, TRIAL_GRACE_DAYS } from '@shared/trial'
 import { claimPriceOf } from '@/lib/settings'
 import { compressImage } from '@/lib/browser'
 import { KapsulepLogo } from '../KapsulepLogo'
@@ -18,8 +19,11 @@ interface ClaimWindowModalProps {
   currentUser: User | null
   quota: Quota
   onClose: () => void
-  /** Called with the content; the parent then asks how to pay. */
-  onSubmitClaim: (windowId: number, content: WindowContentInput) => void
+  /**
+   * Called with the content; the parent then asks how to pay (or, with `trial`, starts the free
+   * trial). `restoreTrial` = the content came from the user's released trial window.
+   */
+  onSubmitClaim: (windowId: number, content: WindowContentInput, options: { trial?: boolean; restoreTrial?: boolean }) => void
   onOpenAuth: (mode: AuthMode) => void
   onOpenKyc: () => void
 }
@@ -44,6 +48,9 @@ export function ClaimWindowModal({
   const [imageUrl, setImageUrl] = useState(DEMO_IMAGES[0])
   const [error, setError] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const archive = currentUser?.trialArchive
+  const canTrial = !!currentUser && !currentUser.trialUsed
 
   const price = claimPriceOf(windowItem)
   const hasEnoughBalance = currentUser ? currentUser.balance >= price : false
@@ -51,7 +58,20 @@ export function ClaimWindowModal({
   const canAcquireHere = isThailand ? quota.canAcquireThailand : quota.canAcquireRegional
   const code = windowItem.code || `#${windowItem.id.toString().padStart(3, '0')}`
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const restoreArchive = () => {
+    if (!archive) return
+    setTitle(archive.title)
+    setDescription(archive.description)
+    if (CATEGORY_IDS.includes(archive.category as CategoryId)) setCategory(archive.category as CategoryId)
+    if (region?.provinces.includes(archive.province)) setProvince(archive.province)
+    setContact(archive.ownerContact ?? '')
+    setExternalLink(archive.externalLink ?? '')
+    setImageUrl(archive.imageUrl)
+    setRestoring(true)
+    setError('')
+  }
+
+  const handleSubmit = (e: React.FormEvent, trial = false) => {
     e.preventDefault()
     if (!currentUser) {
       onOpenAuth('login')
@@ -74,15 +94,19 @@ export function ClaimWindowModal({
       setError('กรุณาเลือกหรืออัปโหลดรูปภาพประจำหน้าต่าง')
       return
     }
-    onSubmitClaim(windowItem.id, {
-      title: title.trim() || `หน้าต่างของ ${currentUser.name}`,
-      description: description.trim() || 'บันทึกภาพถ่ายและเรื่องราวส่วนตัวในหน้าต่างประเทศไทย',
-      imageUrl,
-      category,
-      province,
-      ownerContact: contact.trim() || undefined,
-      externalLink: externalLink.trim() || undefined,
-    })
+    onSubmitClaim(
+      windowItem.id,
+      {
+        title: title.trim() || `หน้าต่างของ ${currentUser.name}`,
+        description: description.trim() || 'บันทึกภาพถ่ายและเรื่องราวส่วนตัวในหน้าต่างประเทศไทย',
+        imageUrl,
+        category,
+        province,
+        ownerContact: contact.trim() || undefined,
+        externalLink: externalLink.trim() || undefined,
+      },
+      { trial, restoreTrial: restoring && !trial },
+    )
   }
 
   const handleFile = (file?: File) => {
@@ -202,6 +226,25 @@ export function ClaimWindowModal({
         )}
 
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs sm:text-sm">
+          {archive && !restoring && (
+            <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-700/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-amber-100">
+              <span>
+                คุณมีข้อมูลจากบานทดลองใช้เดิม <strong>{archive.code}</strong> «{archive.title}» ที่เก็บไว้ ใส่ลงบานนี้ได้เลย
+              </span>
+              <button
+                type="button"
+                onClick={restoreArchive}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <History className="w-3.5 h-3.5" /> กู้ข้อมูลเดิม
+              </button>
+            </div>
+          )}
+          {restoring && (
+            <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-700/40 text-[11px] text-emerald-200">
+              ✓ ใส่ข้อมูลจากบานทดลองใช้เดิมแล้ว หน้าโปรไฟล์เดิมจะกลับมาด้วยเมื่อจับจองสำเร็จ
+            </div>
+          )}
           <div>
             <label className="block text-stone-300 font-semibold mb-2">
               1. เลือกภาพถ่ายส่วนตัวของคุณ <span className="text-rose-400">*</span>
@@ -351,6 +394,28 @@ export function ClaimWindowModal({
               </span>
             </label>
           </div>
+
+          {canTrial && canAcquireHere && (
+            <div className="p-3.5 rounded-xl bg-sky-950/30 border border-sky-700/40 space-y-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-sky-200">
+                <FlaskConical className="w-4 h-4" />
+                <span>ทดลองใช้ฟรี {TRIAL_DAYS} วัน (สิทธิ์ 1 บานต่อ 1 บัญชี)</span>
+              </div>
+              <p className="m-0 text-[11px] leading-relaxed text-stone-300 font-light">
+                จัดหน้าต่างบานนี้ได้เต็มที่โดยยังไม่ต้องชำระเงิน ระหว่างนี้บานจะอยู่ในสถานะ «กำลังพัฒนา» ผู้อื่นยังไม่เห็นเนื้อหา
+                ชำระค่าจับจอง ฿{price.toLocaleString()} เมื่อไรก็เผยแพร่ได้ทันที · ครบ {TRIAL_DAYS} วันแล้วมีเวลาชำระอีก {TRIAL_GRACE_DAYS} วัน
+                หลังจากนั้นบานจะกลับเป็นบานว่าง แต่ข้อมูลยังเก็บไว้ให้กู้ใส่บานว่างอื่นได้
+              </p>
+              <button
+                type="button"
+                disabled={!acceptedTerms}
+                onClick={(e) => handleSubmit(e, true)}
+                className={`w-full py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${acceptedTerms ? 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer' : 'bg-stone-800 text-stone-500 cursor-not-allowed'}`}
+              >
+                <FlaskConical className="w-4 h-4" /> เริ่มทดลองใช้ฟรี {TRIAL_DAYS} วัน
+              </button>
+            </div>
+          )}
 
           {currentUser ? (
             <button

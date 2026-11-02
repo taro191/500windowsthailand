@@ -79,6 +79,10 @@ export interface User {
   superAdmin?: boolean
   /** Windows an admin allows on top of the normal quota (1 Thailand + 1 regional); absent = none. */
   extraWindows?: ExtraWindows
+  /** The user has used their one free trial window. */
+  trialUsed?: true
+  /** Content of their trial window that went back to the pool unpaid; can be restored when claiming. */
+  trialArchive?: { code: string; title: string; description: string; category: string; province: string; imageUrl: string; ownerContact?: string; externalLink?: string; archivedAt: string }
 }
 
 export interface ExtraWindows {
@@ -254,16 +258,19 @@ export interface WindowItem {
   reserved?: boolean
   /**
    * Shown instead of the content: `pending` = an empty window reserved, slip not yet checked;
-   * `building` = owned but not published by its owner yet; `suspended` = held for review by an
+   * `building` = owned but not published by its owner yet; `unpaid` = a free trial window past its
+   * free period, waiting for the owner to pay; `suspended` = held for review by an
    * admin. Building and suspended windows come without their content, except to the owner and admins.
    */
-  lifecycle?: 'pending' | 'building' | 'suspended'
+  lifecycle?: 'pending' | 'building' | 'unpaid' | 'suspended'
   /** Detail only, `pending`: first letters of who reserved it. */
   reservedBy?: string
   /** `pending`: the viewer's own reservation (counts as "บานของฉัน"). */
   reservedByMe?: true
   /** Owner and admins only: the owner hasn't pressed "เผยแพร่" yet (also while suspended). */
   unpublished?: true
+  /** Owner and admins only: a free trial window not paid yet; end of the free period (shared/trial.ts). */
+  trialEndsAt?: string
   /** Detail only, for the owner: show the one-time "welcome" screen. */
   welcome?: true
   /** Detail only (not on the boards): the owner's public page, and reviews from the current owner's time. */

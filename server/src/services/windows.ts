@@ -8,6 +8,7 @@ import { thaiDayKey } from '@shared/thaiTime'
 import { getEditStatus, getHoldingPeriod, getPriceCap } from '@shared/ownershipRules'
 import { isPromoSlot } from '@shared/promo'
 import { emptyProfile, normalizeProfile, PROFILE_LIMITS, profileImages } from '@shared/windowProfile'
+import { trialPhase } from '@shared/trial'
 import type { UserRow, WindowRow } from '../db/schema'
 import type { DB } from '../db'
 import { newId } from '../lib/crypto'
@@ -67,6 +68,7 @@ export function emptyWindowRow(region: RegionId, num: number, now = nowIso(), cl
     welcomed_at: null,
     content_updated_at: null,
     published_at: null,
+    trial_ends_at: null,
     profile_json: null,
     updated_at: now,
   }
@@ -97,6 +99,7 @@ interface Extras {
 function lifecycleOf(row: RowWithOwner): WindowItem['lifecycle'] {
   if (row.suspended_at) return 'suspended'
   if (!row.owner_id) return row.reserved_order_id ? 'pending' : undefined
+  if (row.trial_ends_at && trialPhase(row.trial_ends_at) !== 'trial') return 'unpaid'
   // Owned, but the owner hasn't pressed "เผยแพร่" yet.
   return row.published_at ? undefined : 'building'
 }
@@ -111,7 +114,7 @@ export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem
   if (!lifecycle) return item
   if (lifecycle === 'pending') return { ...item, lifecycle, reservedBy: extras.reservedBy, reservedByMe: extras.reservedByViewer || undefined }
   const isOwner = !!extras.viewerId && row.owner_id === extras.viewerId
-  if (isOwner || extras.showHidden) return { ...item, lifecycle, unpublished: row.published_at ? undefined : true }
+  if (isOwner || extras.showHidden) return { ...item, lifecycle, unpublished: row.published_at ? undefined : true, trialEndsAt: row.trial_ends_at ?? undefined }
   return {
     ...item,
     lifecycle,
@@ -546,6 +549,7 @@ export async function listForResale(ctx: AppContext, user: UserRow, region: Regi
   const row = await loadRow(ctx.db, region, num)
   assertNotSuspended(row)
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
+  if (row.trial_ends_at) throw forbidden('บานทดลองใช้ยังขายต่อไม่ได้ ต้องชำระค่าจับจองก่อน')
   if (row.reserved_order_id) throw conflict('บานนี้มีผู้ซื้อรอตรวจสอบการชำระเงินอยู่ เปลี่ยนราคาไม่ได้ชั่วคราว')
 
   const settings = await getSettings(ctx)
@@ -679,6 +683,7 @@ export async function publishWindow(ctx: AppContext, user: UserRow, region: Regi
   const row = await loadRow(ctx.db, region, num)
   if (!row.owner_id || row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   if (row.suspended_at) throw forbidden('หน้าต่างบานนี้อยู่ระหว่างรอการตรวจสอบ ยังเผยแพร่ไม่ได้จนกว่าจะยกเลิกการระงับ')
+  if (row.trial_ends_at) throw forbidden('บานทดลองใช้ต้องชำระค่าจับจองก่อนจึงจะเผยแพร่ได้')
   if (!row.published_at) {
     if (!row.image_url && !profileImages(parseProfile(row.profile_json)).length) throw badRequest('เพิ่มรูปภาพอย่างน้อย 1 รูปก่อนเผยแพร่')
     const now = nowIso()

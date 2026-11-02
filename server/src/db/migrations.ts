@@ -446,6 +446,14 @@ const migrations: Record<string, Migration> = {
       }
     },
   },
+  '018_trial_window': {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('windows').addColumn('trial_ends_at', time).execute()
+      await db.schema.alterTable('users').addColumn('trial_used_at', time).execute()
+      await db.schema.alterTable('users').addColumn('trial_archive_json', sql`mediumtext`).execute()
+    },
+  },
 }
 
 /** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */

@@ -23,6 +23,10 @@ export interface UsersTable {
   /** Windows allowed on top of the normal quota, set by an admin. */
   extra_thailand_windows: number
   extra_regional_windows: number
+  /** When the user started their one free trial window. */
+  trial_used_at: string | null
+  /** Content of a trial window released unpaid, to restore into another window (TrialArchive JSON). */
+  trial_archive_json: string | null
   /** PayoutAccount as JSON. */
   payout_json: string | null
   created_at: string
@@ -93,6 +97,8 @@ export interface WindowsTable {
   content_updated_at: string | null
   /** When the owner published the window; null = visitors see "กำลังพัฒนา" (kept while suspended). */
   published_at: string | null
+  /** Free trial window not paid yet: end of the free period (see shared/trial.ts). */
+  trial_ends_at: string | null
   /** The owner's public page (WindowProfile as JSON); cleared when the window changes hands. */
   profile_json: string | null
   updated_at: string

@@ -295,8 +295,24 @@ async function afterPurchase(result: ApiResult<PurchaseResponse>): Promise<Resul
 }
 
 /** Claim an available window, paid from the wallet and/or an external channel. */
-export async function claimWindow(region: RegionId, windowId: number, content: WindowContentInput, payment: PaymentBreakdown) {
-  return afterPurchase(await post<PurchaseResponse>(`/windows/${region}/${windowId}/claim`, { content, payment: paymentBody(payment) }))
+/** `restoreTrial`: also bring back the profile of the user's released trial window (User.trialArchive). */
+export async function claimWindow(region: RegionId, windowId: number, content: WindowContentInput, payment: PaymentBreakdown, restoreTrial = false) {
+  return afterPurchase(await post<PurchaseResponse>(`/windows/${region}/${windowId}/claim`, { content, payment: paymentBody(payment), restoreTrial }))
+}
+
+/** Start the user's one free trial window (60 days, hidden until paid; shared/trial.ts). */
+export async function startTrial(region: RegionId, windowId: number, content: WindowContentInput): Promise<Result<{ window: WindowItem }>> {
+  const result = await post<{ user: User; window: WindowItem }>(`/windows/${region}/${windowId}/trial`, { content })
+  if (!result.success) return result
+  currentUser = result.user
+  putWindow(result.window)
+  await refreshSession()
+  return { success: true, window: result.window }
+}
+
+/** Pay the claim price for one's trial window; it is published once paid. */
+export async function payTrial(region: RegionId, windowId: number, payment: PaymentBreakdown) {
+  return afterPurchase(await post<PurchaseResponse>(`/windows/${region}/${windowId}/trial/pay`, { payment: paymentBody(payment) }))
 }
 
 /** Buy a window listed for resale at `expectedPrice` (the seller receives it minus the commission in settings.rules). */

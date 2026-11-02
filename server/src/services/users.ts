@@ -51,6 +51,47 @@ export function selfDto(ctx: AppContext, row: UserRow): User {
     disabled: !!row.disabled || undefined,
     superAdmin: isSuperAdmin(ctx, row) || undefined,
     extraWindows: extraWindowsOf(row),
+    trialUsed: row.trial_used_at ? true : undefined,
+    trialArchive: trialArchiveOf(row),
+  }
+}
+
+/** A trial window's content kept when it went back to the pool unpaid (users.trial_archive_json). */
+export interface TrialArchive {
+  code: string
+  title: string
+  description: string
+  category: string
+  province: string
+  image_url: string
+  owner_contact: string | null
+  external_link: string | null
+  profile_json: string | null
+  archived_at: string
+}
+
+export function parseTrialArchive(row: Pick<UserRow, 'trial_archive_json'>): TrialArchive | undefined {
+  if (!row.trial_archive_json) return undefined
+  try {
+    return JSON.parse(row.trial_archive_json) as TrialArchive
+  } catch {
+    return undefined
+  }
+}
+
+function trialArchiveOf(row: UserRow): User['trialArchive'] {
+  const a = parseTrialArchive(row)
+  if (!a) return undefined
+  return {
+    code: a.code,
+    title: a.title,
+    description: a.description,
+    category: a.category,
+    province: a.province,
+    imageUrl: a.image_url,
+    ownerContact: a.owner_contact ?? undefined,
+    externalLink: a.external_link ?? undefined,
+    archivedAt: a.archived_at,
   }
 }
 
@@ -129,6 +170,8 @@ export async function signup(ctx: AppContext, input: SignupInput): Promise<UserR
     disabled: 0,
     extra_thailand_windows: 0,
     extra_regional_windows: 0,
+    trial_used_at: null,
+    trial_archive_json: null,
     payout_json: null,
     created_at: now,
     updated_at: now,

@@ -8,7 +8,7 @@ import { PaymentPanel, type ConfirmResult } from './PaymentPanel'
 interface CheckoutModalProps {
   isOpen: boolean
   onClose: () => void
-  mode: 'claim' | 'resale'
+  mode: 'claim' | 'resale' | 'trial'
   windowItem: WindowItem | null
   currentUser: User | null
   amount: number
@@ -43,7 +43,7 @@ export function CheckoutModal({ isOpen, onClose, mode, windowItem, currentUser, 
                 {!result ? 'ชำระเงิน' : result.pending ? 'ส่งสลิปแล้ว รอตรวจสอบ' : 'ชำระเงินสำเร็จ พร้อมใช้งาน!'}
               </span>
               <span className="text-[11px] text-stone-400 font-light">
-                {mode === 'claim' ? 'จับจองบานใหม่' : 'ซื้อต่อบานหน้าต่าง'} {code} ({region?.name}) · ฿{amount.toLocaleString()}
+                {mode === 'claim' ? 'จับจองบานใหม่' : mode === 'trial' ? 'ชำระค่าจับจองบานทดลอง' : 'ซื้อต่อบานหน้าต่าง'} {code} ({region?.name}) · ฿{amount.toLocaleString()}
               </span>
             </div>
           </div>

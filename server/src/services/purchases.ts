@@ -10,6 +10,7 @@ import { commissionRate, enabledChannels, resaleCommission, SLIP_CHANNEL_TYPES }
 import { REGIONS_BY_ID } from '@shared/regions'
 import { isPromoSlot } from '@shared/promo'
 import { buildQuota } from '@shared/windowQuota'
+import { TRIAL_GRACE_DAYS, trialEndsAt, trialPhase } from '@shared/trial'
 import type { DB } from '../db'
 import type { OrderRow, UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
@@ -17,8 +18,8 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
 import { getSettings } from './settings'
-import { assertCanTrade, extraWindowsOf, requireUserRow, selfDto } from './users'
-import { cleanContent, insertImage, resolveImage, type WindowContentInput } from './windows'
+import { assertCanTrade, extraWindowsOf, parseTrialArchive, requireUserRow, selfDto, type TrialArchive } from './users'
+import { cleanContent, emptyWindowRow, insertImage, resolveImage, type WindowContentInput } from './windows'
 import { creditWallet, debitWallet, recordTransaction } from './ledger'
 import { audit } from './audit'
 
@@ -204,6 +205,9 @@ interface ClaimPayload {
   owner_contact: string | null
   external_link: string | null
   imageUrl: string
+  /** Restored from the user's released trial window (users.trial_archive_json). */
+  profile_json?: string | null
+  restoredTrial?: true
 }
 
 async function applyClaim(
@@ -223,7 +227,7 @@ async function applyClaim(
       owner_id: args.buyer.id,
       owner_contact: content.owner_contact,
       external_link: content.external_link,
-      profile_json: null,
+      profile_json: content.profile_json ?? null,
       status: 'occupied',
       resale_price: null,
       claimed_at: now,
@@ -252,6 +256,7 @@ async function applyClaim(
   if (Number(updated.numUpdatedRows) === 0) throw conflict('หน้าต่างนี้มีผู้จับจองแล้ว')
 
   await insertImage(db, args.region, args.num, content.imageUrl, 'ภาพเปิดตัวหน้าต่างบานใหม่', now)
+  if (content.restoredTrial) await db.updateTable('users').set({ trial_archive_json: null }).where('id', '=', args.buyer.id).execute()
   const code = `${REGIONS_BY_ID[args.region].codePrefix}-${String(args.num).padStart(3, '0')}`
   await recordTransaction(db, {
     windowId: args.num,
@@ -275,6 +280,7 @@ export async function claimWindow(
   num: number,
   input: WindowContentInput,
   paymentInput: PaymentInput,
+  restoreTrial = false,
 ): Promise<PurchaseResult> {
   assertCanTrade(user)
   if (isPromoSlot(num)) throw badRequest('หน้าต่างหมายเลข 481–486 ล็อกไว้เป็นพื้นที่โปรโมทของระบบ')
@@ -283,6 +289,8 @@ export async function claimWindow(
   if (row.status !== 'available' || row.owner_id || row.reserved_order_id) throw conflict('หน้าต่างนี้มีผู้จับจองแล้ว')
   if (!input?.imageUrl) throw badRequest('กรุณาเลือกรูปภาพสำหรับหน้าต่าง')
 
+  const archive = restoreTrial ? parseTrialArchive(user) : undefined
+  if (restoreTrial && !archive) throw badRequest('ไม่พบข้อมูลบานทดลองใช้เดิมที่จะกู้คืน')
   const cleaned = cleanContent(input, region)
   const price = row.claim_price
   const payment = await checkPayment(ctx, price, paymentInput)
@@ -293,7 +301,8 @@ export async function claimWindow(
     province: cleaned.province,
     owner_contact: cleaned.owner_contact,
     external_link: cleaned.external_link,
-    imageUrl: await resolveImage(ctx, input.imageUrl),
+    imageUrl: archive && input.imageUrl === archive.image_url ? archive.image_url : await resolveImage(ctx, input.imageUrl),
+    ...(archive ? { profile_json: archive.profile_json, restoredTrial: true as const } : {}),
   }
 
   const orderId = payment.externalAmount > 0 ? newId('ord') : null
@@ -320,6 +329,192 @@ export async function claimWindow(
     await applyClaim(trx, { buyer: user, region, num, price, content, payment, orderId })
   })
   return result(ctx, user.id, payment.viaSlip, orderId)
+}
+
+// ---------------------------------------------------------------- free trial window
+
+/** Start the user's one free trial on an available window: held and built privately for TRIAL_DAYS. */
+export async function startTrial(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: WindowContentInput) {
+  assertCanTrade(user)
+  if (user.trial_used_at) throw forbidden('คุณใช้สิทธิ์ทดลองใช้ฟรีไปแล้ว (1 บานต่อ 1 บัญชี)')
+  if (isPromoSlot(num)) throw badRequest('หน้าต่างหมายเลข 481–486 ล็อกไว้เป็นพื้นที่โปรโมทของระบบ')
+  const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
+  if (!row) throw notFound('ไม่พบบานหน้าต่างที่ต้องการ')
+  if (row.status !== 'available' || row.owner_id || row.reserved_order_id) throw conflict('หน้าต่างนี้มีผู้จับจองแล้ว')
+  if (!input?.imageUrl) throw badRequest('กรุณาเลือกรูปภาพสำหรับหน้าต่าง')
+  const cleaned = cleanContent(input, region)
+  const imageUrl = await resolveImage(ctx, input.imageUrl)
+
+  const now = nowIso()
+  await ctx.db.transaction().execute(async (trx) => {
+    await lockUser(trx, user.id)
+    const used = await trx.selectFrom('users').select('trial_used_at').where('id', '=', user.id).executeTakeFirstOrThrow()
+    if (used.trial_used_at) throw forbidden('คุณใช้สิทธิ์ทดลองใช้ฟรีไปแล้ว (1 บานต่อ 1 บัญชี)')
+    await assertQuota(trx, user.id, region)
+    const updated = await trx
+      .updateTable('windows')
+      .set({
+        title: cleaned.title || `หน้าต่างของ ${user.name}`,
+        description: cleaned.description || 'บันทึกภาพถ่ายและเรื่องราวส่วนตัว',
+        category: cleaned.category,
+        province: cleaned.province,
+        image_url: imageUrl,
+        owner_id: user.id,
+        owner_contact: cleaned.owner_contact,
+        external_link: cleaned.external_link,
+        profile_json: null,
+        status: 'occupied',
+        resale_price: null,
+        claimed_at: now,
+        owner_changed_at: now,
+        owner_change_kind: 'new',
+        last_purchase_price: null,
+        last_image_updated_at: now,
+        edit_day: null,
+        edit_count: 0,
+        note_day: null,
+        note_text: null,
+        note_at: null,
+        welcomed_at: null,
+        content_updated_at: now,
+        published_at: null,
+        trial_ends_at: trialEndsAt(new Date(now)).toISOString(),
+        updated_at: now,
+      })
+      .where('region', '=', region)
+      .where('num', '=', num)
+      .where('status', '=', 'available')
+      .where('owner_id', 'is', null)
+      .where('reserved_order_id', 'is', null)
+      .executeTakeFirst()
+    if (Number(updated.numUpdatedRows) === 0) throw conflict('หน้าต่างนี้มีผู้จับจองแล้ว')
+    await trx.updateTable('users').set({ trial_used_at: now }).where('id', '=', user.id).execute()
+    await insertImage(trx, region, num, imageUrl, 'ภาพเปิดตัวหน้าต่างบานใหม่', now)
+  })
+}
+
+/** Pay the claim price for one's trial window (during the trial or the "รอชำระเงิน" period). */
+export async function payTrial(ctx: AppContext, user: UserRow, region: RegionId, num: number, paymentInput: PaymentInput): Promise<PurchaseResult> {
+  assertCanTrade(user)
+  const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
+  if (!row) throw notFound('ไม่พบบานหน้าต่าง')
+  if (row.owner_id !== user.id || !row.trial_ends_at) throw badRequest('บานนี้ไม่ใช่บานทดลองใช้ของคุณ')
+  if (row.reserved_order_id) throw conflict('มีรายการชำระเงินของบานนี้รอตรวจสอบอยู่แล้ว')
+  if (trialPhase(row.trial_ends_at) === 'expired') throw badRequest('เลยกำหนดชำระเงินของบานทดลองใช้แล้ว')
+
+  const price = row.claim_price
+  const payment = await checkPayment(ctx, price, paymentInput)
+  const orderId = payment.externalAmount > 0 ? newId('ord') : null
+  await ctx.db.transaction().execute(async (trx) => {
+    await lockUser(trx, user.id)
+    await debitWallet(trx, user.id, payment.walletAmount)
+    const label = `ชำระค่าจับจองบานทดลอง ${row.code}`
+    if (payment.viaSlip) {
+      const held = await trx
+        .updateTable('windows')
+        .set({ reserved_order_id: orderId })
+        .where('region', '=', region)
+        .where('num', '=', num)
+        .where('owner_id', '=', user.id)
+        .where('trial_ends_at', 'is not', null)
+        .where('reserved_order_id', 'is', null)
+        .executeTakeFirst()
+      if (Number(held.numUpdatedRows) === 0) throw conflict('มีรายการชำระเงินของบานนี้รอตรวจสอบอยู่แล้ว')
+      await insertOrder(trx, { id: orderId!, user, kind: 'claim', label, amount: price, payment, status: 'pending', payload: { trial: true }, region, num })
+      return
+    }
+    if (orderId) await insertOrder(trx, { id: orderId, user, kind: 'claim', label, amount: price, payment, status: 'approved', region, num })
+    await applyTrialPayment(trx, { buyer: user, region, num, price, payment, orderId })
+  })
+  return result(ctx, user.id, payment.viaSlip, orderId)
+}
+
+/** The trial window becomes a normal paid window and is published right away. */
+async function applyTrialPayment(
+  db: DB,
+  args: { buyer: Pick<UserRow, 'id' | 'name'>; region: RegionId; num: number; price: number; payment: CheckedPayment; orderId?: string | null; heldBy?: string },
+) {
+  const now = nowIso()
+  let update = db
+    .updateTable('windows')
+    .set({ trial_ends_at: null, claimed_at: now, owner_changed_at: now, last_purchase_price: args.price, reserved_order_id: null, published_at: now, content_updated_at: now, updated_at: now })
+    .where('region', '=', args.region)
+    .where('num', '=', args.num)
+    .where('owner_id', '=', args.buyer.id)
+    .where('trial_ends_at', 'is not', null)
+  update = args.heldBy ? update.where('reserved_order_id', '=', args.heldBy) : update.where('reserved_order_id', 'is', null)
+  const updated = await update.executeTakeFirst()
+  if (Number(updated.numUpdatedRows) === 0) throw conflict('บานทดลองใช้นี้ไม่อยู่ในสถานะรอชำระเงินแล้ว')
+
+  const row = await db.selectFrom('windows').select(['code', 'title']).where('region', '=', args.region).where('num', '=', args.num).executeTakeFirstOrThrow()
+  await recordTransaction(db, {
+    windowId: args.num,
+    windowCode: row.code,
+    region: args.region,
+    windowTitle: row.title,
+    fromOwner: `โครงการหน้าต่างประเทศไทย 500 บาน (${args.region})`,
+    toOwner: args.buyer.name,
+    toOwnerId: args.buyer.id,
+    amount: args.price,
+    type: 'claim',
+    ...paymentFields(args.payment, args.orderId),
+  })
+}
+
+/**
+ * Trial windows still unpaid after the "รอชำระเงิน" period go back to the pool; their content is kept on
+ * the user (trial_archive_json) to restore into another window. Windows with a slip waiting are skipped.
+ */
+export async function expireTrials(ctx: AppContext, now = new Date()) {
+  const cutoff = new Date(now.getTime() - TRIAL_GRACE_DAYS * 86_400_000).toISOString()
+  const rows = await ctx.db
+    .selectFrom('windows')
+    .selectAll()
+    .where('trial_ends_at', 'is not', null)
+    .where('trial_ends_at', '<=', cutoff)
+    .where('reserved_order_id', 'is', null)
+    .execute()
+  if (!rows.length) return 0
+  const { claimPrice } = (await getSettings(ctx)).rules
+  const at = now.toISOString()
+  for (const row of rows) {
+    await ctx.db.transaction().execute(async (trx) => {
+      const { region: _r, num: _n, ...empty } = emptyWindowRow(row.region as RegionId, row.num, at, claimPrice)
+      const released = await trx
+        .updateTable('windows')
+        .set({ ...empty, previous_owner_id: row.owner_id })
+        .where('region', '=', row.region)
+        .where('num', '=', row.num)
+        .where('owner_id', '=', row.owner_id)
+        .where('trial_ends_at', '=', row.trial_ends_at)
+        .where('reserved_order_id', 'is', null)
+        .executeTakeFirst()
+      if (Number(released.numUpdatedRows) === 0 || !row.owner_id) return
+      const archive: TrialArchive = {
+        code: row.code,
+        title: row.title,
+        description: row.description,
+        category: row.category,
+        province: row.province,
+        image_url: row.image_url,
+        owner_contact: row.owner_contact,
+        external_link: row.external_link,
+        profile_json: row.profile_json,
+        archived_at: at,
+      }
+      await trx.updateTable('users').set({ trial_archive_json: JSON.stringify(archive) }).where('id', '=', row.owner_id).execute()
+      await trx.insertInto('window_owners').values({ id: newId('wo'), region: row.region, num: row.num, owner_id: row.owner_id, transferred_at: at, type: 'released' }).execute()
+      await trx.deleteFrom('window_follows').where('region', '=', row.region).where('num', '=', row.num).execute()
+    })
+  }
+  return rows.length
+}
+
+/** Releases expired trial windows every 10 minutes. */
+export function startTrialSweep(ctx: AppContext) {
+  const run = () => expireTrials(ctx).catch((err) => console.error('[trial] sweep failed:', err))
+  void run()
+  setInterval(run, 10 * 60_000).unref()
 }
 
 // ---------------------------------------------------------------- resale
@@ -583,7 +778,8 @@ export async function decideOrder(ctx: AppContext, admin: UserRow, orderId: stri
         await completeTopUp(trx, { userId: buyer.id, userName: buyer.name, amount: order.amount, payment, orderId })
       } else if (order.kind === 'claim') {
         const content = JSON.parse(order.payload_json || '{}') as ClaimPayload
-        await applyClaim(trx, { buyer, region, num: order.window_num!, price: order.amount, content, payment, orderId, heldBy: orderId })
+        if ((content as { trial?: boolean }).trial) await applyTrialPayment(trx, { buyer, region, num: order.window_num!, price: order.amount, payment, orderId, heldBy: orderId })
+        else         await applyClaim(trx, { buyer, region, num: order.window_num!, price: order.amount, content, payment, orderId, heldBy: orderId })
       } else if (order.kind === 'resale') {
         const { sellerId } = JSON.parse(order.payload_json || '{}') as { sellerId: string }
         await applyResale(trx, { buyer, sellerId, region, num: order.window_num!, price: order.amount, payment, orderId, heldBy: orderId, rules })

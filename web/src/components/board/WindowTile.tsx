@@ -10,6 +10,7 @@ import { HighlightPill, HotSparks, StarBadge } from './WindowBadges'
 const LIFECYCLE_LOOK = {
   pending: { label: 'จองแล้ว', title: 'จองแล้ว รอยืนยัน', image: '/img/status/pending.webp', tile: 'border-dashed border-[#e8b84a] bg-[#e8b84a]/10 text-[#e8b84a]' },
   building: { label: 'กำลังพัฒนา', title: 'กำลังพัฒนา', image: '/img/status/building.webp', tile: 'border-[#3fb8b0] bg-[#3fb8b0]/10 text-[#3fb8b0]' },
+  unpaid: { label: 'รอชำระเงิน', title: 'รอชำระเงิน', image: '/img/status/building.webp', tile: 'border-dashed border-[#e8b84a] bg-[#e8b84a]/10 text-[#e8b84a]' },
   suspended: { label: 'รอตรวจสอบ', title: 'รอการตรวจสอบ', image: '/img/status/suspended.webp', tile: 'border-[#e0657a] bg-[#e0657a]/10 text-[#e0657a]' },
 } as const
 

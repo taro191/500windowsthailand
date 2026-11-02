@@ -5,8 +5,9 @@ import { CATEGORIES } from '@shared/categories'
 import { highlightKind, highlightLabel, starLevel } from '@shared/windowBadges'
 import { emptyProfile } from '@shared/windowProfile'
 import { quotaFullMessage } from '@shared/windowQuota'
+import { daysLeft, trialPayBy, TRIAL_GRACE_DAYS } from '@shared/trial'
 import { copyToClipboard } from '@/lib/browser'
-import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
+import { claimPriceOf, editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import { loadBoard, markWelcomed, publishWindow, saveWindowProfile } from '@/lib/store'
 import { STAR_LABELS } from '../board/WindowBadges'
 import { Lightbox, type LightboxCaption } from '../Lightbox'
@@ -31,6 +32,8 @@ interface WindowDetailModalProps {
   onClose: () => void
   onClaim: (window: WindowItem) => void
   onBuyResale: (window: WindowItem) => void
+  /** Owner of a free trial window: pay the claim price to keep and publish it. */
+  onPayTrial: (window: WindowItem) => void
   onOpenEditor: (window: WindowItem) => void
   onListForResale: (window: WindowItem, price: number) => void
   onCancelResale: (window: WindowItem) => void
@@ -93,7 +96,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
         ? 'pending'
         : w.welcome && isOwner && !welcomed
           ? 'welcome'
-          : w.lifecycle === 'building' && !isOwner
+          : (w.lifecycle === 'building' || w.lifecycle === 'unpaid') && !isOwner
             ? 'building'
             : null
   const startSetup = async () => {
@@ -252,7 +255,10 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
                 <p className={`${para} !mb-0`}>ผู้ชมเห็นเฉพาะหน้า "รอการตรวจสอบ" เจ้าของยังแก้ไขข้อมูลได้แต่เผยแพร่ไม่ได้ ปลดระงับได้ที่เมนูผู้ดูแลระบบ › หน้าต่างทั้งหมด</p>
               </section>
             )}
-            {w.unpublished && isOwner && (
+            {w.trialEndsAt && isOwner && (
+              <TrialBar w={w} price={claimPriceOf(w)} onPay={requireKyc(() => props.onPayTrial(w))} />
+            )}
+            {w.unpublished && isOwner && !w.trialEndsAt && (
               <section className={`${card} !border-[#3fb8b0] text-[13px] flex flex-wrap items-center gap-3`}>
                 <div className="flex-1 min-w-[200px]">
                   <b className="text-[#3fb8b0]">หน้าต่างนี้ยังไม่เผยแพร่</b>
@@ -351,5 +357,37 @@ function SearchDialog({ initial, onClose, onOpenWindow }: { initial: string; onC
         <p className={para}>ไม่พบผลลัพธ์</p>
       )}
     </KapDialog>
+  )
+}
+
+/** Owner of a free trial window: days left, then the pay-by date, and the pay button. */
+function TrialBar({ w, price, onPay }: { w: WindowItem; price: number; onPay: () => void }) {
+  const unpaid = w.lifecycle === 'unpaid'
+  const payBy = trialPayBy(w.trialEndsAt!)
+  const date = (d: Date) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+  const tone = unpaid ? 'text-(--kap-warn)' : 'text-[#3fb8b0]'
+  return (
+    <section className={`${card} ${unpaid ? '!border-(--kap-warn)' : '!border-[#3fb8b0]'} text-[13px] flex flex-wrap items-center gap-3`}>
+      <div className="flex-1 min-w-[200px]">
+        {unpaid ? (
+          <>
+            <b className={tone}>⏳ ครบช่วงทดลองใช้แล้ว · รอชำระเงิน (เหลือ {daysLeft(payBy)} วัน)</b>
+            <p className={`${para} !mb-0`}>
+              ชำระค่าจับจองภายใน {date(payBy)} เพื่อเก็บบานนี้ไว้และเผยแพร่ ถ้าเลยกำหนด บานจะกลับเป็นบานว่าง แต่ข้อมูลของคุณยังเก็บไว้ให้กู้ใส่บานว่างอื่นได้
+            </p>
+          </>
+        ) : (
+          <>
+            <b className={tone}>🧪 บานทดลองใช้ฟรี · เหลือ {daysLeft(w.trialEndsAt!)} วัน</b>
+            <p className={`${para} !mb-0`}>
+              ผู้เข้าชมจะเห็นหน้า "กำลังพัฒนา" จนกว่าคุณจะชำระค่าจับจอง ชำระแล้วเผยแพร่ทันที · ครบกำหนดแล้วมีเวลาชำระต่ออีก {TRIAL_GRACE_DAYS} วัน
+            </p>
+          </>
+        )}
+      </div>
+      <button type="button" onClick={onPay} disabled={w.reserved} className={`${btn} ${btnPri} disabled:opacity-40`}>
+        {w.reserved ? 'รอตรวจสอบสลิป' : `ชำระ ฿${price.toLocaleString()} และเผยแพร่`}
+      </button>
+    </section>
   )
 }
