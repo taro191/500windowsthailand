@@ -82,7 +82,7 @@ export function HubPanel(props: HubPanelProps) {
     total: windows.length,
     available: windows.filter((w) => w.status === 'available' && !w.lifecycle && !isPromoSlot(w.id)).length,
     forResale: windows.filter((w) => w.status === 'for_resale').length,
-    occupied: windows.filter((w) => w.status === 'occupied').length,
+    occupied: windows.filter((w) => w.status === 'occupied' && !w.lifecycle).length,
   }
 
   return (

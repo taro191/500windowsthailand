@@ -7,7 +7,7 @@ import { emptyProfile } from '@shared/windowProfile'
 import { quotaFullMessage } from '@shared/windowQuota'
 import { copyToClipboard } from '@/lib/browser'
 import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
-import { loadBoard, markWelcomed, saveWindowProfile } from '@/lib/store'
+import { loadBoard, markWelcomed, publishWindow, saveWindowProfile } from '@/lib/store'
 import { STAR_LABELS } from '../board/WindowBadges'
 import { Lightbox, type LightboxCaption } from '../Lightbox'
 import { CoCard } from './detail/CoCard'
@@ -62,6 +62,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
   const pageRef = useRef<HTMLDivElement>(null)
   /** The owner pressed "start" on the welcome screen (shown before the server confirms). */
   const [welcomed, setWelcomed] = useState(false)
+  const [publishing, setPublishing] = useState(false)
 
   // Another window opened from this page (Friend and Co, search): start it from the top.
   useEffect(() => {
@@ -84,9 +85,9 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
   const stars = starLevel(w)
   const profile = w.profile ?? emptyProfile()
   const isAdmin = currentUser?.role === 'admin'
-  // Admins still see a suspended window's content (the server sends it to them only).
+  // The owner and admins still get a suspended window's content (the server sends it to them only).
   const statusView: StatusView | null =
-    w.lifecycle === 'suspended' && !isAdmin
+    w.lifecycle === 'suspended' && !isAdmin && !isOwner
       ? 'suspended'
       : w.lifecycle === 'pending'
         ? 'pending'
@@ -100,6 +101,18 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
     pageRef.current?.scrollTo({ top: 0 })
     const result = await markWelcomed(w.region, w.id)
     if (result.success) props.onWindowChanged()
+  }
+  const contactTeam = () => {
+    onClose()
+    window.location.hash = 'contact'
+  }
+  const publish = async () => {
+    setPublishing(true)
+    const result = await publishWindow(w.region, w.id)
+    setPublishing(false)
+    if (!result.success) return onNotify(result.error, 'error')
+    props.onWindowChanged()
+    onNotify('เผยแพร่แล้ว ผู้เข้าชมเห็นหน้าต่างของคุณแล้ว')
   }
 
   const ctx: DetailContext = {
@@ -203,14 +216,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
             w={w}
             onStart={startSetup}
             onBack={onClose}
-            onContact={
-              isOwner
-                ? () => {
-                    onClose()
-                    window.location.hash = 'contact'
-                  }
-                : undefined
-            }
+            onContact={isOwner ? contactTeam : undefined}
           />
         ) : isAvailable ? (
           <>
@@ -229,10 +235,38 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
           </>
         ) : (
           <>
-            {w.lifecycle === 'suspended' && (
+            {w.lifecycle === 'suspended' && isOwner && (
+              <section className={`${card} !border-[#e0657a] text-[13px] flex flex-wrap items-center gap-3`}>
+                <div className="flex-1 min-w-[200px]">
+                  <b className="text-[#e0657a]">🔒 หน้าต่างบานนี้อยู่ระหว่างรอการตรวจสอบ</b>
+                  <p className={`${para} !mb-0`}>คุณยังแก้ไขข้อมูลได้ แต่ยังเผยแพร่ไม่ได้ จนกว่าจะยกเลิกการระงับ</p>
+                </div>
+                <button type="button" onClick={contactTeam} className={btn}>
+                  ติดต่อทีมงาน
+                </button>
+              </section>
+            )}
+            {w.lifecycle === 'suspended' && !isOwner && (
               <section className={`${card} !border-[#e0657a] text-[13px]`}>
                 <b className="text-[#e0657a]">🔒 หน้าต่างนี้ถูกระงับเพื่อตรวจสอบ</b>
-                <p className={`${para} !mb-0`}>ผู้ชมและเจ้าของเห็นเฉพาะหน้า "รอการตรวจสอบ" ปลดระงับได้ที่เมนูผู้ดูแลระบบ › หน้าต่างทั้งหมด</p>
+                <p className={`${para} !mb-0`}>ผู้ชมเห็นเฉพาะหน้า "รอการตรวจสอบ" เจ้าของยังแก้ไขข้อมูลได้แต่เผยแพร่ไม่ได้ ปลดระงับได้ที่เมนูผู้ดูแลระบบ › หน้าต่างทั้งหมด</p>
+              </section>
+            )}
+            {w.unpublished && isOwner && (
+              <section className={`${card} !border-[#3fb8b0] text-[13px] flex flex-wrap items-center gap-3`}>
+                <div className="flex-1 min-w-[200px]">
+                  <b className="text-[#3fb8b0]">หน้าต่างนี้ยังไม่เผยแพร่</b>
+                  <p className={`${para} !mb-0`}>ผู้เข้าชมจะเห็นหน้า "กำลังพัฒนา" จนกว่าคุณจะกดเผยแพร่ ตกแต่งหน้าต่างให้พร้อม (มีรูปอย่างน้อย 1 รูป) แล้วกดเผยแพร่ได้เลย</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={publish}
+                  disabled={publishing || w.lifecycle === 'suspended'}
+                  title={w.lifecycle === 'suspended' ? 'เผยแพร่ไม่ได้ระหว่างรอการตรวจสอบ' : undefined}
+                  className={`${btn} ${btnPri} disabled:opacity-40`}
+                >
+                  {publishing ? 'กำลังเผยแพร่...' : 'เผยแพร่'}
+                </button>
               </section>
             )}
             <Gallery

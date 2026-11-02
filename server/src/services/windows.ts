@@ -66,6 +66,7 @@ export function emptyWindowRow(region: RegionId, num: number, now = nowIso(), cl
     suspended_at: null,
     welcomed_at: null,
     content_updated_at: null,
+    published_at: null,
     profile_json: null,
     updated_at: now,
   }
@@ -84,34 +85,37 @@ interface Extras {
   /** Detail only. */
   reviews?: WindowReview[]
   community?: Pick<WindowItem, 'updates' | 'links' | 'linkRequests' | 'myLinkRequests'>
-  /** Admins see a suspended window's content. */
-  showSuspended?: boolean
+  /** Admins see the content of suspended and unpublished windows. */
+  showHidden?: boolean
   /** Detail only: short name of whoever reserved an empty window (pending slip check). */
   reservedBy?: string
+  /** The viewer's own payment order is holding this window. */
+  reservedByViewer?: boolean
 }
 
 /** Shown on the board and the window page instead of the content (or the empty slot). */
 function lifecycleOf(row: RowWithOwner): WindowItem['lifecycle'] {
   if (row.suspended_at) return 'suspended'
   if (!row.owner_id) return row.reserved_order_id ? 'pending' : undefined
-  if (row.image_url) return undefined
-  // Owned but nothing to show yet: no main image and no photos in the owner's page.
-  return profileImages(parseProfile(row.profile_json)).length ? undefined : 'building'
+  // Owned, but the owner hasn't pressed "เผยแพร่" yet.
+  return row.published_at ? undefined : 'building'
 }
 
 /**
- * API shape of a window, with its status. A suspended window is sent without its content
- * (title, images, owner, profile…) unless `showSuspended` (admins).
+ * API shape of a window, with its status. Suspended and unpublished windows are sent without
+ * their content (title, images, owner, profile…) except to their owner and admins (`showHidden`).
  */
 export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem {
   const item = buildWindowItem(row, extras)
   const lifecycle = lifecycleOf(row)
   if (!lifecycle) return item
-  if (lifecycle === 'pending') return { ...item, lifecycle, reservedBy: extras.reservedBy }
-  if (lifecycle === 'building' || extras.showSuspended) return { ...item, lifecycle }
+  if (lifecycle === 'pending') return { ...item, lifecycle, reservedBy: extras.reservedBy, reservedByMe: extras.reservedByViewer || undefined }
+  const isOwner = !!extras.viewerId && row.owner_id === extras.viewerId
+  if (isOwner || extras.showHidden) return { ...item, lifecycle, unpublished: row.published_at ? undefined : true }
   return {
     ...item,
     lifecycle,
+    ownerId: '',
     title: '',
     description: '',
     imageUrl: '',
@@ -135,7 +139,7 @@ export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem
 const shortName = (name: string) => Array.from(name.trim().split(/\s+/)[0] || '').slice(0, 4).join('')
 
 /** Whether the viewer may see a suspended window's content (admins). */
-async function canSeeSuspended(db: DB, viewerId: string | null) {
+async function isAdminViewer(db: DB, viewerId: string | null) {
   if (!viewerId) return false
   return (await db.selectFrom('users').select('role').where('id', '=', viewerId).executeTakeFirst())?.role === 'admin'
 }
@@ -320,7 +324,14 @@ export async function loadBoards(ctx: AppContext, viewerId: string | null, asAdm
     if (viewerId && f.user_id === viewerId) mine.add(key)
   }
 
-  const showSuspended = rows.some((r) => r.suspended_at) && (asAdmin || (await canSeeSuspended(ctx.db, viewerId)))
+  const showHidden = rows.some(isHidden) && (asAdmin || (await isAdminViewer(ctx.db, viewerId)))
+  // The viewer's own reservations count as "บานของฉัน" while the slip is checked.
+  const reservedIds = rows.map((r) => r.reserved_order_id).filter((id): id is string => !!id)
+  const myReservations = new Set(
+    viewerId && reservedIds.length
+      ? (await ctx.db.selectFrom('payment_orders').select('id').where('user_id', '=', viewerId).where('id', 'in', reservedIds).execute()).map((o) => o.id)
+      : [],
+  )
   return rows.map((row) => {
     const key = `${row.region}:${row.num}`
     const image = imageByWindow.get(key)
@@ -328,7 +339,8 @@ export async function loadBoards(ctx: AppContext, viewerId: string | null, asAdm
       images: image ? [image] : [],
       followerCount: followCount.get(key) || 0,
       viewerFollows: mine.has(key),
-      showSuspended,
+      showHidden,
+      reservedByViewer: !!row.reserved_order_id && myReservations.has(row.reserved_order_id),
       viewerId,
     })
   })
@@ -340,10 +352,16 @@ export async function loadRow(db: DB, region: RegionId, num: number) {
   return row
 }
 
-/** Throws while an admin holds the window for review (no edits or interaction until released). */
+/**
+ * Throws while an admin holds the window for review: no interaction from others, no resale
+ * and no publishing. The owner can still edit its content meanwhile.
+ */
 export function assertNotSuspended(row: { suspended_at: string | null }) {
   if (row.suspended_at) throw forbidden('หน้าต่างนี้ถูกระงับชั่วคราว อยู่ระหว่างรอการตรวจสอบจากทีมงาน')
 }
+
+/** Content visitors don't get: held for review, or owned but not published yet. */
+const isHidden = (row: Pick<WindowRow, 'suspended_at' | 'owner_id' | 'published_at'>) => !!row.suspended_at || (!!row.owner_id && !row.published_at)
 
 /** One window with its full image and owner history. */
 export async function loadWindow(ctx: AppContext, region: RegionId, num: number, viewerId: string | null, db: DB = ctx.db) {
@@ -358,11 +376,17 @@ export async function loadWindow(ctx: AppContext, region: RegionId, num: number,
   ])
   const reserver =
     !row.owner_id && row.reserved_order_id
-      ? await db.selectFrom('payment_orders').innerJoin('users', 'users.id', 'payment_orders.user_id').select('users.name').where('payment_orders.id', '=', row.reserved_order_id).executeTakeFirst()
+      ? await db
+          .selectFrom('payment_orders')
+          .innerJoin('users', 'users.id', 'payment_orders.user_id')
+          .select(['users.name', 'payment_orders.user_id'])
+          .where('payment_orders.id', '=', row.reserved_order_id)
+          .executeTakeFirst()
       : undefined
   const item = toWindowItem(row, {
-    showSuspended: !!row.suspended_at && (await canSeeSuspended(db, viewerId)),
+    showHidden: isHidden(row) && (await isAdminViewer(db, viewerId)),
     reservedBy: reserver ? shortName(reserver.name) : undefined,
+    reservedByViewer: !!reserver && reserver.user_id === viewerId,
     images: images.map((i) => ({ date: i.date, imageUrl: i.image_url, caption: i.caption })),
     owners: owners
       .filter((o) => o.type !== 'released')
@@ -439,7 +463,6 @@ export async function insertImage(db: Tx, region: RegionId, num: number, imageUr
 export async function editWindow(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: WindowContentInput) {
   if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
   const row = await loadRow(ctx.db, region, num)
-  assertNotSuspended(row)
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   const { editPolicy } = await getSettings(ctx)
   const edit = getEditStatus(toWindowItem(row), editPolicy)
@@ -647,5 +670,19 @@ export async function markWelcomed(ctx: AppContext, user: UserRow, region: Regio
   const row = await loadRow(ctx.db, region, num)
   if (!row.owner_id || row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   if (!row.welcomed_at) await ctx.db.updateTable('windows').set({ welcomed_at: nowIso() }).where('region', '=', region).where('num', '=', num).execute()
+  return loadWindow(ctx, region, num, user.id)
+}
+
+/** The owner's "เผยแพร่" button: visitors see the content instead of "กำลังพัฒนา". */
+export async function publishWindow(ctx: AppContext, user: UserRow, region: RegionId, num: number) {
+  if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
+  const row = await loadRow(ctx.db, region, num)
+  if (!row.owner_id || row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
+  if (row.suspended_at) throw forbidden('หน้าต่างบานนี้อยู่ระหว่างรอการตรวจสอบ ยังเผยแพร่ไม่ได้จนกว่าจะยกเลิกการระงับ')
+  if (!row.published_at) {
+    if (!row.image_url && !profileImages(parseProfile(row.profile_json)).length) throw badRequest('เพิ่มรูปภาพอย่างน้อย 1 รูปก่อนเผยแพร่')
+    const now = nowIso()
+    await ctx.db.updateTable('windows').set({ published_at: now, content_updated_at: now }).where('region', '=', region).where('num', '=', num).execute()
+  }
   return loadWindow(ctx, region, num, user.id)
 }

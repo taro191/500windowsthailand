@@ -9,13 +9,15 @@ export function filterWindows(
   const q = query.toLowerCase().trim()
   return windows.filter((w) => {
     if (status === 'my') {
-      if (!user || w.ownerId !== user.id) return false
+      // Includes the user's own reservation while the slip is checked.
+      if (!user || (w.ownerId !== user.id && !w.reservedByMe)) return false
     } else if (status === 'follow') {
       if (!user || !w.followerIds?.includes(user.id)) return false
     } else if (status.startsWith('fx_')) {
       if (!matchesEffectFilter(w, status)) return false
-    } else if (status !== 'all' && (w.status !== status || (status === 'available' && w.lifecycle))) {
-      // A reserved window (slip being checked) is not free to claim.
+    } else if (status !== 'all' && (w.status !== status || ((status === 'available' || status === 'occupied') && w.lifecycle))) {
+      // A reserved window (slip being checked) is not free to claim, and "มีภาพแล้ว" leaves out
+      // windows whose pictures aren't shown (not published yet, or held for review).
       return false
     }
 

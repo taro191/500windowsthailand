@@ -239,6 +239,8 @@ async function applyClaim(
       reserved_order_id: null,
       welcomed_at: null,
       content_updated_at: now,
+      // The claim form already holds the content the buyer chose to show.
+      published_at: now,
       updated_at: now,
     })
     .where('region', '=', args.region)

@@ -8,8 +8,8 @@ export const FRESH_WINDOW_HOURS = 72
 
 export type HighlightKind = 'hot' | 'fresh' | 'daily'
 
-/** Empty, reserved or held for review: never hot, new, updated or starred. */
-const isInactive = (window: WindowItem) => window.status === 'available' || window.lifecycle === 'suspended'
+/** Empty, reserved, not published yet or held for review: never hot, new, updated or starred. */
+const isInactive = (window: WindowItem) => window.status === 'available' || window.lifecycle === 'suspended' || window.lifecycle === 'building'
 
 export function likesToday(window: WindowItem): number {
   return window.dailyLikes && window.dailyLikes.day === thaiDayKey() ? window.dailyLikes.count : 0

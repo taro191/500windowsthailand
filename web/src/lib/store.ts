@@ -423,6 +423,9 @@ export const removeLink = (region: RegionId, windowId: number, id: string) => de
 /** The owner has seen the one-time "welcome" screen of their new window. */
 export const markWelcomed = (region: RegionId, windowId: number) => detailAction(region, windowId, 'welcomed')
 
+/** The owner's "เผยแพร่" button: visitors see the window instead of "กำลังพัฒนา". */
+export const publishWindow = (region: RegionId, windowId: number) => detailAction(region, windowId, 'publish')
+
 /** One like per visitor per day; returns the updated window. */
 export async function likeWindow(region: RegionId, windowId: number): Promise<{ window: WindowItem; counted: boolean } | null> {
   const result = await post<{ window: WindowItem; counted: boolean }>(`/windows/${region}/${windowId}/like`)

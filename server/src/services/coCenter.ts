@@ -12,6 +12,7 @@ export async function coCenterWindows(ctx: AppContext) {
     .select(['region', 'num', 'code', 'title', 'image_url', 'profile_json', 'content_updated_at', 'last_image_updated_at', 'claimed_at'])
     .where('owner_id', 'is not', null)
     .where('suspended_at', 'is', null)
+    .where('published_at', 'is not', null)
     // Taken-down windows (no main image, title replaced by a notice) are not featured.
     .where('image_url', '!=', '')
     .execute()

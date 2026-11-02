@@ -36,7 +36,7 @@ export function WindowTile({ windowItem, zoomLevel, isSelected, onSelect, curren
 }
 
 function getTileInfo(windowItem: WindowItem, currentUser: User | null) {
-  const isMine = !!currentUser && windowItem.ownerId === currentUser.id
+  const isMine = !!currentUser && (windowItem.ownerId === currentUser.id || !!windowItem.reservedByMe)
   const isFollowed = !!currentUser && !!windowItem.followerIds?.includes(currentUser.id)
   return {
     isMine,
@@ -133,7 +133,7 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
     <button
       onClick={() => onSelect(windowItem)}
       id={`window-${windowItem.id}`}
-      title={`หน้าต่าง ${t.code} · ตำแหน่ง ${t.slot} - ${windowItem.title} (${status})${t.label ? ` · ${t.label}` : ''}`}
+      title={`หน้าต่าง ${t.code} · ตำแหน่ง ${t.slot}${windowItem.title ? ` - ${windowItem.title}` : ''} (${status})${t.label ? ` · ${t.label}` : ''}`}
       className={`relative group aspect-square rounded-sm overflow-hidden border transition-all cursor-pointer font-['Plus_Jakarta_Sans','Prompt',sans-serif] ${t.effectClass} ${t.isFollowed && !t.isMine && !isSelected ? 'kap-followed' : ''} ${ringClass} ${t.look ? t.look.tile : t.isAvailable ? 'bg-stone-900/60 hover:bg-stone-850' : 'bg-[#100d17]'}`}
     >
       {t.look ? (
@@ -269,7 +269,7 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
       <div className="p-2.5 flex flex-col gap-1 text-left flex-1 justify-between">
         <div>
           <h3 className="text-xs sm:text-sm font-semibold text-stone-200 group-hover:text-rose-200 line-clamp-1 transition-colors">
-            {windowItem.lifecycle && windowItem.lifecycle !== 'building' ? `${t.code} · ${t.look?.title}` : windowItem.title}
+            {t.look ? `${t.code} · ${t.look.title}` : windowItem.title}
           </h3>
           {note && (
             <p className="text-[11px] text-emerald-300/90 line-clamp-1 mt-0.5 flex items-center gap-1.5">
@@ -285,9 +285,9 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
         </div>
         <div className="flex items-center justify-between text-[11px] text-stone-400 pt-1 border-t border-stone-850/60 mt-1">
           <span className="truncate max-w-[120px]" title={ownerTitle}>
-            {t.look && windowItem.lifecycle !== 'building' ? 'ยังไม่เปิดให้ชม' : t.isAvailable ? 'พร้อมให้จับจอง' : windowItem.ownerLabel || windowItem.ownerName}
+            {t.look ? 'ยังไม่เปิดให้ชม' : t.isAvailable ? 'พร้อมให้จับจอง' : windowItem.ownerLabel || windowItem.ownerName}
           </span>
-          {!t.isAvailable && windowItem.lifecycle !== 'suspended' && (
+          {!t.isAvailable && !t.look && (
             <span className="flex items-center gap-2 font-mono text-[10px] text-stone-500">
               {followers > 0 && (
                 <span className="flex items-center gap-1" title="ผู้ติดตาม">

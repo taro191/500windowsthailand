@@ -13,7 +13,6 @@ import { assertNotSuspended, loadRow, loadWindow, parseProfile } from './windows
 export async function updateWindowProfile(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: unknown) {
   if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
   const row = await loadRow(ctx.db, region, num)
-  assertNotSuspended(row)
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   const { profile, error } = cleanProfile(input)
   if (error) throw badRequest(error)

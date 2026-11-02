@@ -109,6 +109,7 @@ async function seedDemo(ctx: AppContext) {
         note_text: w.dailyNote?.text ?? null,
         note_at: w.dailyNote?.at ?? null,
         previous_owner_id: w.previousOwnerId ?? null,
+        published_at: w.ownerId ? w.claimedAt ?? nowIso() : null,
         updated_at: nowIso(),
       })
       .where('region', '=', region)

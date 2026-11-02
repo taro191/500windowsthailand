@@ -103,6 +103,8 @@ export async function takeDownContent(ctx: AppContext, admin: UserRow, region: R
       note_day: null,
       note_text: null,
       note_at: null,
+      // Hidden as "กำลังพัฒนา" until the owner adds new content and publishes again.
+      published_at: null,
       updated_at: nowIso(),
     })
     .where('region', '=', region)

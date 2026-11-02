@@ -334,6 +334,11 @@ export function createApp(ctx: AppContext) {
     return ok(c, { window: await windows.markWelcomed(ctx, me(c), region, num) })
   })
 
+  api.post('/windows/:region/:num/publish', async (c) => {
+    const { region, num } = windows.parseWindowRef(c.req.param('region'), c.req.param('num'))
+    return ok(c, { window: await windows.publishWindow(ctx, me(c), region, num) })
+  })
+
   api.post('/windows/:region/:num/follow', async (c) => {
     const { region, num } = windowRoute(c)
     const { following } = await windows.toggleFollow(ctx, me(c), region, num)

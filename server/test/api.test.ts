@@ -292,7 +292,12 @@ describe('window status', () => {
     const pending = (await client().get('/windows/central/30')).window
     assert.equal(pending.lifecycle, 'pending')
     assert.equal(pending.reservedBy, 'สมหญ', 'only the first letters of the first name')
-    assert.equal((await client().get('/boards')).windows.find((w: any) => w.region === 'central' && w.id === 30).lifecycle, 'pending')
+    assert.equal(pending.reservedByMe, undefined)
+    assert.equal((await c.get('/windows/central/30')).window.reservedByMe, true)
+    const onBoardPending = (viewer: ReturnType<typeof client>) => viewer.get('/boards').then((b) => b.windows.find((w: any) => w.region === 'central' && w.id === 30))
+    assert.equal((await onBoardPending(client())).lifecycle, 'pending')
+    assert.equal((await onBoardPending(client())).reservedByMe, undefined)
+    assert.equal((await onBoardPending(c)).reservedByMe, true, 'the reserver finds it under "บานของฉัน"')
 
     const admin = await adminClient()
     await admin.post(`/admin/orders/${claim.order.id}/decide`, { decision: 'approved' })
@@ -307,24 +312,66 @@ describe('window status', () => {
     assert.equal((await admin.post('/admin/windows/central/1/suspend', { suspended: true, reason: 'x' })).status, 400, 'an empty window cannot be held')
     const held = await admin.post('/admin/windows/central/30/suspend', { suspended: true, reason: 'มีผู้แจ้งเนื้อหาไม่เหมาะสม' })
     assert.equal(held.success, true, held.error)
-    for (const viewer of [client(), c]) {
-      const seen = (await viewer.get('/windows/central/30')).window
-      assert.equal(seen.lifecycle, 'suspended')
-      assert.equal(seen.title, '')
-      assert.equal(seen.imageUrl, '')
-      assert.equal(seen.ownerName, '')
-      assert.deepEqual(seen.profile.gallery, [])
-    }
+    const seen = (await client().get('/windows/central/30')).window
+    assert.equal(seen.lifecycle, 'suspended')
+    assert.equal(seen.title, '')
+    assert.equal(seen.imageUrl, '')
+    assert.equal(seen.ownerName, '')
+    assert.equal(seen.ownerId, '')
+    assert.deepEqual(seen.profile.gallery, [])
     const onBoard = (await client().get('/boards')).windows.find((w: any) => w.region === 'central' && w.id === 30)
     assert.equal(onBoard.title, '')
     assert.equal((await admin.get('/windows/central/30')).window.title, content.title, 'admins still see the content')
-    assert.equal((await c.put('/windows/central/30/profile', { tags: ['x'] })).status, 403)
+
+    // The owner keeps their content and can edit it, but can't publish or link while held.
+    const ownView = (await c.get('/windows/central/30')).window
+    assert.equal(ownView.lifecycle, 'suspended')
+    assert.equal(ownView.title, content.title)
+    assert.equal(ownView.unpublished, undefined)
+    const edited = await c.put('/windows/central/30/profile', { tags: ['x'] })
+    assert.equal(edited.success, true, edited.error)
+    assert.equal((await c.post('/windows/central/30/publish')).status, 403)
     assert.equal((await client().post('/windows/central/30/like')).status, 403)
     assert.equal(await windowSharePage(ctx, '<head><title>Site</title></head>', 'central', '30', 'https://example.th'), null)
 
     const released = await admin.post('/admin/windows/central/30/suspend', { suspended: false, reason: 'ตรวจแล้วไม่พบปัญหา' })
     assert.equal(released.success, true, released.error)
     assert.equal((await client().get('/windows/central/30')).window.title, content.title)
+  })
+
+  it('keeps a window "กำลังพัฒนา" until its owner publishes, including after a takedown', async () => {
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 500)
+    const claim = await c.post('/windows/central/31/claim', { content, payment: wallet(500) })
+    assert.equal(claim.success, true, claim.error)
+    assert.equal((await client().get('/windows/central/31')).window.lifecycle, undefined, 'the claim form publishes')
+
+    const admin = await adminClient()
+    const down = await admin.post('/admin/windows/central/31/takedown', { reason: 'ภาพไม่เหมาะสม' })
+    assert.equal(down.success, true, down.error)
+    const visitor = (await client().get('/windows/central/31')).window
+    assert.equal(visitor.lifecycle, 'building')
+    assert.equal(visitor.title, '', 'unpublished content is not sent to visitors')
+    assert.equal(visitor.unpublished, undefined)
+    const own = (await c.get('/windows/central/31')).window
+    assert.equal(own.lifecycle, 'building')
+    assert.equal(own.unpublished, true)
+    assert.notEqual(own.title, '')
+    assert.ok(!(await client().get('/co-center')).windows.some((x: any) => x.url === '/w/central/31'))
+
+    assert.equal((await c.post('/windows/central/31/publish')).status, 400, 'needs a picture first')
+    const { c: other } = await verifiedUser()
+    assert.equal((await other.post('/windows/central/31/publish')).status, 403)
+    assert.equal((await client().post('/windows/central/31/publish')).status, 401)
+
+    const edited = await c.put('/windows/central/31/profile', { gallery: [PNG] })
+    assert.equal(edited.success, true, edited.error)
+    const published = await c.post('/windows/central/31/publish')
+    assert.equal(published.success, true, published.error)
+    assert.equal(published.window.lifecycle, undefined)
+    assert.equal(published.window.unpublished, undefined)
+    assert.equal((await client().get('/windows/central/31')).window.lifecycle, undefined)
+    assert.equal((await c.post('/windows/central/31/publish')).success, true, 'publishing again is harmless')
   })
 })
 

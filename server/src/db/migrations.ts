@@ -428,6 +428,35 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+  '017_window_published': {
+    // "กำลังพัฒนา" now follows the owner's "เผยแพร่" button instead of whether the window has pictures.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('windows').addColumn('published_at', time).execute()
+      // Owned windows that already show something count as published, as before.
+      const rows: { region: string; num: number; image_url: string; profile_json: string | null }[] = await db
+        .selectFrom('windows')
+        .select(['region', 'num', 'image_url', 'profile_json'])
+        .where('owner_id', 'is not', null)
+        .execute()
+      const now = new Date().toISOString()
+      for (const row of rows) {
+        if (!row.image_url && !profileHasImages(row.profile_json)) continue
+        await db.updateTable('windows').set({ published_at: now }).where('region', '=', row.region).where('num', '=', row.num).execute()
+      }
+    },
+  },
+}
+
+/** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */
+function profileHasImages(json: string | null) {
+  try {
+    const p = JSON.parse(json || '{}')
+    const items = [...(p.works || []), ...(p.products || [])]
+    return !!p.logoUrl || !!p.gallery?.length || items.some((o: { images?: string[] }) => o.images?.length)
+  } catch {
+    return false
+  }
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

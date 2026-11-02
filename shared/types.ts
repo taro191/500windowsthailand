@@ -254,12 +254,16 @@ export interface WindowItem {
   reserved?: boolean
   /**
    * Shown instead of the content: `pending` = an empty window reserved, slip not yet checked;
-   * `building` = owned but nothing to show yet; `suspended` = held for review by an admin
-   * (sent without its content, except to admins).
+   * `building` = owned but not published by its owner yet; `suspended` = held for review by an
+   * admin. Building and suspended windows come without their content, except to the owner and admins.
    */
   lifecycle?: 'pending' | 'building' | 'suspended'
   /** Detail only, `pending`: first letters of who reserved it. */
   reservedBy?: string
+  /** `pending`: the viewer's own reservation (counts as "บานของฉัน"). */
+  reservedByMe?: true
+  /** Owner and admins only: the owner hasn't pressed "เผยแพร่" yet (also while suspended). */
+  unpublished?: true
   /** Detail only, for the owner: show the one-time "welcome" screen. */
   welcome?: true
   /** Detail only (not on the boards): the owner's public page, and reviews from the current owner's time. */

@@ -15,7 +15,6 @@ const SUSPENDED = 'บัญชีนี้ถูกระงับการท�
 async function ownedRow(ctx: AppContext, user: UserRow, region: RegionId, num: number) {
   if (user.suspended) throw forbidden(SUSPENDED)
   const row = await loadRow(ctx.db, region, num)
-  assertNotSuspended(row)
   if (!row.owner_id || row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   return row
 }
@@ -131,7 +130,8 @@ export async function requestLink(ctx: AppContext, user: UserRow, region: Region
 
 /** The owner approves (up to PROFILE_LIMITS.partners shown at once) or rejects a request. */
 export async function decideLink(ctx: AppContext, user: UserRow, region: RegionId, num: number, id: string, approve: boolean) {
-  await ownedRow(ctx, user, region, num)
+  // Linking to another window is public, so it waits until the review is over.
+  assertNotSuspended(await ownedRow(ctx, user, region, num))
   const { links, linkRequests } = await loadLinks(ctx.db, region, num, user.id, user.id)
   if (!linkRequests?.some((r) => r.id === id)) throw notFound('ไม่พบคำขอนี้ หรือคำขอถูกจัดการไปแล้ว')
   if (approve && links.length >= PROFILE_LIMITS.partners) throw badRequest(`ครบ ${PROFILE_LIMITS.partners} ช่องแล้ว กรุณายกเลิกลิงก์เดิมก่อน`)

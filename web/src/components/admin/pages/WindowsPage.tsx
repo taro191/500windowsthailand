@@ -13,6 +13,7 @@ const PAGE_SIZE = 25
 export function StatusBadge({ window: w }: { window: WindowItem }) {
   if (w.lifecycle === 'suspended') return <Badge tone="danger">ระงับ รอตรวจสอบ</Badge>
   if (w.lifecycle === 'pending') return <Badge tone="warning">จองแล้ว รอตรวจสลิป</Badge>
+  if (w.lifecycle === 'building') return <Badge tone="secondary">ยังไม่เผยแพร่</Badge>
   if (isPromoSlot(w.id) && w.status === 'available') return <Badge tone="secondary">พื้นที่โปรโมท</Badge>
   if (w.status === 'available') return <Badge tone="info">ว่าง</Badge>
   if (w.status === 'for_resale') return <Badge tone="warning">ขายต่อ {baht(w.resalePrice || 0)}</Badge>
