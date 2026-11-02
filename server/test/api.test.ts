@@ -1700,3 +1700,26 @@ describe('admin document library', () => {
     assert.equal((await user.get('/admin/files')).status, 403)
   })
 })
+
+describe('Life Space journal', () => {
+  it('keeps one journal per account and deletes it when consent is withdrawn', async () => {
+    const { c: a } = await verifiedUser()
+    const { c: b } = await verifiedUser()
+    assert.equal((await a.get('/me/life-space')).data, null)
+
+    const journal = JSON.stringify({ profiles: [{ name: 'ฉัน', birth: '1990-01-01', target: 80, votes: { '2026-11-02': { v: 4, n: 'วันดี', t: ['งาน'] } } }], consent: { v: 1 } })
+    const saved = await a.put('/me/life-space', { data: journal })
+    assert.equal(saved.success, true, saved.error)
+    assert.equal((await a.put('/me/life-space', { data: journal })).success, true)
+    assert.equal((await a.get('/me/life-space')).data, journal)
+    assert.equal((await b.get('/me/life-space')).data, null)
+
+    assert.equal((await a.put('/me/life-space', { data: '{"profiles":' })).status, 400)
+    assert.equal((await a.put('/me/life-space', { data: '{}' })).status, 400)
+    assert.equal((await a.put('/me/life-space', { data: JSON.stringify({ profiles: [], pad: 'x'.repeat(2 * 1024 * 1024) }) })).status, 400)
+
+    assert.equal((await a.post('/me/life-space/delete')).success, true)
+    assert.equal((await a.get('/me/life-space')).data, null)
+    assert.equal((await client().get('/me/life-space')).status, 401)
+  })
+})

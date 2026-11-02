@@ -415,6 +415,19 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('windows').addColumn('content_updated_at', time).execute()
     },
   },
+  '016_life_space': {
+    // Life Space data the user chose to keep on the server (one JSON document per account).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('life_space')
+        .addColumn('user_id', id, (c) => c.primaryKey())
+        // MySQL `text` stops at 64 KB; a family's daily journal can grow past that.
+        .addColumn('data', sql`mediumtext`, (c) => c.notNull())
+        .addColumn('updated_at', time, (c) => c.notNull())
+        .execute()
+    },
+  },
 }
 
 const provider: MigrationProvider = { getMigrations: async () => migrations }

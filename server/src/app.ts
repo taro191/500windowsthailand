@@ -26,6 +26,7 @@ import * as windowProfiles from './services/windowProfiles'
 import * as community from './services/windowCommunity'
 import * as themes from './services/themes'
 import * as adminFiles from './services/adminFiles'
+import * as lifeSpace from './services/lifeSpace'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
 import { sendContactMessage, updateContactMessage } from './services/contact'
@@ -227,6 +228,14 @@ export function createApp(ctx: AppContext) {
   api.post('/kyc/verify', async (c) => {
     const user = await users.verifyKyc(ctx, me(c), await body(c))
     return ok(c, { user: users.selfDto(ctx, user) })
+  })
+
+  // Life Space daily journal (only sent after the user consents in the page).
+  api.get('/me/life-space', async (c) => ok(c, await lifeSpace.getLifeSpace(ctx, me(c))))
+  api.put('/me/life-space', async (c) => ok(c, await lifeSpace.saveLifeSpace(ctx, me(c), (await body<{ data?: unknown }>(c)).data)))
+  api.post('/me/life-space/delete', async (c) => {
+    await lifeSpace.deleteLifeSpace(ctx, me(c))
+    return ok(c)
   })
 
   // ------------------------------------------------------------ windows (signed in)

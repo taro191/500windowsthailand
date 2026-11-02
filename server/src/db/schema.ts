@@ -306,6 +306,14 @@ export interface ContactMessagesTable {
   handled_at: string | null
 }
 
+/** Life Space (Vote my life) data, kept only after the user consents in the page. */
+export interface LifeSpaceTable {
+  user_id: string
+  /** The page's whole state as JSON (profiles, daily votes, notes, tags). */
+  data: string
+  updated_at: string
+}
+
 export interface Database {
   users: UsersTable
   sessions: SessionsTable
@@ -327,6 +335,7 @@ export interface Database {
   admin_files: AdminFilesTable
   audit_log: AuditLogTable
   contact_messages: ContactMessagesTable
+  life_space: LifeSpaceTable
 }
 
 export type UserRow = Selectable<UsersTable>

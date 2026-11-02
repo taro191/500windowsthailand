@@ -155,7 +155,8 @@ var WD=["อาทิตย์","จันทร์","อังคาร","พ�
 var S={profiles:[],active:0,remind:{on:false,time:"20:00"}},sel=null,rng=30,mem=null,addMode=false,lastRd="",pend=[],pn="",ls="",tt,ar,dop=false;
 /* Integration hooks (optional): set before this script runs.
    window.VML_KEY = "my-key"  -> localStorage key (default "vml")
-   window.VML_STORAGE = {get:function(){return jsonString|null}, set:function(jsonString){}}  -> replace storage (synchronous) */
+   window.VML_STORAGE = {get:function(){return jsonString|null}, set:function(jsonString){}}  -> replace storage (synchronous)
+     optional: flush() -> Promise<boolean> (send now, used by "บันทึกประจำวัน"), clear() (delete the server copy when consent is withdrawn) */
 try{if(window.parent!==window){if(parent.VML_STORAGE&&!window.VML_STORAGE)window.VML_STORAGE=parent.VML_STORAGE;if(parent.VML_KEY&&!window.VML_KEY)window.VML_KEY=parent.VML_KEY;if(parent.VML_PRIVACY_URL&&!window.VML_PRIVACY_URL)window.VML_PRIVACY_URL=parent.VML_PRIVACY_URL}}catch(e){}
 var LOC={get:function(){return localStorage.getItem(window.VML_KEY||"vml")},set:function(v){localStorage.setItem(window.VML_KEY||"vml",v)}},SRV=window.VML_STORAGE||null,STG=LOC,CK="vml_srv_consent";
 function ck(){try{return localStorage.getItem(CK)}catch(e){return null}}function cs(v){try{localStorage.setItem(CK,v)}catch(e){}}
@@ -206,7 +207,7 @@ function render(){
  (sv?'':'<p class="mute nudge">แตะใบหน้าที่ตรงกับวันนี้ได้เลย บันทึกให้ทันที</p>')+'<div class="votes">'+[5,4,3,2,1].map(function(n){return '<button class="vb" data-v="'+n+'" aria-pressed="'+(!!sv&&sv.v==n)+'" style="--c:'+L[n].c+'"><span class="emo">'+ic(L[n].e,30)+'</span>'+L[n].t+'</button>'}).join("")+'</div>'+
  (sv?'<h3 class="sh" style="margin-top:18px">อะไรเกี่ยวข้องกับวันนี้? <span class="mute">(ไม่บังคับ)</span></h3><div class="tags" style="margin-top:0" role="group" aria-label="อะไรเกี่ยวข้องกับวันนี้">'+tg().map(function(t){return '<button class="tg" data-t="'+esc(t)+'" aria-pressed="'+(cur.indexOf(t)>=0)+'">'+esc(t)+'</button>'}).join("")+'</div>'+
  '<textarea id="note" rows="2" aria-label="โน้ตของวัน" placeholder="โน้ตสั้นๆ ของวัน (ไม่บังคับ)">'+esc(note)+'</textarea>':'')+
- '<div class="row">'+(sel!=ti?'<button class="btn g" id="gt">กลับมาวันนี้</button>':'')+(sv?'<button class="btn g" id="clr">ล้าง vote ของวันนี้</button>':'')+'</div>')+'</div>'+daily(p,ti)+pins3(pins(p),shareCard(),setupForm(false))+
+ '<div class="row">'+(sel!=ti?'<button class="btn g" id="gt">กลับมาวันนี้</button>':'')+(sv?'<button class="btn" id="svd">บันทึกประจำวัน</button>':'')+'</div>')+'</div>'+daily(p,ti)+pins3(pins(p),shareCard(),setupForm(false))+
  '<div class="card hero" data-s="o"><div class="ring"><svg viewBox="0 0 120 120" role="img" aria-label="ใช้ไป '+pc+' เปอร์เซ็นต์"><circle class="rbg" cx="60" cy="60" r="54"/><circle class="rfg" cx="60" cy="60" r="54" stroke-dasharray="'+(2*Math.PI*54*used/T)+' '+(2*Math.PI*54)+'"/></svg><div class="rt"><b>'+pc+'%</b><span>ใช้ไปแล้ว</span></div></div>'+
  '<div class="hi"><div class="mute">'+esc(p.name)+'</div><div class="big">'+left.toLocaleString()+'</div><div class="mute">วันที่เหลือ จากเป้าหมาย '+p.target+' ปี</div><div class="pills"><span>ผ่านไป '+used.toLocaleString()+' วัน</span><span>เหลือเสาร์อาทิตย์ราว '+Math.round(left/7).toLocaleString()+' สัปดาห์</span></div>'+'<div class="mute" style="margin-top:14px">แบตเตอรี่ชีวิต เหลือ '+(left/T*100).toFixed(1)+'%</div><div class="bar"><i style="width:'+(left/T*100)+'%;background:#10B981"></i></div><div class="mute" style="margin-top:10px">อายุ '+ageOf(p,todayMs())[0]+' ปี · ผ่านไป '+(bday(p,todayMs())[0]+1)+'/'+bday(p,todayMs())[1]+' วันของปีนี้</div><div class="bar"><i style="width:'+((bday(p,todayMs())[0]+1)/bday(p,todayMs())[1]*100)+'%;background:var(--acc)"></i></div></div></div>'+
  lifeStats(p)+summary(p,ti)+
@@ -283,6 +284,13 @@ function selbar(p,ti){var ms=utc(p.birth)+sel*864e5,v=vAt(p,sel),a=ageOf(p,ms),T
 function pickDec(d){var p=P(),T=total(p),ti=idxOf(p,todayMs()),s=d*3650;sel=Math.min(T-1,ti>=s&&ti<s+3650?ti:s);render();var sc=$("#sc");if(sc&&$("#cv"))sc.scrollTop=Math.max(0,Math.floor(sel/365)*($("#cv").clientHeight/p.target)-40)}
 function dk(){var p=P();return key(utc(p.birth)+sel*864e5)}
 function setVote(n){var p=P(),k=dk(),o=p.votes[k];p.votes[k]={v:n,n:$("#note")?$("#note").value:(o&&o.n||""),t:o?(o.t||[]):pend.slice()};save();render();toast("บันทึกแล้ว: "+L[n].t);try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
+/* "บันทึกประจำวัน": keep the day's note, then send everything to the server (asks for consent first) */
+var svq=0;
+function svDay(){var v=vAt(P(),sel),n=$("#note");if(v&&n)v.n=n.value;save();
+ if(!SRV){toast("บันทึกไว้ในเครื่องนี้แล้ว · เข้าสู่ระบบเพื่อเก็บลงระบบ");return}
+ if(STG!==SRV){svq=1;cDlg();return}
+ svPush()}
+function svPush(){var no=function(){toast("บันทึกลงระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")};(SRV.flush?SRV.flush():Promise.resolve(true)).then(function(ok){if(ok)toast("บันทึกประจำวันลงระบบแล้ว");else no()},no)}
 function bind(){
  var e,A=function(s,f){document.querySelectorAll(s).forEach(f)};
  if(e=$("#fs"))e.onclick=function(){var n=$("#fn").value.trim(),b=$("#fb").value,t=+$("#ft").value;if(!n||!b||!(t>=30&&t<=120)){toast("กรอกชื่อ วันเกิด และเป้าหมายอายุ (30–120 ปี) ให้ครบ");return}
@@ -292,7 +300,7 @@ function bind(){
  if(e=$("#afc"))e.onclick=function(){var f=$("#addf");if(f)f.remove()};
  if(e=$("#afs"))e.onclick=function(){var n=$("#afn").value.trim(),b=$("#afb").value,t=+$("#aft").value;if(!n||!b||!(t>=30&&t<=120)){toast("กรอกชื่อ วันเกิด และเป้าหมายอายุ (30–120 ปี) ให้ครบ");return}S.profiles.push({name:n,birth:b,target:t,votes:{}});S.active=S.profiles.length-1;sel=null;save();render()};
  if(e=$("#delp"))e.onclick=function(){var b=this;twice(b,"แตะอีกครั้งเพื่อลบ "+P().name,function(){S.profiles.splice(S.active,1);S.active=0;sel=null;save();render()})};
- if(e=$("#clr"))e.onclick=function(){delete P().votes[dk()];save();render()};
+ if(e=$("#svd"))e.onclick=svDay;
  if(e=$("#gt"))e.onclick=function(){sel=Math.min(idxOf(P(),todayMs()),total(P())-1);render()};
  A(".vb",function(b){b.onclick=function(){setVote(+b.dataset.v)}});
  A(".d,.wk button",function(b){b.onclick=function(){sel=+b.dataset.i;render()}});
@@ -341,7 +349,7 @@ try{matchMedia("(prefers-color-scheme:dark)").addEventListener("change",function
 function emitC(g){var d={granted:g,version:1,at:new Date().toISOString()};try{(window.parent!==window?parent:window).dispatchEvent(new CustomEvent("kap:vml-consent",{detail:d}))}catch(e){}try{parent.postMessage({type:"kap-vml-consent",detail:d},"*")}catch(e){}}
 function cDlg(){if(!SRV)return;var on=STG===SRV,old=document.getElementById("cdlg");if(old)old.remove();var d=document.createElement("div");d.id="cdlg";d.setAttribute("role","dialog");d.setAttribute("aria-modal","true");d.setAttribute("aria-labelledby","cdt");var pu=window.VML_PRIVACY_URL;
 d.innerHTML='<div class="cbox"><h2 id="cdt">เก็บข้อมูล Life Space ไว้ที่ไหน</h2><p>ข้อมูลในหน้านี้ (ชื่อ วันเกิด คะแนนอารมณ์รายวัน และบันทึกส่วนตัว) อาจเป็นข้อมูลอ่อนไหว ตามค่าเริ่มต้นจะเก็บในอุปกรณ์เครื่องนี้เท่านั้น</p><p>หากยินยอม เราจะเก็บสำเนาไว้บนเซิร์ฟเวอร์เพื่อใช้ข้ามอุปกรณ์ จนกว่าคุณจะถอนความยินยอม คุณเปลี่ยนใจได้ทุกเมื่อที่ปุ่ม 🔒 มุมบนของหน้านี้</p>'+(pu?'<p><a href="'+esc(pu)+'" target="_blank" rel="noopener">อ่านนโยบายความเป็นส่วนตัว</a></p>':"")+'<div class="row"><button class="btn" id="cyes">'+(on?"ยังคงเก็บบนเซิร์ฟเวอร์":"ยินยอม เก็บบนเซิร์ฟเวอร์")+'</button><button class="btn g" id="cno">'+(on?"ถอนความยินยอม เก็บเฉพาะในเครื่องนี้":"เก็บเฉพาะในเครื่องนี้")+'</button></div></div>';
-document.body.appendChild(d);$("#cyes").onclick=function(){if(!on){S.consent={v:1,at:new Date().toISOString()};cs("1");STG=SRV;save();emitC(true)}d.remove()};$("#cno").onclick=function(){if(on){delete S.consent;cs("0");STG=LOC;save();emitC(false)}else cs("0");d.remove()};d.addEventListener("keydown",function(e){if(e.key==="Escape")d.remove()});$("#cyes").focus()}
+document.body.appendChild(d);$("#cyes").onclick=function(){if(!on){S.consent={v:1,at:new Date().toISOString()};cs("1");STG=SRV;save();emitC(true)}d.remove();if(svq){svq=0;svPush()}};$("#cno").onclick=function(){if(on){delete S.consent;cs("0");STG=LOC;save();if(SRV.clear)SRV.clear();emitC(false)}else cs("0");d.remove();if(svq){svq=0;toast("บันทึกไว้ในเครื่องนี้เท่านั้น")}};d.addEventListener("keydown",function(e){if(e.key==="Escape")d.remove()});$("#cyes").focus()}
 function consentInit(){if(!SRV)return;var th=$("#th");if(th&&!$("#cbtn")){var b=document.createElement("button");b.id="cbtn";b.className=th.className;b.type="button";b.setAttribute("aria-label","การเก็บข้อมูลและความยินยอม");b.textContent="🔒";b.onclick=cDlg;th.parentNode.insertBefore(b,th)}if(ck()===null)cDlg()}
 setTimeout(consentInit,0);
 load();if(S.theme)document.documentElement.dataset.theme=S.theme;
