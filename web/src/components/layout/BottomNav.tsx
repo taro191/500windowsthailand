@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Bell, House, Map as MapIcon, Megaphone, UserRound } from 'lucide-react'
+import { Bell, Globe2, House, Map as MapIcon, UserRound } from 'lucide-react'
 import type { User } from '@shared/types'
 import { Avatar } from '../Avatar'
 
@@ -10,7 +10,6 @@ interface BottomNavProps {
   followCount: number
   onHome: () => void
   onOpenRegionMenu: () => void
-  onOpenPromo: () => void
   onShowFollowing: () => void
   onOpenProfile: () => void
 }
@@ -21,7 +20,8 @@ export function BottomNav(props: BottomNavProps) {
   const items: { label: string; icon: LucideIcon; onClick: () => void; active?: boolean; badge?: number }[] = [
     { label: 'หน้าหลัก', icon: House, onClick: props.onHome, active: !showingFollow },
     { label: 'ภูมิภาค', icon: MapIcon, onClick: props.onOpenRegionMenu },
-    { label: 'โปรโมท', icon: Megaphone, onClick: props.onOpenPromo },
+    // Co Center: windows picked every 2 hours from all over Thailand (public/kap/co-center.html).
+    { label: 'CO', icon: Globe2, onClick: () => window.location.assign('/kap/co-center.html') },
     { label: 'ติดตาม', icon: Bell, onClick: props.onShowFollowing, active: showingFollow, badge: currentUser ? followCount : 0 },
     { label: 'โปรไฟล์', icon: UserRound, onClick: props.onOpenProfile },
   ]

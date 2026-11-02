@@ -875,7 +875,6 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
         onOpenRegionMenu={() => setRegionMenuOpen(true)}
-        onOpenPromo={() => window.dispatchEvent(new Event(OPEN_PROMO_EVENT))}
         onShowFollowing={() => {
           if (!currentUser) return openAuth('login')
           setStatusFilter('follow')
