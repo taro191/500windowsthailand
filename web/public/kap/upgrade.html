@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>อัปเกรดหน้าต่าง · 500 Windows Thailand</title>
+<meta name="description" content="เปรียบเทียบแผนทดลองใช้ฟรี 60 วัน กับหน้าต่างใช้งานจริง ชำระครั้งเดียว">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root{--bg:#f3f1ea;--card:#fff;--ink:#14323c;--mute:#5d7078;--line:#e3ded2;--ac:#0e6b7a;--ac2:#1b8a86;--hi:#f2b705;--ok:#1b8a5a;--no:#9aa7ad;--on:#fff;--ac-soft:color-mix(in srgb,var(--ac) 10%,var(--card));--sh:0 1px 2px rgba(20,50,60,.06),0 6px 18px rgba(20,50,60,.07);color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0d191e;--card:#16262d;--ink:#eaf2f4;--mute:#9bb0b8;--line:#27404a;--ac:#5cc4d4;--ac2:#2aa6b8;--ok:#4cd694;--no:#6c8590;--on:#06222a;--sh:0 1px 2px #0006,0 6px 18px #0005;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#0d191e;--card:#16262d;--ink:#eaf2f4;--mute:#9bb0b8;--line:#27404a;--ac:#5cc4d4;--ac2:#2aa6b8;--ok:#4cd694;--no:#6c8590;--on:#06222a;--sh:0 1px 2px #0006,0 6px 18px #0005;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.55 Prompt,system-ui,"Noto Sans Thai",sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:980px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(40px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--ink);text-decoration:none;font-weight:500;min-height:44px;padding:0 4px;border-radius:10px}
+.back:hover,.back:focus-visible{color:var(--ac);outline:none}
+.back svg{width:20px;height:20px}
+#demo{background:var(--hi);color:#2b2200;border-radius:99px;padding:2px 12px;font-size:12px;font-weight:500}
+header.h{text-align:center;margin:18px 0 22px}
+h1{margin:0;font-size:30px;font-weight:600;line-height:1.25}
+.lead{margin:8px auto 0;color:var(--mute);max-width:560px}
+.ctx{display:inline-flex;align-items:center;gap:8px;margin-top:14px;background:var(--ac-soft);color:var(--ink);border-radius:99px;padding:5px 14px;font-size:13.5px}
+.ctx b{font-weight:600}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}
+.pl{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:26px;padding:26px 26px 24px;box-shadow:var(--sh)}
+.pl.rec{border:2px solid var(--ac);background:linear-gradient(180deg,color-mix(in srgb,var(--ac) 7%,var(--card)),var(--card) 220px)}
+.tag{position:absolute;top:20px;right:20px;font-size:12px;font-weight:600;border-radius:99px;padding:2px 12px;background:var(--ac-soft);color:var(--ac)}
+.pl h2{margin:0;font-size:16px;font-weight:600;color:var(--mute)}
+.pl h3{margin:14px 0 2px;font-size:26px;font-weight:600;line-height:1.25}
+.pl .d{margin:0;color:var(--mute)}
+.cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;margin:20px 0 4px;border-radius:99px;font:inherit;font-weight:600;font-size:16px;cursor:pointer;text-decoration:none;border:1px solid var(--line);background:transparent;color:var(--mute)}
+.cta.pri{background:linear-gradient(135deg,var(--ac),var(--ac2));border-color:transparent;color:var(--on)}
+.cta.pri:hover{filter:brightness(1.06)}.cta:focus-visible{outline:3px solid var(--ac);outline-offset:3px}
+.cta[disabled],.cta[aria-disabled=true]{cursor:default;opacity:.75;filter:none}
+.price{display:flex;align-items:baseline;gap:8px;margin:14px 0 4px;flex-wrap:wrap}
+.price b{font-size:44px;font-weight:600;line-height:1}.price span{color:var(--mute);font-size:15px}
+.note{margin:0 0 4px;font-size:13px;color:var(--mute)}
+ul.f{list-style:none;margin:16px 0 0;padding:16px 0 0;border-top:1px solid var(--line);display:grid;gap:12px}
+ul.f li{display:flex;gap:12px;align-items:flex-start}
+ul.f svg{flex:none;width:22px;height:22px;margin-top:1px}
+ul.f .y{color:var(--ok)}ul.f .n{color:var(--no)}
+ul.f li.off{color:var(--mute)}
+ul.f small{display:block;color:var(--mute);font-size:12.5px}
+.fine{margin:22px auto 0;max-width:640px;text-align:center;color:var(--mute);font-size:12.5px}
+.fine a{color:var(--ac)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);max-width:min(92vw,420px);padding:10px 16px;border-radius:12px;background:#222;color:#fff;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);text-align:center;z-index:9}
+@media(max-width:720px){
+ h1{font-size:25px}
+ .plans{grid-template-columns:1fr;gap:14px}
+ .pl{padding:22px 18px 20px;border-radius:22px}
+ .price b{font-size:38px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+ <div class="top">
+  <a class="back" id="back" href="central.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>กลับ</a>
+  <span id="demo" hidden>ข้อมูลตัวอย่าง</span>
+ </div>
+ <header class="h">
+  <h1>อัปเกรดหน้าต่างของคุณ</h1>
+  <p class="lead">จ่ายครั้งเดียว ไม่มีค่ารายเดือนหรือรายปี สิ่งที่จัดไว้ตอนทดลองอยู่ครบ ไม่ต้องทำใหม่</p>
+  <div class="ctx" id="ctx" hidden></div>
+ </header>
+
+ <section class="plans" aria-label="เปรียบเทียบแผน">
+  <article class="pl" id="plT">
+   <span class="tag" id="tagT" hidden>แผนปัจจุบันของคุณ</span>
+   <h2>ทดลองใช้ฟรี</h2>
+   <h3>ลองจัดหน้าต่างก่อน</h3>
+   <p class="d">จัดหน้าต่างได้ <span data-r="trialDays">60</span> วัน โดยยังไม่ต้องจ่าย</p>
+   <div class="price"><b>0</b><span>บาท · <span data-r="trialDays">60</span> วัน</span></div>
+   <button class="cta" id="ctaT" type="button" disabled>ทดลองใช้ฟรี</button>
+   <ul class="f">
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>จัดรูป ข้อความ และลิงก์ได้ครบเหมือนหน้าต่างจริง</span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ทดลองได้ 1 หน้าต่างต่อบัญชี<small>ส่วนกลางประเทศไทย หรือ ภูมิภาค อย่างใดอย่างหนึ่ง · บางหมายเลขสงวนไว้สำหรับผู้ใช้งานจริง</small></span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ครบกำหนดแล้วยังชำระได้อีก <span data-r="graceDays">30</span> วัน<small>ถ้าไม่ชำระ บานจะกลับเข้าระบบ แต่เนื้อหาเก็บไว้ให้ใช้กับบานใหม่ได้</small></span></li>
+    <li class="off"><svg class="n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span>ผู้เยี่ยมชมยังมองไม่เห็นหน้าต่าง</span></li>
+    <li class="off"><svg class="n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span>Friend and Co</span></li>
+    <li class="off"><svg class="n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span>Kapsulep &amp; Co : Store</span></li>
+   </ul>
+  </article>
+
+  <article class="pl rec" id="plP">
+   <span class="tag" id="tagP">แนะนำ</span>
+   <h2>ใช้งานจริง</h2>
+   <h3>เปิดหน้าต่างให้ทุกคนเห็น</h3>
+   <p class="d">ปลดล็อกทุกฟีเจอร์ ใช้ต่อจากที่จัดไว้ได้ทันที</p>
+   <div class="price"><b id="price">500</b><span id="priceU">บาท · จ่ายครั้งเดียว</span></div>
+   <p class="note">ไม่มีค่ารายเดือนและรายปี · คิดต่อหน้าต่าง</p>
+   <button class="cta pri" id="ctaP" type="button">ไปชำระเงินที่หน้าต่าง</button>
+   <ul class="f">
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ทุกอย่างในแผนทดลอง และข้อมูลเดิมอยู่ครบ ไม่รีเซ็ต</span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>แสดงบนกระดานให้ผู้เยี่ยมชมเห็น</span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>Friend and Co</span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>Kapsulep &amp; Co : Store<small>ใช้ฟรีตามเงื่อนไขของแต่ละเครื่องมือ ถ้ามีค่าใช้จ่ายเพิ่มจะแจ้งก่อนใช้</small></span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ถือครองได้ ส่วนกลาง 1 + ภูมิภาค 1<small>แต่ละหน้าต่างชำระแยก</small></span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ขายต่อได้เมื่อถือครองครบ <span data-r="holdDays">30</span> วัน<small>ตามเพดานราคาของระบบ</small></span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ขอคืนเงินได้ภายใน <span data-r="refundDays">15</span> วันหลังชำระ<small>คืนเต็มจำนวนเข้ากระเป๋าเงิน ถ้ายังไม่ได้เชื่อม Friend and Co กับหน้าต่างอื่น</small></span></li>
+   </ul>
+  </article>
+ </section>
+ <p class="fine">ชำระเงินที่หน้าต่างของคุณ ด้วยกระเป๋าเงินหรือช่องทางที่ระบบเปิดให้ · ดูกติกาทั้งหมดได้ที่ <a href="/">หน้าแรก</a> เมนูกติกา</p>
+</main>
+<div id="toast" role="status" hidden></div>
+<script>
+window.KAP_UPGRADE_ADAPTER={load:function(){var w=new URLSearchParams(location.search).get('w')||'';return fetch('/api/upgrade?w='+encodeURIComponent(w),{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){if(!d.success)throw new Error(d.error);return d})}};
+</script>
+<script>
+(function(){
+'use strict';
+var $=function(i){return document.getElementById(i)};
+function safeUrl(u){u=String(u||'');return/^(https:\/\/\S+|\/(?!\/)\S*|[^\s:\/][^\s:]*)$/.test(u)?u:''}
+function toast(m){var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true},2800)}
+function emit(n,d){var ev=new CustomEvent('kap:'+n,{detail:d,cancelable:true});document.dispatchEvent(ev);return ev.defaultPrevented}
+function demoData(){return{windowName:'Kapsulep & Co',rules:{trialDays:60,graceDays:30,refundDays:15,holdDays:30},payUrl:'',backUrl:'central.html',plan:{type:'trial',status:'active',daysLeft:23,price:'500 บาท'}}}
+async function init(){
+  var ad=window.KAP_UPGRADE_ADAPTER,d,demo=false;
+  var err='';
+  try{if(ad&&ad.load)d=await ad.load();else{d=demoData();demo=true}}catch(e){console.warn('[KAP_UPGRADE] load failed',e);d=null;err=e&&e.message}
+  if(!d||typeof d!=='object'){$('ctaP').disabled=true;$('ctaP').textContent='โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง';if(err)toast(String(err).slice(0,120));return}
+  var r=d.rules||{};document.querySelectorAll('[data-r]').forEach(function(el){var v=r[el.getAttribute('data-r')];if(Number.isFinite(+v))el.textContent=String(Math.floor(+v))});
+  $('demo').hidden=!demo;
+  var p=d.plan||{},type=p.type==='paid'?'paid':'trial',left=Number.isFinite(+p.daysLeft)?Math.max(0,Math.floor(+p.daysLeft)):null;
+  var pr=String(p.price||'500 บาท').slice(0,30),m=pr.match(/^([\d,.]+)\s*(.*)$/);
+  $('price').textContent=m?m[1]:pr;$('priceU').textContent=(m&&m[2]?m[2]+' · ':'บาท · ')+'จ่ายครั้งเดียว';
+  var back=safeUrl(d.backUrl);if(back)$('back').href=back;
+  var expired=p.status==='expired'||p.status==='suspended';
+  var ctx=$('ctx');
+  if(d.windowName){ctx.hidden=false;ctx.textContent='';var b=document.createElement('b');b.textContent=String(d.windowName).slice(0,60);ctx.appendChild(b);
+    if(type==='trial'&&left!=null)ctx.appendChild(document.createTextNode(p.status==='expired'?' · หมดช่วงทดลองแล้ว ชำระได้อีก '+left+' วัน':' · ทดลองใช้เหลือ '+left+' วัน'))}
+  if(type==='trial'){$('tagT').hidden=false;$('tagT').textContent=expired?'หมดช่วงทดลองใช้':'แผนปัจจุบันของคุณ'}
+  else{$('tagP').textContent='แผนปัจจุบันของคุณ';var c=$('ctaP');c.disabled=true;c.textContent='ใช้งานอยู่';c.classList.remove('pri');$('plP').classList.remove('rec')}
+  var pay=safeUrl(d.payUrl);
+  if(type==='trial')$('ctaP').addEventListener('click',function(){
+    if(emit('upgrade-pay',{url:pay,price:pr}))return;
+    if(pay)location.href=pay;else if(demo)toast('โหมดตัวอย่าง — ระบบจริงจะพาไปหน้าชำระเงินของระบบหลัก');else toast('ยังไม่มีลิงก์ชำระเงิน กรุณาติดต่อผู้ดูแลระบบ')});
+}
+init();
+})();
+</script>
+</body>
+</html>

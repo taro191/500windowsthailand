@@ -1,12 +1,12 @@
 // The central page (public/kap/central.html): Kapsulep & Co apps, "500WinTH & Co" announcements
 // and the signed-in user's own windows. Announcements are written and published by admins.
-import type { CentralNews } from '@shared/types'
-import { REGIONS_BY_ID } from '@shared/regions'
+import type { CentralNews, RegionId } from '@shared/types'
 import { thaiDayKey } from '@shared/thaiTime'
-import { daysLeft, trialPayBy, trialPhase } from '@shared/trial'
+import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
+import { daysLeft, REFUND_DAYS, TRIAL_DAYS, TRIAL_GRACE_DAYS, trialPayBy, trialPhase } from '@shared/trial'
 import type { CentralNewsTable, UserRow, WindowRow } from '../db/schema'
 import { newId } from '../lib/crypto'
-import { badRequest, conflict, notFound } from '../lib/errors'
+import { ApiError, badRequest, conflict, notFound } from '../lib/errors'
 import { isDataUrl, saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
 import { audit } from './audit'
@@ -84,9 +84,9 @@ export async function myCentral(ctx: AppContext, user: UserRow | null) {
       groupName: REGIONS_BY_ID[r.region as keyof typeof REGIONS_BY_ID]?.name ?? r.region,
       rank: r.num,
       url,
-      // Editing and paying are done on the window page itself.
+      // Editing and paying are done on the window page itself; upgrade.html compares the plans first.
       editUrl: url,
-      upgradeUrl: url,
+      upgradeUrl: `/kap/upgrade.html?w=${r.region}-${r.num}`,
       plan: planOf(r),
       stats: {
         views: r.views_count,
@@ -104,6 +104,40 @@ export async function myCentral(ctx: AppContext, user: UserRow | null) {
       ...(has(true) ? {} : { central: { url: '/' } }),
       ...(has(false) ? {} : { region: { url: '/' } }),
     },
+  }
+}
+
+// ---------------------------------------------------------------- upgrade page
+
+/** Plan comparison page (public/kap/upgrade.html) for one of the user's windows, `ref` = "<region>-<num>". */
+export async function upgradeData(ctx: AppContext, user: UserRow | null, ref: string) {
+  if (!user) throw new ApiError(401, 'กรุณาเข้าสู่ระบบก่อน')
+  const [, region, num] = ref.match(/^([a-z]+)-(\d+)$/) ?? []
+  const row =
+    region && REGION_IDS.includes(region as RegionId)
+      ? await ctx.db
+          .selectFrom('windows')
+          .select(['region', 'num', 'code', 'title', 'owner_id', 'claim_price', 'trial_ends_at', 'suspended_at'])
+          .where('region', '=', region)
+          .where('num', '=', Number(num))
+          .executeTakeFirst()
+      : undefined
+  if (!row || row.owner_id !== user.id) throw notFound('ไม่พบหน้าต่างนี้ในบัญชีของคุณ')
+  const { rules } = await getSettings(ctx)
+  const url = `/w/${row.region}/${row.num}`
+  const phase = row.trial_ends_at ? trialPhase(row.trial_ends_at) : null
+  return {
+    windowName: row.title || row.code,
+    // Paying is done from the window itself (wallet, card or transfer slip).
+    payUrl: url,
+    backUrl: '/kap/central.html',
+    plan: {
+      type: row.trial_ends_at ? 'trial' : 'paid',
+      status: row.suspended_at ? 'suspended' : phase === 'unpaid' || phase === 'expired' ? 'expired' : 'active',
+      daysLeft: row.trial_ends_at ? daysLeft(phase === 'trial' ? row.trial_ends_at : trialPayBy(row.trial_ends_at)) : undefined,
+      price: `${(row.trial_ends_at ? row.claim_price : rules.claimPrice).toLocaleString('en-US')} บาท`,
+    },
+    rules: { trialDays: TRIAL_DAYS, graceDays: TRIAL_GRACE_DAYS, refundDays: REFUND_DAYS, holdDays: rules.minHoldingDays },
   }
 }
 

@@ -162,6 +162,7 @@ export function createApp(ctx: AppContext) {
   // The central page (public/kap/central.html); 'me' is null when signed out.
   api.get('/central', async (c) => ok(c, await central.centralData(ctx)))
   api.get('/central/me', async (c) => ok(c, { me: await central.myCentral(ctx, c.get('user') ?? null) }))
+  api.get('/upgrade', async (c) => ok(c, await central.upgradeData(ctx, c.get('user') ?? null, c.req.query('w') ?? '')))
   api.get('/promo', async (c) => ok(c, { ads: await promo.activeAds(ctx), reservedRounds: await promo.reservedRounds(ctx) }))
 
   // ------------------------------------------------------------ account
