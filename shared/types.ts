@@ -440,6 +440,8 @@ export interface PlatformSettings {
   coStore: { title: string; apps: CoStoreApp[] }
   /** Window codes a free trial can't start on (see shared/paidOnly.ts), e.g. "KAP-TH-008, KAP-TH-088..099". */
   paidOnly: { codes: string }
+  /** Window codes that are not sold at all: no paid claim and no free trial (same format as paidOnly). */
+  notForSale: { codes: string }
   updatedAt?: string
 }
 

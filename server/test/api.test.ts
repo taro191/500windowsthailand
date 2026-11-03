@@ -478,6 +478,27 @@ describe('free trial window', () => {
     assert.equal((await save('')).success, true)
   })
 
+  it('keeps not-for-sale window codes off sale', async () => {
+    const admin = await adminClient()
+    const { settings } = await client().get('/config')
+    const save = (codes: string) => admin.put('/admin/settings', { settings: { ...settings, notForSale: { codes } }, what: 'บานไม่เปิดขาย' })
+    assert.equal((await save('KAP-XX-001')).status, 400)
+    const saved = await save('kap-s-th-161..162')
+    assert.equal(saved.success, true, saved.error)
+    assert.equal(saved.settings.notForSale.codes, 'KAP-S-TH-161..162')
+
+    const buyer = await verifiedUser()
+    await topUpByCard(buyer.c, 500)
+    const claim = await buyer.c.post('/windows/south/161/claim', { content, payment: wallet(500) })
+    assert.equal(claim.status, 403)
+    assert.match(claim.error, /ไม่เปิดให้จับจอง/)
+    assert.equal((await buyer.c.post('/windows/south/162/trial', { content })).status, 403, 'nor as a free trial')
+    assert.equal((await buyer.c.post('/windows/south/163/claim', { content, payment: wallet(500) })).success, true)
+    assert.equal((await save('')).success, true)
+    const reopened = await (await verifiedUser()).c.post('/windows/south/162/trial', { content })
+    assert.equal(reopened.success, true, reopened.error)
+  })
+
   it('locks Friend and Co on trial windows', async () => {
     const trial = await verifiedUser()
     assert.equal((await trial.c.post('/windows/south/154/trial', { content })).success, true)

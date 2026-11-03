@@ -10,7 +10,7 @@ import { commissionRate, enabledChannels, resaleCommission, SLIP_CHANNEL_TYPES }
 import { REGIONS_BY_ID } from '@shared/regions'
 import { isPromoSlot } from '@shared/promo'
 import { buildQuota } from '@shared/windowQuota'
-import { isPaidOnly } from '@shared/paidOnly'
+import { inCodeList, isPaidOnly } from '@shared/paidOnly'
 import { REFUND_DAYS, TRIAL_GRACE_DAYS, trialEndsAt, trialPhase } from '@shared/trial'
 import type { DB } from '../db'
 import type { OrderRow, UserRow } from '../db/schema'
@@ -291,6 +291,7 @@ export async function claimWindow(
   const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
   if (!row) throw notFound('ไม่พบบานหน้าต่างที่ต้องการ')
   if (row.status !== 'available' || row.owner_id || row.reserved_order_id) throw conflict('หน้าต่างนี้มีผู้จับจองแล้ว')
+  await assertForSale(ctx, row.code)
   if (!input?.imageUrl) throw badRequest('กรุณาเลือกรูปภาพสำหรับหน้าต่าง')
 
   const archive = restoreTrial ? parseTrialArchive(user) : undefined
@@ -411,6 +412,13 @@ export async function refundWindow(ctx: AppContext, user: UserRow, region: Regio
   return { amount, toBank, user: selfDto(ctx, await requireUserRow(ctx, user.id)) }
 }
 
+const NOT_FOR_SALE = 'หน้าต่างหมายเลขนี้ไม่เปิดให้จับจอง กรุณาเลือกบานอื่น'
+
+/** Codes the admin keeps off sale entirely (settings.notForSale). */
+async function assertForSale(ctx: AppContext, code: string) {
+  if (inCodeList(code, (await getSettings(ctx)).notForSale.codes)) throw forbidden(NOT_FOR_SALE)
+}
+
 const PAID_ONLY = 'หน้าต่างหมายเลขนี้สงวนไว้สำหรับผู้ใช้งานจริง (ชำระเงิน) ทดลองใช้ฟรีกับบานนี้ไม่ได้ กรุณาเลือกบานอื่น'
 
 export async function startTrial(ctx: AppContext, user: UserRow, region: RegionId, num: number, input: WindowContentInput) {
@@ -420,6 +428,7 @@ export async function startTrial(ctx: AppContext, user: UserRow, region: RegionI
   const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
   if (!row) throw notFound('ไม่พบบานหน้าต่างที่ต้องการ')
   if (row.status !== 'available' || row.owner_id || row.reserved_order_id) throw conflict('หน้าต่างนี้มีผู้จับจองแล้ว')
+  await assertForSale(ctx, row.code)
   if (isPaidOnly(row.code, (await getSettings(ctx)).paidOnly.codes)) throw forbidden(PAID_ONLY)
   if (!input?.imageUrl) throw badRequest('กรุณาเลือกรูปภาพสำหรับหน้าต่าง')
   const cleaned = cleanContent(input, region)

@@ -38,17 +38,25 @@ export function parsePaidOnly(text: string): { ranges: PaidOnlyRange[]; error?: 
   return { ranges }
 }
 
-// The board asks for every tile, so the last parsed list is kept.
-let cached = { text: '', ranges: [] as PaidOnlyRange[] }
+// The board asks for every tile, so parsed lists are kept (one per text: the paid-only and not-for-sale lists).
+const cache = new Map<string, PaidOnlyRange[]>()
 
-/** Whether a free trial is refused on this window code. */
-export function isPaidOnly(code: string, text: string): boolean {
+/** Whether the code is covered by a list written in this format. */
+export function inCodeList(code: string, text: string): boolean {
   if (!text.trim()) return false
   const c = splitCode(code)
   if (!c) return false
-  if (cached.text !== text) cached = { text, ranges: parsePaidOnly(text).ranges }
-  return cached.ranges.some((r) => r.prefix === c.prefix && c.num >= r.from && c.num <= r.to)
+  let ranges = cache.get(text)
+  if (!ranges) {
+    if (cache.size > 20) cache.clear()
+    ranges = parsePaidOnly(text).ranges
+    cache.set(text, ranges)
+  }
+  return ranges.some((r) => r.prefix === c.prefix && c.num >= r.from && c.num <= r.to)
 }
+
+/** Whether a free trial is refused on this window code. */
+export const isPaidOnly = inCodeList
 
 /** How many window codes the list covers (duplicates counted once). */
 export function paidOnlyCount(text: string): number {

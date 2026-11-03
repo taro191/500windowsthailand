@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CircleAlert, FlaskConical, History, Image as ImageIcon, ShieldCheck, Sparkles, Upload, X } from 'lucide-react'
+import { Ban, CircleAlert, FlaskConical, History, Image as ImageIcon, ShieldCheck, Sparkles, Upload, X } from 'lucide-react'
 import type { AuthMode, CategoryId, Quota, User, WindowContentInput, WindowItem } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES, CATEGORY_IDS } from '@shared/categories'
@@ -7,7 +7,7 @@ import { DEMO_IMAGES } from '@shared/seedWindows'
 import { maskCitizenId } from '@shared/identity'
 import { quotaFullMessage } from '@shared/windowQuota'
 import { TRIAL_DAYS, TRIAL_GRACE_DAYS } from '@shared/trial'
-import { isPaidOnly } from '@shared/paidOnly'
+import { inCodeList, isPaidOnly } from '@shared/paidOnly'
 import { claimPriceOf, useSettings } from '@/lib/settings'
 import { compressImage } from '@/lib/browser'
 import { KapsulepLogo } from '../KapsulepLogo'
@@ -52,7 +52,9 @@ export function ClaimWindowModal({
   const [restoring, setRestoring] = useState(false)
   const archive = currentUser?.trialArchive
   const canTrial = !!currentUser && !currentUser.trialUsed
-  const paidOnly = isPaidOnly(windowItem.code, useSettings().paidOnly.codes)
+  const settings = useSettings()
+  const paidOnly = isPaidOnly(windowItem.code, settings.paidOnly.codes)
+  const notForSale = inCodeList(windowItem.code, settings.notForSale.codes)
 
   const price = claimPriceOf(windowItem)
   const hasEnoughBalance = currentUser ? currentUser.balance >= price : false
@@ -125,6 +127,26 @@ export function ClaimWindowModal({
 
   const inputClass =
     'w-full bg-stone-950 border border-stone-700 text-stone-100 px-3 py-2 rounded-lg focus:outline-none focus:border-rose-400'
+
+  // Kept off sale by the admin (settings.notForSale): nothing to claim or try.
+  if (notForSale) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm font-['Plus_Jakarta_Sans','Prompt',sans-serif]" onClick={onClose}>
+        <div className="w-full max-w-sm bg-[#110e1a] border border-purple-900/50 rounded-2xl shadow-2xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-stone-800 text-stone-400 flex items-center justify-center">
+            <Ban className="w-6 h-6" />
+          </div>
+          <p className="m-0 font-bold text-stone-100">
+            หน้าต่างบานที่ {code} ไม่เปิดขาย
+          </p>
+          <p className="mt-2 mb-5 text-xs text-stone-400 font-light">หมายเลขนี้ไม่เปิดให้จับจองหรือทดลองใช้ กรุณาเลือกบานอื่น</p>
+          <button type="button" onClick={onClose} className="px-5 py-2 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 text-sm font-semibold cursor-pointer">
+            ปิด
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm overflow-y-auto font-['Plus_Jakarta_Sans','Prompt',sans-serif]">

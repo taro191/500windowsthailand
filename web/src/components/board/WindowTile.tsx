@@ -1,8 +1,8 @@
-import { Heart, Lock, Plus, ShoppingBag, Tag, Users } from 'lucide-react'
+import { Ban, Heart, Lock, Plus, ShoppingBag, Tag, Users } from 'lucide-react'
 import type { User, WindowItem, ZoomLevel } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
 import { followerCount, highlightClass, highlightLabel, todaysNote } from '@shared/windowBadges'
-import { isPaidOnly } from '@shared/paidOnly'
+import { inCodeList, isPaidOnly } from '@shared/paidOnly'
 import { useRules, useSettings } from '@/lib/settings'
 import { adForSlot, isPromoSlot, safeImageUrl, showPromo, type PromoAd } from '@/lib/promo'
 import { HighlightPill, HotSparks, StarBadge } from './WindowBadges'
@@ -116,8 +116,11 @@ type TileProps = Omit<WindowTileProps, 'zoomLevel'>
 function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion }: TileProps) {
   const t = getTileInfo(windowItem, currentUser)
   const rules = useRules()
+  const offSale = t.isAvailable && inCodeList(windowItem.code, useSettings().notForSale.codes)
   const status = t.look
     ? t.look.title
+    : offSale
+    ? 'ไม่เปิดขาย'
     : t.isAvailable
     ? `ว่าง ${rules.claimPrice.toLocaleString()}฿`
     : t.isForResale
@@ -147,7 +150,11 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
       ) : t.isAvailable ? (
         <div className="w-full h-full flex flex-col items-center justify-center p-0.5 text-stone-500 group-hover:text-rose-300 transition-colors">
           <span className="text-[9px] font-mono leading-none">{windowItem.id}</span>
-          <span className="text-[7px] text-rose-400/90 font-mono mt-0.5 font-medium">ว่าง</span>
+          {offSale ? (
+            <span className="text-[7px] text-stone-500 font-mono mt-0.5 font-medium">ไม่ขาย</span>
+          ) : (
+            <span className="text-[7px] text-rose-400/90 font-mono mt-0.5 font-medium">ว่าง</span>
+          )}
         </div>
       ) : (
         <>
@@ -179,7 +186,8 @@ function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion
 function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: TileProps & { zoomLevel: ZoomLevel }) {
   const t = getTileInfo(windowItem, currentUser)
   const rules = useRules()
-  const paidOnlyCodes = useSettings().paidOnly.codes
+  const { paidOnly, notForSale } = useSettings()
+  const offSale = t.isAvailable && inCodeList(windowItem.code, notForSale.codes)
   const note = todaysNote(windowItem)
   const followers = followerCount(windowItem)
   const borderClass = isSelected
@@ -239,6 +247,13 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
         {t.look ? (
           // The status poster has its text in the picture.
           <img src={t.look.image} alt={t.look.title} className="w-full h-full object-contain bg-white" loading="lazy" />
+        ) : offSale ? (
+          <div className="w-full h-full p-4 flex flex-col items-center justify-center text-center bg-radial from-[#181326] to-[#09080e] border border-dashed border-stone-800">
+            <div className="w-10 h-10 rounded-full bg-stone-800/80 text-stone-500 flex items-center justify-center mb-2">
+              <Ban className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-medium text-stone-400">ไม่เปิดขาย</span>
+          </div>
         ) : t.isAvailable ? (
           <div className="w-full h-full p-4 flex flex-col items-center justify-center text-center bg-radial from-[#181326] to-[#09080e] border border-dashed border-stone-800 hover:border-rose-500/50 transition-colors">
             <div className="w-10 h-10 rounded-full bg-stone-800/80 group-hover:bg-rose-500/20 text-stone-400 group-hover:text-rose-300 flex items-center justify-center transition-colors mb-2">
@@ -246,7 +261,7 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
             </div>
             <span className="text-xs font-medium text-stone-300 group-hover:text-rose-200">จับจองบานนี้</span>
             <span className="text-[11px] text-stone-500 font-mono mt-0.5">{rules.claimPriceLabel} (ตลอดชีพ)</span>
-            {isPaidOnly(windowItem.code, paidOnlyCodes) && (
+            {isPaidOnly(windowItem.code, paidOnly.codes) && (
               <span className="mt-1.5 text-[10px] px-1.5 rounded border border-rose-500/40 bg-rose-500/15 text-rose-300">สงวนสำหรับผู้ใช้งานจริง</span>
             )}
           </div>

@@ -126,5 +126,8 @@ export function settingsChanges(before: PlatformSettings, after: PlatformSetting
   if (before.paidOnly.codes !== after.paidOnly.codes) {
     add('settings.paidOnly', [`• รหัสสงวนสำหรับผู้ใช้งานจริง: ${before.paidOnly.codes || '-'} → ${after.paidOnly.codes || '-'}`])
   }
+  if (before.notForSale.codes !== after.notForSale.codes) {
+    add('settings.notForSale', [`• บานไม่เปิดขาย: ${before.notForSale.codes || '-'} → ${after.notForSale.codes || '-'}`])
+  }
   return changes
 }

@@ -107,6 +107,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
   contact: DEFAULT_CONTACT,
   coStore: { title: '500 Windows Thailand : Store', apps: [] },
   paidOnly: { codes: '' },
+  notForSale: { codes: '' },
 }
 
 export const CO_STORE_LIMITS = { apps: 12, title: 60, name: 40, description: 120, url: 300, icon: 4, category: 20, badge: 12 }
@@ -233,6 +234,10 @@ export function validateSettings(settings: PlatformSettings): string | null {
   if (settings.paidOnly.codes.length > 5000) return 'รายการรหัสสงวนยาวเกิน 5,000 ตัวอักษร'
   const paidOnlyError = parsePaidOnly(settings.paidOnly.codes).error
   if (paidOnlyError) return paidOnlyError
+  if (!settings.notForSale || typeof settings.notForSale.codes !== 'string') return 'ข้อมูลบานไม่เปิดขายไม่ครบ'
+  if (settings.notForSale.codes.length > 5000) return 'รายการบานไม่เปิดขายยาวเกิน 5,000 ตัวอักษร'
+  const notForSaleError = parsePaidOnly(settings.notForSale.codes).error
+  if (notForSaleError) return notForSaleError
   return validateContact(settings.contact) ?? validateCoStore(settings.coStore)
 }
 

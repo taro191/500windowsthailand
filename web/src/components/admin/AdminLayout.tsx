@@ -104,7 +104,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   themes: 'ธีมเว็บไซต์',
   files: 'คลังเอกสาร',
   'window-archives': 'บานที่ถูกลบ',
-  'paid-only': 'รหัสสงวน (ผู้จ่ายเงิน)',
+  'paid-only': 'รหัสสงวน / ไม่เปิดขาย',
   'line-alerts': 'แจ้งเตือนทาง LINE',
   audit: 'บันทึกการใช้งาน',
 }

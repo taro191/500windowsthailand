@@ -5,12 +5,15 @@ import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES } from '@shared/categories'
 import { archiveWindow, loadWindowArchives, releaseWindow, restoreWindowArchive, setWindowSuspended, takeDownContent } from '@/lib/adminApi'
 import { isPromoSlot } from '@/lib/promo'
+import { useSettings } from '@/lib/settings'
+import { inCodeList } from '@shared/paidOnly'
 import type { AdminPageProps } from '../adminData'
 import { Badge, baht, Button, Card, DataTable, inputClass, thaiDateTime } from '../ui'
 
 const PAGE_SIZE = 25
 
 export function StatusBadge({ window: w }: { window: WindowItem }) {
+  const notForSale = useSettings().notForSale.codes
   if (w.lifecycle === 'suspended') return <Badge tone="danger">ระงับ รอตรวจสอบ</Badge>
   if (w.lifecycle === 'pending') return <Badge tone="warning">จองแล้ว รอตรวจสลิป</Badge>
   if (w.lifecycle === 'unpaid') return <Badge tone="warning">ทดลองใช้ครบ รอชำระเงิน</Badge>
@@ -18,6 +21,7 @@ export function StatusBadge({ window: w }: { window: WindowItem }) {
   if (w.takenDown) return <Badge tone="danger">ระงับเนื้อหา</Badge>
   if (w.lifecycle === 'building') return <Badge tone="secondary">ยังไม่เผยแพร่</Badge>
   if (isPromoSlot(w.id) && w.status === 'available') return <Badge tone="secondary">พื้นที่โปรโมท</Badge>
+  if (w.status === 'available' && inCodeList(w.code, notForSale)) return <Badge tone="secondary">ไม่เปิดขาย</Badge>
   if (w.status === 'available') return <Badge tone="info">ว่าง</Badge>
   if (w.status === 'for_resale') return <Badge tone="warning">ขายต่อ {baht(w.resalePrice || 0)}</Badge>
   return <Badge tone="success">มีเจ้าของ</Badge>
