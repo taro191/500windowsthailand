@@ -1,5 +1,5 @@
 // Admin-only API calls (server/src/services/admin.ts). Every change is audit-logged on the server.
-import type { AuditEntry, CentralNews, ContactMessageEntry, ExtraWindows, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowArchive, WindowItem } from '@shared/types'
+import type { AuditEntry, CentralNews, RefundPayout, ContactMessageEntry, ExtraWindows, PaymentOrder, PlatformSettings, RegionId, Result, Transaction, User, WindowArchive, WindowItem } from '@shared/types'
 import type { LineAlertTopics } from '@shared/lineAlerts'
 import type { PromoRequest } from '@shared/promo'
 import { download, get, post, put } from './api'
@@ -16,6 +16,7 @@ export interface AdminOverview {
   orders: PaymentOrder[]
   auditLog: AuditEntry[]
   contactMessages: ContactMessageEntry[]
+  pendingRefundPayouts: number
 }
 
 export const loadAdminOverview = () => get<AdminOverview>('/admin/overview')
@@ -40,7 +41,11 @@ export async function releaseWindow(region: RegionId, windowId: number, reason: 
   return result
 }
 
-/** Super admin: windows removed into the archive, newest first. */
+/** Window refunds to transfer to the owner's bank account; `paid` needs the transfer reference as note. */
+export const loadRefundPayouts = () => get<{ payouts: RefundPayout[] }>('/admin/refund-payouts')
+export const decideRefundPayout = (id: string, decision: 'paid' | 'returned', note: string) =>
+  post<{ payouts: RefundPayout[] }>(`/admin/refund-payouts/${id}/decide`, { decision, note })
+
 /** '500WinTH & Co' announcements on the central page (drafts and published). */
 export const loadCentralNews = () => get<{ news: CentralNews[] }>('/admin/central-news')
 export type CentralNewsInput = Pick<CentralNews, 'type' | 'title' | 'body' | 'by' | 'url' | 'img' | 'pin' | 'publishAt'> & { endAt: string }

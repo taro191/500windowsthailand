@@ -91,6 +91,23 @@ export interface ExtraWindows {
 }
 
 /** Where resale and rental income is paid (net 95%). */
+/** A window refund paid by bank transfer: an admin transfers it, or returns it to the wallet. */
+export interface RefundPayout {
+  id: string
+  userId: string
+  userName: string
+  windowCode: string
+  windowTitle: string
+  amount: number
+  account: Pick<PayoutAccount, 'type' | 'bankName' | 'accountNumber' | 'accountName'>
+  status: 'pending' | 'paid' | 'returned'
+  /** Transfer reference, or why it went to the wallet instead. */
+  note: string
+  createdAt: string
+  decidedAt?: string
+  decidedBy?: string
+}
+
 export interface PayoutAccount {
   type: 'promptpay' | 'bank'
   promptpayType?: 'citizenId' | 'phone'
@@ -419,7 +436,7 @@ export interface PlatformSettings {
     endsAt: string | null
   }
   contact: ContactInfo
-  /** Web apps in the "Co Store" tab of the window page's "Kapsulep & Co" card. */
+  /** Web apps in the "Co Store" tab of the window page's "500 Windows Thailand : Store" card. */
   coStore: { title: string; apps: CoStoreApp[] }
   /** Window codes a free trial can't start on (see shared/paidOnly.ts), e.g. "KAP-TH-008, KAP-TH-088..099". */
   paidOnly: { codes: string }
@@ -441,6 +458,8 @@ export interface CentralNews {
   endAt?: string
   /** Admin only. */
   createdBy?: string
+  /** Admin who wrote or last edited it; another admin has to publish it. */
+  authorId?: string
   publishedBy?: string
   updatedAt?: string
 }

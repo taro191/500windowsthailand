@@ -509,6 +509,49 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+  '022_store_name': {
+    // The Store card was renamed from "Kapsulep & Co"; an untouched saved title follows the new name.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      const row = await db.selectFrom('settings').select('value_json').where('id', '=', 'platform').executeTakeFirst()
+      if (!row) return
+      const value = JSON.parse(row.value_json)
+      if (!value.coStore || !/^Kapsulep & Co(\s*:\s*Store)?$/.test(value.coStore.title ?? '')) return
+      value.coStore.title = '500 Windows Thailand : Store'
+      await db.updateTable('settings').set({ value_json: JSON.stringify(value) }).where('id', '=', 'platform').execute()
+    },
+  },
+  '023_central_news_author': {
+    // Who wrote or last edited an announcement; another admin has to publish it.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('central_news').addColumn('author_id', id).execute()
+    },
+  },
+  '024_refund_payouts': {
+    // A window refund the owner asked to get by bank transfer; an admin transfers it (or returns it to the wallet).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('refund_payouts')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('user_id', id, (c) => c.notNull())
+        .addColumn('user_name', varchar(255), (c) => c.notNull())
+        .addColumn('region', varchar(16), (c) => c.notNull())
+        .addColumn('num', 'integer', (c) => c.notNull())
+        .addColumn('window_code', varchar(32), (c) => c.notNull())
+        .addColumn('window_title', varchar(255), (c) => c.notNull())
+        .addColumn('amount', 'integer', (c) => c.notNull())
+        .addColumn('account_json', 'text', (c) => c.notNull())
+        .addColumn('status', varchar(16), (c) => c.notNull())
+        .addColumn('note', varchar(500), (c) => c.notNull())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('decided_at', time)
+        .addColumn('decided_by', varchar(255))
+        .execute()
+      await db.schema.createIndex('refund_payouts_user').on('refund_payouts').column('user_id').execute()
+    },
+  },
 }
 
 /** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */

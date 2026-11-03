@@ -23,6 +23,7 @@ import { assertCanTrade, extraWindowsOf, parseTrialArchive, requireUserRow, self
 import { cleanContent, emptyWindowRow, insertImage, refundDeadline, resolveImage, type WindowContentInput } from './windows'
 import { creditWallet, debitWallet, recordTransaction } from './ledger'
 import { audit } from './audit'
+import { notifyLine } from './notify'
 
 export interface PaymentInput {
   walletAmount: number
@@ -341,8 +342,10 @@ export async function claimWindow(
  * Owner's refund within REFUND_DAYS of paying the system for the window, while Friend and Co
  * hasn't been used from it: the full price goes back to the wallet and the window to the pool.
  */
-export async function refundWindow(ctx: AppContext, user: UserRow, region: RegionId, num: number) {
+/** `toBank` = the owner asks for a bank transfer to their payout account instead of the wallet (an admin transfers it). */
+export async function refundWindow(ctx: AppContext, user: UserRow, region: RegionId, num: number, toBank = false) {
   assertCanTrade(user)
+  if (toBank && !user.payout_json) throw badRequest('กรุณาตั้งบัญชีรับเงินในกระเป๋าเงินก่อน แล้วจึงขอโอนคืนเข้าบัญชี')
   const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
   if (!row) throw notFound('ไม่พบบานหน้าต่าง')
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
@@ -378,6 +381,13 @@ export async function refundWindow(ctx: AppContext, user: UserRow, region: Regio
     if (Number(released.numUpdatedRows) === 0) throw conflict('บานนี้เพิ่งมีการเปลี่ยนแปลง กรุณาลองใหม่อีกครั้ง')
     await trx.insertInto('window_owners').values({ id: newId('wo'), region, num, owner_id: user.id, transferred_at: now, type: 'released' }).execute()
     await trx.deleteFrom('window_follows').where('region', '=', region).where('num', '=', num).execute()
+    if (toBank) {
+      await trx
+        .insertInto('refund_payouts')
+        .values({ id: newId('rp'), user_id: user.id, user_name: user.name, region, num, window_code: row.code, window_title: row.title, amount, account_json: user.payout_json!, status: 'pending', note: '', created_at: now, decided_at: null, decided_by: null })
+        .execute()
+      return
+    }
     await creditWallet(trx, user.id, amount)
     await recordTransaction(trx, {
       windowId: num,
@@ -394,7 +404,11 @@ export async function refundWindow(ctx: AppContext, user: UserRow, region: Regio
       externalAmount: 0,
     })
   })
-  return { amount, user: selfDto(ctx, await requireUserRow(ctx, user.id)) }
+  if (toBank) {
+    const text = ['🏦 ขอโอนเงินคืนเข้าบัญชี', `ผู้ใช้: ${user.name}`, `บาน: ${row.code} «${row.title}»`, `ยอด: ฿${amount.toLocaleString()}`, 'ตรวจและโอนที่หน้าแอดมิน › คืนเงินเข้าบัญชี']
+    notifyLine(ctx, text.join('\n'), 'slips.refundPayout')
+  }
+  return { amount, toBank, user: selfDto(ctx, await requireUserRow(ctx, user.id)) }
 }
 
 const PAID_ONLY = 'หน้าต่างหมายเลขนี้สงวนไว้สำหรับผู้ใช้งานจริง (ชำระเงิน) ทดลองใช้ฟรีกับบานนี้ไม่ได้ กรุณาเลือกบานอื่น'

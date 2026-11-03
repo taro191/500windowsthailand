@@ -117,17 +117,22 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
     props.onWindowChanged()
     onNotify('เผยแพร่แล้ว ผู้เข้าชมเห็นหน้าต่างของคุณแล้ว')
   }
-  const refund = async () => {
+  const refund = async (toBank: boolean) => {
+    const where = toBank ? 'โอนเข้าบัญชีรับเงินของคุณ (ทีมงานตรวจและโอนให้)' : 'คืนเข้ากระเป๋าเงินของคุณทันที'
     const ok = window.confirm(
       `ขอคืนเงินค่าจับจอง ${w.code}?
 
-เงินจะคืนเข้ากระเป๋าเงินของคุณเต็มจำนวน และบานนี้จะกลับเป็นบานว่างทันที ข้อมูลและรูปในบานจะถูกลบ ยกเลิกภายหลังไม่ได้`,
+เงินเต็มจำนวนจะ${where} และบานนี้จะกลับเป็นบานว่างทันที ข้อมูลและรูปในบานจะถูกลบ ยกเลิกภายหลังไม่ได้`,
     )
     if (!ok) return
-    const result = await refundWindow(w.region, w.id)
+    const result = await refundWindow(w.region, w.id, toBank)
     if (!result.success) return onNotify(result.error, 'error')
     props.onWindowChanged()
-    onNotify(`คืนเงิน ฿${result.amount.toLocaleString()} เข้ากระเป๋าเงินแล้ว`)
+    onNotify(
+      toBank
+        ? `ส่งคำขอโอนเงินคืน ฿${result.amount.toLocaleString()} แล้ว ทีมงานจะโอนเข้าบัญชีของคุณ ดูสถานะได้ที่กระเป๋าเงิน`
+        : `คืนเงิน ฿${result.amount.toLocaleString()} เข้ากระเป๋าเงินแล้ว`,
+    )
     onClose()
   }
   // requireKyc is defined further down, so it is looked up when clicked.
@@ -353,7 +358,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
                 onOpenKyc={onOpenKyc}
               />
             )}
-            {isOwner && w.refundUntil && <RefundBar until={w.refundUntil} onRefund={refund} />}
+            {isOwner && w.refundUntil && <RefundBar until={w.refundUntil} hasAccount={!!currentUser?.payoutAccount} onRefund={refund} />}
           </>
         )}
       </div>
@@ -400,12 +405,12 @@ function SearchDialog({ initial, onClose, onOpenWindow }: { initial: string; onC
   )
 }
 
-/** Friend and Co and the Kapsulep & Co card, locked on a free trial window until it is paid. */
+/** Friend and Co and the Store card, locked on a free trial window until it is paid. */
 function TrialLockedCard({ isOwner, onPay }: { isOwner: boolean; onPay: () => void }) {
   return (
     <section className={`${card} text-[13px] flex flex-wrap items-center gap-3`}>
       <div className="flex-1 min-w-[200px]">
-        <b>🔒 Friend and Co · Kapsulep & Co</b>
+        <b>🔒 Friend and Co · 500 Windows Thailand : Store</b>
         <p className={`${para} !mb-0`}>บานทดลองใช้ฟรียังใช้ 2 ส่วนนี้ไม่ได้ ชำระค่าจับจองแล้วปลดล็อกทันที ข้อมูลเดิมอยู่ครบ</p>
       </div>
       {isOwner && (
@@ -418,15 +423,21 @@ function TrialLockedCard({ isOwner, onPay }: { isOwner: boolean; onPay: () => vo
 }
 
 /** Owner of a window bought from the system: full refund within REFUND_DAYS, giving the window back. */
-function RefundBar({ until, onRefund }: { until: string; onRefund: () => void }) {
+function RefundBar({ until, hasAccount, onRefund }: { until: string; hasAccount: boolean; onRefund: (toBank: boolean) => void }) {
   return (
     <section className={`${card} text-[13px] flex flex-wrap items-center gap-3`}>
       <div className="flex-1 min-w-[200px]">
         <b>↩️ ขอคืนเงินได้ภายใน {REFUND_DAYS} วัน (เหลือ {daysLeft(until)} วัน)</b>
-        <p className={`${para} !mb-0`}>คืนเงินเต็มจำนวนเข้ากระเป๋าเงิน ถ้ายังไม่ได้ใช้ Friend and Co และต้องคืนบานนี้ด้วย</p>
+        <p className={`${para} !mb-0`}>
+          คืนเงินเต็มจำนวนเข้ากระเป๋าเงิน หรือโอนเข้าบัญชีรับเงินของคุณ ถ้ายังไม่ได้ใช้ Friend and Co และต้องคืนบานนี้ด้วย
+          {!hasAccount && ' · ตั้งบัญชีรับเงินในกระเป๋าเงินก่อน ถ้าต้องการรับเป็นเงินโอน'}
+        </p>
       </div>
-      <button type="button" onClick={onRefund} className={btn}>
-        ขอคืนเงิน
+      <button type="button" onClick={() => onRefund(false)} className={btn}>
+        คืนเข้ากระเป๋าเงิน
+      </button>
+      <button type="button" onClick={() => onRefund(true)} disabled={!hasAccount} className={`${btn} disabled:opacity-40`}>
+        โอนเข้าบัญชี
       </button>
     </section>
   )

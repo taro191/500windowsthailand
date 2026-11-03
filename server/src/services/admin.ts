@@ -32,7 +32,7 @@ import { emptyWindowRow, loadBoards, loadWindow } from './windows'
 
 /** Everything the admin pages show. */
 export async function adminOverview(ctx: AppContext) {
-  const [users, windows, transactions, promoRequests, orders, auditLog, contactMessages] = await Promise.all([
+  const [users, windows, transactions, promoRequests, orders, auditLog, contactMessages, pendingRefundPayouts] = await Promise.all([
     ctx.db.selectFrom('users').selectAll().orderBy('created_at', 'asc').execute(),
     loadBoards(ctx, null, true),
     ctx.db.selectFrom('transactions').selectAll().orderBy('date', 'desc').limit(1000).execute(),
@@ -40,6 +40,7 @@ export async function adminOverview(ctx: AppContext) {
     ctx.db.selectFrom('payment_orders').selectAll().orderBy('created_at', 'desc').limit(1000).execute(),
     loadAuditLog(ctx.db),
     listContactMessages(ctx),
+    ctx.db.selectFrom('refund_payouts').select((eb) => eb.fn.countAll<number>().as('n')).where('status', '=', 'pending').executeTakeFirst(),
   ])
   const names = new Map(users.map((u) => [u.id, u.name]))
   return {
@@ -50,6 +51,8 @@ export async function adminOverview(ctx: AppContext) {
     orders: orders.map((o) => toOrder(o, names.get(o.user_id) ?? '')),
     auditLog,
     contactMessages,
+    /** Refunds waiting for a bank transfer (sidebar badge). */
+    pendingRefundPayouts: Number(pendingRefundPayouts?.n ?? 0),
   }
 }
 

@@ -134,7 +134,21 @@ input:focus,textarea:focus{border-color:var(--acc)}
 .cbox{background:var(--card);color:var(--ink);border-radius:18px;padding:20px;max-width:460px;width:100%;box-shadow:var(--sh);max-height:90vh;overflow:auto}
 .cbox h2{margin:0 0 8px;font-size:1.15rem}.cbox p{line-height:1.55;margin:0 0 10px;color:var(--mute)}.cbox a{color:var(--acc)}.cbox .row{display:grid;gap:8px;margin-top:6px}
 #cbtn{border:0;background:var(--soft);border-radius:999px;padding:6px 10px;cursor:pointer;font-size:1rem;display:grid;place-items:center;margin-right:6px}
+html.lsgate main{display:none}
+#lsgate{max-width:420px;margin:12vh auto 0;padding:28px 22px;background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--sh);text-align:center}
+#lsgate h1{margin:0 0 8px;font-size:1.25rem}
+#lsgate p{margin:0 0 18px;color:var(--mute)}
+#lsgate a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 22px;border-radius:99px;background:var(--acc);color:var(--on);font-weight:700;text-decoration:none}
 </style>
+<script>
+// Life Space is for signed-in users: hide it until the session is confirmed.
+document.documentElement.classList.add('lsgate');
+fetch('/api/session',{credentials:'same-origin'}).then(function(r){return r.json()}).catch(function(){return{}}).then(function(d){
+  if(d&&d.user){document.documentElement.classList.remove('lsgate');return}
+  var show=function(){var m=document.querySelector('main');if(!m)return;m.insertAdjacentHTML('beforebegin','<div id="lsgate" role="dialog" aria-labelledby="lsgateT"><h1 id="lsgateT">เข้าสู่ระบบเพื่อใช้ Life Space</h1><p>Life Space ใช้ได้เฉพาะสมาชิก กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อน</p><a href="/#login" target="_top">เข้าสู่ระบบ</a></div>')};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',show);else show()
+});
+</script>
 </head>
 <body>
 <div class="vnav"><span class="l"><a class="lsback" id="lsback" role="button" tabindex="0" style="cursor:pointer" aria-label="ย้อนกลับหน้าต่าง"><span aria-hidden="true">←</span> ย้อนกลับหน้าต่าง</a><strong>Life Space</strong></span><span class="r"><span id="sk" hidden></span><button id="th" aria-label="สลับโหมดมืด"></button></span></div>

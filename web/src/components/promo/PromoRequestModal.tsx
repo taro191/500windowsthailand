@@ -21,7 +21,8 @@ import {
 } from '@/lib/promo'
 import { PromoDisplay } from './PromoDisplay'
 import { useRules } from '@/lib/settings'
-import { payPromoRequest, type PromoInput } from '@/lib/store'
+import { isTrialOnly, payPromoRequest, type PromoInput } from '@/lib/store'
+import { TRIAL_PROMO_LOCKED } from '@shared/trial'
 import { PaymentPanel } from '../payment/PaymentPanel'
 import { useDialogFocus } from '@/hooks/useDialogFocus'
 import { PromoLayoutPreview } from './PromoLayoutPreview'
@@ -232,6 +233,10 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
     if (!currentUser) {
       onClose()
       onOpenAuth('login')
+      return
+    }
+    if (isTrialOnly(currentUser)) {
+      setError(TRIAL_PROMO_LOCKED)
       return
     }
     if (submitted.current || uploading) return

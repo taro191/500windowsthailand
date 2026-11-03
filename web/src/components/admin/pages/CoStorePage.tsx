@@ -10,7 +10,7 @@ import { Badge, Button, Callout, Card, DataTable, FormRow, inputClass, Modal } f
 const L = CO_STORE_LIMITS
 const emptyApp = (): CoStoreApp => ({ id: `app-${Date.now().toString(36)}`, name: '', description: '', url: 'https://', icon: '🧩', iconUrl: '', category: '', badge: '' })
 
-/** Web apps in the "Co Store" tab of every window page's "Kapsulep & Co" card. */
+/** Web apps in the "Co Store" tab of every window page's "500 Windows Thailand : Store" card. */
 export function CoStorePage({ notify }: AdminPageProps) {
   const settings = useSettings()
   const { coStore } = settings
@@ -20,7 +20,7 @@ export function CoStorePage({ notify }: AdminPageProps) {
 
   const save = async (next: PlatformSettings['coStore'], what: string) => {
     setBusy(true)
-    const result = await updateSettings({ ...settings, coStore: next }, `Kapsulep & Co → ${what}`)
+    const result = await updateSettings({ ...settings, coStore: next }, `Store → ${what}`)
     setBusy(false)
     if (!result.success) {
       notify(result.error, 'error')
@@ -40,7 +40,7 @@ export function CoStorePage({ notify }: AdminPageProps) {
   return (
     <div className="max-w-5xl">
       <Callout tone="info">
-        แสดงในการ์ด <b>Kapsulep &amp; Co</b> ของทุกหน้าต่าง (แท็บ Co Store) คู่กับแท็บ Co Center ที่ระบบสุ่มหน้าต่างแนะนำทุก 2 ชั่วโมงเอง · ไม่มีเว็บแอปเลย = แสดงเฉพาะ Co Center · ลิงก์{' '}
+        แสดงในการ์ด <b>500 Windows Thailand : Store</b> ของทุกหน้าต่าง (แท็บ Co Store) คู่กับแท็บ Co Center ที่ระบบสุ่มหน้าต่างแนะนำทุก 2 ชั่วโมงเอง · ไม่มีเว็บแอปเลย = แสดงเฉพาะ Co Center · ลิงก์{' '}
         <code>https://</code> เปิดแท็บใหม่ ลิงก์ <code>/…</code> เปิดหน้าในเว็บนี้ · เพิ่มได้สูงสุด {L.apps} รายการ
       </Callout>
       <Card title="ชื่อการ์ด" icon={Puzzle} outline="primary">
@@ -52,7 +52,7 @@ export function CoStorePage({ notify }: AdminPageProps) {
           }}
         >
           <div className="flex-1 min-w-[220px]">
-            <FormRow label="ชื่อที่แสดงบนหัวการ์ด" hint="เว้นว่าง = Kapsulep & Co">
+            <FormRow label="ชื่อที่แสดงบนหัวการ์ด" hint="เว้นว่าง = 500 Windows Thailand : Store">
               <input value={title} maxLength={L.title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
             </FormRow>
           </div>

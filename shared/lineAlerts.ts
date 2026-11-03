@@ -17,6 +17,7 @@ export const LINE_ALERT_TOPICS = [
   { id: 'slips.claim', group: 'slips', label: 'สลิปจับจองบาน' },
   { id: 'slips.resale', group: 'slips', label: 'สลิปซื้อต่อ' },
   { id: 'slips.promo', group: 'slips', label: 'สลิปโปรโมท' },
+  { id: 'slips.refundPayout', group: 'slips', label: 'คำขอโอนเงินคืนเข้าบัญชี' },
   { id: 'finance.topup', group: 'finance', label: '🟢 เติมเงิน' },
   { id: 'finance.bonus', group: 'finance', label: '🟢 โบนัสสมัครสมาชิก' },
   { id: 'finance.refund', group: 'finance', label: '🟢 คืนเงินเข้ากระเป๋า' },

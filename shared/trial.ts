@@ -28,3 +28,10 @@ export const REFUND_DAYS = 15
 
 /** End of the refund period for a window paid at `paidAt`. */
 export const refundUntil = (paidAt: string | Date) => new Date(new Date(paidAt).getTime() + REFUND_DAYS * DAY_MS)
+
+// ---------------------------------------------------------------- feature locks
+
+/** Promo booking is for paying owners: refused while the user's only windows are free trials. */
+export const trialOnly = (windows: { trial: boolean }[]) => windows.length > 0 && windows.every((w) => w.trial)
+
+export const TRIAL_PROMO_LOCKED = 'บานทดลองใช้ฟรียังจองพื้นที่โปรโมทไม่ได้ ชำระเงินบานของคุณก่อน แล้วจึงจองโปรโมท'

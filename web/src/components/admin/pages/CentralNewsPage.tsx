@@ -20,7 +20,7 @@ function liveNow(n: CentralNews) {
 }
 
 /** "500WinTH & Co" on the central page: drafts, publishing with a time window, at most 4 shown at once. */
-export function CentralNewsPage({ notify }: AdminPageProps) {
+export function CentralNewsPage({ admin, notify }: AdminPageProps) {
   const [news, setNews] = useState<CentralNews[] | null>(null)
   const [editing, setEditing] = useState<{ id?: string; input: CentralNewsInput } | null>(null)
   const [busy, setBusy] = useState('')
@@ -62,7 +62,7 @@ export function CentralNewsPage({ notify }: AdminPageProps) {
     <div className="max-w-5xl">
       <Callout tone="info">
         ประกาศใน <b>500WinTH &amp; Co</b> ของ <a href="/kap/central.html" target="_blank" rel="noreferrer">หน้าส่วนกลาง</a> · บันทึกแล้วเป็น <b>ร่าง</b> จนกว่าจะกดเผยแพร่ · แก้ไขประกาศที่เผยแพร่แล้ว
-        จะกลับเป็นร่างและต้องกดเผยแพร่ใหม่ · ขึ้นพร้อมกันได้ไม่เกิน 4 รายการ (ระบบไม่ให้เผยแพร่ถ้าช่วงเวลาซ้อนกันเกิน 4) · ประกาศของพันธมิตรต้องตรวจเนื้อหาก่อนเผยแพร่ทุกครั้ง
+        จะกลับเป็นร่างและต้องกดเผยแพร่ใหม่ · <b>ผู้เขียนหรือผู้แก้ไขล่าสุดเผยแพร่เองไม่ได้</b> ต้องให้ผู้ดูแลอีกคนตรวจ · ขึ้นพร้อมกันได้ไม่เกิน 4 รายการ (ระบบไม่ให้เผยแพร่ถ้าช่วงเวลาซ้อนกันเกิน 4) · ประกาศของพันธมิตรต้องตรวจเนื้อหาก่อนเผยแพร่ทุกครั้ง
       </Callout>
       <Card
         title="ประกาศ 500WinTH & Co"
@@ -94,11 +94,17 @@ export function CentralNewsPage({ notify }: AdminPageProps) {
                 <br />– {n.endAt ? thaiDateTime(n.endAt) : 'ไม่กำหนด'}
               </td>
               <td className="whitespace-nowrap">
-                {n.status === 'draft' ? <Badge tone="secondary">ร่าง</Badge> : liveNow(n) ? <Badge tone="success">กำลังแสดง</Badge> : <Badge tone="info">เผยแพร่ (นอกช่วงเวลา)</Badge>}
+                {n.status === 'draft' ? <Badge tone="secondary">{n.authorId === admin.id ? 'ร่าง · รอผู้ดูแลอีกคนตรวจ' : 'ร่าง'}</Badge> : liveNow(n) ? <Badge tone="success">กำลังแสดง</Badge> : <Badge tone="info">เผยแพร่ (นอกช่วงเวลา)</Badge>}
               </td>
               <td className="whitespace-nowrap">
                 <div className="flex gap-1">
-                  <Button size="sm" tone={n.status === 'draft' ? 'success' : 'secondary'} disabled={busy === n.id} onClick={() => run(n.id, () => publishCentralNews(n.id, n.status === 'draft'), n.status === 'draft' ? 'เผยแพร่แล้ว' : 'หยุดเผยแพร่แล้ว')}>
+                  <Button
+                    size="sm"
+                    tone={n.status === 'draft' ? 'success' : 'secondary'}
+                    disabled={busy === n.id || (n.status === 'draft' && n.authorId === admin.id)}
+                    title={n.status === 'draft' && n.authorId === admin.id ? 'ต้องให้ผู้ดูแลอีกคนตรวจและเผยแพร่' : undefined}
+                    onClick={() => run(n.id, () => publishCentralNews(n.id, n.status === 'draft'), n.status === 'draft' ? 'เผยแพร่แล้ว' : 'หยุดเผยแพร่แล้ว')}
+                  >
                     {n.status === 'draft' ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} {n.status === 'draft' ? 'เผยแพร่' : 'หยุดเผยแพร่'}
                   </Button>
                   <Button

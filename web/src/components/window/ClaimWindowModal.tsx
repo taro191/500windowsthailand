@@ -407,7 +407,7 @@ export function ClaimWindowModal({
                 จัดหน้าต่างบานนี้ได้เต็มที่โดยยังไม่ต้องชำระเงิน ระหว่างนี้บานจะอยู่ในสถานะ «กำลังพัฒนา» ผู้อื่นยังไม่เห็นเนื้อหา
                 ชำระค่าจับจอง ฿{price.toLocaleString()} เมื่อไรก็เผยแพร่ได้ทันที · ครบ {TRIAL_DAYS} วันแล้วมีเวลาชำระอีก {TRIAL_GRACE_DAYS} วัน
                 หลังจากนั้นบานจะกลับเป็นบานว่าง แต่ข้อมูลยังเก็บไว้ให้กู้ใส่บานว่างอื่นได้ · ช่วงทดลองใช้ได้ทุกอย่าง ยกเว้น Friend and Co และ
-                Kapsulep & Co ที่ปลดล็อกหลังชำระ
+                500 Windows Thailand : Store ที่ปลดล็อกหลังชำระ
               </p>
               {paidOnly ? (
                 <p className="m-0 text-[11px] leading-relaxed text-rose-300 font-medium">

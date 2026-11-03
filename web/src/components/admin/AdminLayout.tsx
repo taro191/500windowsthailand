@@ -12,6 +12,7 @@ import {
   Gauge,
   Gift,
   HandCoins,
+  Undo2,
   History,
   Inbox,
   ImageOff,
@@ -50,6 +51,7 @@ export type AdminPage =
   | 'transactions'
   | 'topups'
   | 'payouts'
+  | 'refund-payouts'
   | 'revenue'
   | 'price-caps'
   | 'channels'
@@ -88,6 +90,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   transactions: 'ธุรกรรมทั้งหมด',
   topups: 'การเติมเงิน',
   payouts: 'จ่ายเงินผู้ขาย',
+  'refund-payouts': 'คืนเงินเข้าบัญชี',
   revenue: 'รายงานรายได้',
   'price-caps': 'เพดานราคาขายต่อ',
   channels: 'ช่องทางรับชำระเงิน',
@@ -96,7 +99,7 @@ export const PAGE_TITLES: Record<AdminPage, string> = {
   'signup-bonus': 'โบนัสสมัครสมาชิก',
   rules: 'กติกาทั่วไป',
   contact: 'ติดต่อเรา',
-  'co-store': 'Kapsulep & Co',
+  'co-store': '500 Windows Thailand : Store',
   'central-news': '500WinTH & Co (ประกาศ)',
   themes: 'ธีมเว็บไซต์',
   files: 'คลังเอกสาร',
@@ -148,6 +151,7 @@ export function AdminLayout({ admin, page, onNavigate, onExit, onLogout, badges,
         { id: 'transactions', label: PAGE_TITLES.transactions, icon: Receipt },
         { id: 'topups', label: PAGE_TITLES.topups, icon: Wallet },
         { id: 'payouts', label: PAGE_TITLES.payouts, icon: HandCoins },
+        { id: 'refund-payouts', label: PAGE_TITLES['refund-payouts'], icon: Undo2, badge: badges['refund-payouts'] },
         { id: 'revenue', label: PAGE_TITLES.revenue, icon: ChartColumn },
       ],
     },

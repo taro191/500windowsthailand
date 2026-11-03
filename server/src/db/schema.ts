@@ -355,6 +355,8 @@ export interface CentralNewsTable {
   created_by: string
   updated_at: string
   published_by: string | null
+  /** Admin who wrote or last edited it (they can't publish it themselves); null on rows from before. */
+  author_id: string | null
 }
 
 /** Life Space (Vote my life) data, kept only after the user consents in the page. */
@@ -363,6 +365,26 @@ export interface LifeSpaceTable {
   /** The page's whole state as JSON (profiles, daily votes, notes, tags). */
   data: string
   updated_at: string
+}
+
+/** A refund the owner asked to receive by bank transfer (see services/refundPayouts.ts). */
+export interface RefundPayoutsTable {
+  id: string
+  user_id: string
+  user_name: string
+  region: string
+  num: number
+  window_code: string
+  window_title: string
+  amount: number
+  /** The user's payout account (PayoutAccount JSON) when they asked. */
+  account_json: string
+  /** pending → paid (transferred) or returned (put in the wallet instead). */
+  status: 'pending' | 'paid' | 'returned'
+  note: string
+  created_at: string
+  decided_at: string | null
+  decided_by: string | null
 }
 
 export interface Database {
@@ -389,6 +411,7 @@ export interface Database {
   life_space: LifeSpaceTable
   window_archives: WindowArchivesTable
   central_news: CentralNewsTable
+  refund_payouts: RefundPayoutsTable
 }
 
 export type UserRow = Selectable<UsersTable>

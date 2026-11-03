@@ -1,4 +1,4 @@
-// The central page (public/kap/central.html): Kapsulep & Co apps, "500WinTH & Co" announcements
+// The central page (public/kap/central.html): Store apps, "500WinTH & Co" announcements
 // and the signed-in user's own windows. Announcements are written and published by admins.
 import type { CentralNews, RegionId } from '@shared/types'
 import { thaiDayKey } from '@shared/thaiTime'
@@ -6,7 +6,7 @@ import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
 import { daysLeft, REFUND_DAYS, TRIAL_DAYS, TRIAL_GRACE_DAYS, trialPayBy, trialPhase } from '@shared/trial'
 import type { CentralNewsTable, UserRow, WindowRow } from '../db/schema'
 import { newId } from '../lib/crypto'
-import { ApiError, badRequest, conflict, notFound } from '../lib/errors'
+import { ApiError, badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { isDataUrl, saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
 import { audit } from './audit'
@@ -29,7 +29,7 @@ function toNews(row: CentralNewsTable, admin = false): CentralNews {
     status: row.status,
     publishAt: row.publish_at,
     endAt: row.end_at ?? undefined,
-    ...(admin ? { createdBy: row.created_by, publishedBy: row.published_by ?? undefined, updatedAt: row.updated_at } : {}),
+    ...(admin ? { createdBy: row.created_by, authorId: row.author_id ?? undefined, publishedBy: row.published_by ?? undefined, updatedAt: row.updated_at } : {}),
   }
 }
 
@@ -195,11 +195,11 @@ export async function saveNews(ctx: AppContext, admin: UserRow, id: string | nul
   const values = await cleanNews(ctx, input)
   const now = nowIso()
   if (id) {
-    const updated = await ctx.db.updateTable('central_news').set({ ...values, status: 'draft', published_by: null, updated_at: now }).where('id', '=', id).executeTakeFirst()
+    const updated = await ctx.db.updateTable('central_news').set({ ...values, status: 'draft', published_by: null, updated_at: now, author_id: admin.id }).where('id', '=', id).executeTakeFirst()
     if (Number(updated.numUpdatedRows) === 0) throw notFound('ไม่พบประกาศนี้')
   } else {
     id = newId('cn')
-    await ctx.db.insertInto('central_news').values({ id, ...values, status: 'draft', created_at: now, created_by: admin.name, updated_at: now, published_by: null }).execute()
+    await ctx.db.insertInto('central_news').values({ id, ...values, status: 'draft', created_at: now, created_by: admin.name, updated_at: now, published_by: null, author_id: admin.id }).execute()
   }
   await audit(ctx.db, admin, 'บันทึกร่างประกาศ 500WinTH & Co', values.title)
   return listNews(ctx)
@@ -217,6 +217,7 @@ export async function setNewsPublished(ctx: AppContext, admin: UserRow, id: stri
   if (!row) throw notFound('ไม่พบประกาศนี้')
   if (publish) {
     if (row.status === 'published') throw badRequest('ประกาศนี้เผยแพร่อยู่แล้ว')
+    if (row.author_id === admin.id) throw forbidden('ผู้เขียนหรือผู้แก้ไขล่าสุดเผยแพร่ประกาศเองไม่ได้ ต้องให้ผู้ดูแลอีกคนตรวจและเผยแพร่')
     const published = await ctx.db.selectFrom('central_news').select(['publish_at', 'end_at']).where('status', '=', 'published').execute()
     const span = (r: { publish_at: string; end_at: string | null }) => ({ start: Date.parse(r.publish_at), end: r.end_at ? Date.parse(r.end_at) : Infinity })
     const mine = span(row)

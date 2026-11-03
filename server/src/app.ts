@@ -29,6 +29,7 @@ import * as themes from './services/themes'
 import * as adminFiles from './services/adminFiles'
 import * as lifeSpace from './services/lifeSpace'
 import * as central from './services/central'
+import * as refundPayouts from './services/refundPayouts'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
 import { sendContactMessage, updateContactMessage } from './services/contact'
@@ -237,6 +238,7 @@ export function createApp(ctx: AppContext) {
   })
 
   // Life Space daily journal (only sent after the user consents in the page).
+  api.get('/me/refund-payouts', async (c) => ok(c, { payouts: await refundPayouts.myRefundPayouts(ctx, me(c).id) }))
   api.get('/me/life-space', async (c) => ok(c, await lifeSpace.getLifeSpace(ctx, me(c))))
   api.put('/me/life-space', async (c) => ok(c, await lifeSpace.saveLifeSpace(ctx, me(c), (await body<{ data?: unknown }>(c)).data)))
   api.post('/me/life-space/delete', async (c) => {
@@ -280,7 +282,8 @@ export function createApp(ctx: AppContext) {
 
   api.post('/windows/:region/:num/refund', async (c) => {
     const { region, num } = windowRoute(c)
-    const result = await purchases.refundWindow(ctx, me(c), region, num)
+    const { toBank } = await body<{ toBank?: boolean }>(c).catch(() => ({ toBank: false }))
+    const result = await purchases.refundWindow(ctx, me(c), region, num, toBank === true)
     return ok(c, { ...result, window: await windows.loadWindow(ctx, region, num, me(c).id) })
   })
 
@@ -473,6 +476,11 @@ export function createApp(ctx: AppContext) {
   })
   adminApi.post('/central-news/:id/delete', async (c) => ok(c, { news: await central.deleteNews(ctx, me(c), c.req.param('id')) }))
 
+  adminApi.get('/refund-payouts', async (c) => ok(c, { payouts: await refundPayouts.listRefundPayouts(ctx) }))
+  adminApi.post('/refund-payouts/:id/decide', async (c) => {
+    const { decision, note } = await body<{ decision?: unknown; note?: unknown }>(c)
+    return ok(c, { payouts: await refundPayouts.decideRefundPayout(ctx, me(c), c.req.param('id'), decision, note) })
+  })
   adminApi.get('/window-archives', async (c) => ok(c, { archives: await windowArchive.listArchives(ctx, me(c)) }))
 
   adminApi.post('/windows/:region/:num/archive', async (c) => {

@@ -9,6 +9,7 @@ import type {
   PayoutAccount,
   PlatformSettings,
   Quota,
+  RefundPayout,
   RegionId,
   Result,
   Transaction,
@@ -22,6 +23,7 @@ import { createEmptyWindows } from '@shared/seedWindows'
 import { getRotationCycle } from '@shared/thaiTime'
 import { orderWindowsForCycle } from '@shared/boardOrder'
 import { buildQuota } from '@shared/windowQuota'
+import { trialOnly } from '@shared/trial'
 import type { PromoAd, PromoRequest } from '@shared/promo'
 import { get, patch, post, put, type ApiResult } from './api'
 import { enabledChannels, setSettings } from './settings'
@@ -186,6 +188,13 @@ export function getQuota(user: User): Quota {
   return buildQuota(held, user.extraWindows)
 }
 
+/** The user holds only free trial windows (they can't book promos yet, see shared/trial.ts). */
+export function isTrialOnly(user: User): boolean {
+  const owned: { trial: boolean }[] = []
+  for (const region of REGION_IDS) for (const w of loadRegionWindows(region)) if (w.ownerId === user.id) owned.push({ trial: !!w.trialEndsAt })
+  return trialOnly(owned)
+}
+
 /** Splits `price` into a wallet part (up to the balance) and the remainder. */
 export function suggestPaymentSplit(balance: number, price: number, useWallet = true) {
   const walletAmount = useWallet ? Math.min(Math.max(0, balance), price) : 0
@@ -316,14 +325,18 @@ export async function payTrial(region: RegionId, windowId: number, payment: Paym
 }
 
 /** Give back a window bought from the system within REFUND_DAYS: the price returns to the wallet. */
-export async function refundWindow(region: RegionId, windowId: number): Promise<Result<{ amount: number }>> {
-  const result = await post<{ amount: number; user: User; window: WindowItem }>(`/windows/${region}/${windowId}/refund`)
+/** `toBank` = transferred to the payout account by an admin instead of credited to the wallet. */
+export async function refundWindow(region: RegionId, windowId: number, toBank = false): Promise<Result<{ amount: number }>> {
+  const result = await post<{ amount: number; user: User; window: WindowItem }>(`/windows/${region}/${windowId}/refund`, { toBank })
   if (!result.success) return result
   currentUser = result.user
   putWindow(result.window)
   await refreshSession()
   return { success: true, amount: result.amount }
 }
+
+/** The user's window refunds paid by bank transfer (pending ones wait for an admin). */
+export const loadMyRefundPayouts = () => get<{ payouts: RefundPayout[] }>('/me/refund-payouts')
 
 /** Buy a window listed for resale at `expectedPrice` (the seller receives it minus the commission in settings.rules). */
 export async function buyResaleWindow(region: RegionId, windowId: number, expectedPrice: number, payment: PaymentBreakdown) {

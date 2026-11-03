@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Building2, Check, CircleCheck, History, QrCode, Sparkles, UserCog, Wallet } from 'lucide-react'
-import type { AuthMode, PayoutAccount, Transaction, User, WindowItem } from '@shared/types'
+import type { AuthMode, PayoutAccount, RefundPayout, Transaction, User, WindowItem } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
 import { quotaLimits } from '@shared/windowQuota'
 import { useRules } from '@/lib/settings'
+import { loadMyRefundPayouts } from '@/lib/store'
 import { RESALE_COMMISSION_RATE } from '@/lib/ownershipRules'
 import { Avatar } from '../Avatar'
 
@@ -54,6 +55,7 @@ export function WalletTab(props: WalletTabProps) {
     <div className="space-y-5">
       <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} onOpenProfile={props.onOpenProfile} />
       <BalanceCard user={currentUser} onOpenTopUp={props.onOpenTopUp} onOpenHistory={props.onOpenWalletHistory} />
+      <PendingRefundPayouts />
       <PayoutAccountCard user={currentUser} onUpdatePayoutAccount={props.onUpdatePayoutAccount} />
       <OwnedWindows windows={props.myWindows} limit={quotaLimits(currentUser.extraWindows).total} onSelectWindow={props.onSelectWindow} onClose={props.onClose} />
       <TransactionHistory transactions={props.transactions} />
@@ -571,6 +573,33 @@ const TX_TYPE_STYLES: Record<string, [string, string]> = {
   refund: ['คืนเงินเข้ากระเป๋า', 'bg-stone-800 text-stone-200 border border-stone-500/40'],
   edit_fee: ['ค่าแก้ไขบาน', 'bg-sky-950 text-sky-300 border border-sky-500/40'],
   bonus: ['โบนัสสมัครสมาชิก', 'bg-lime-950 text-lime-300 border border-lime-500/40'],
+}
+
+/** Window refunds waiting for the team's bank transfer (done ones show in the history). */
+function PendingRefundPayouts() {
+  const [pending, setPending] = useState<RefundPayout[]>([])
+  useEffect(() => {
+    let live = true
+    loadMyRefundPayouts().then((result) => live && result.success && setPending(result.payouts.filter((p) => p.status === 'pending')))
+    return () => {
+      live = false
+    }
+  }, [])
+  if (!pending.length) return null
+  return (
+    <div className="p-3 rounded-xl bg-sky-950/40 border border-sky-500/40 text-xs space-y-1.5">
+      <span className="font-bold text-sky-300 block text-sm">🏦 รอโอนเงินคืนเข้าบัญชี</span>
+      {pending.map((p) => (
+        <div key={p.id} className="flex justify-between gap-2 text-stone-300">
+          <span>
+            <span className="font-mono text-amber-300">{p.windowCode}</span> → {p.account.type === 'bank' ? p.account.bankName : 'พร้อมเพย์'} {p.account.accountNumber}
+          </span>
+          <b className="font-mono">฿{p.amount.toLocaleString()}</b>
+        </div>
+      ))}
+      <p className="text-[11px] text-stone-400 m-0">ทีมงานจะตรวจและโอนให้ เมื่อโอนแล้วจะแสดงในประวัติธุรกรรม</p>
+    </div>
+  )
 }
 
 function TransactionHistory({ transactions }: { transactions: Transaction[] }) {

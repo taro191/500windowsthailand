@@ -3,6 +3,7 @@
 import type { PromoAd, PromoDetails, PromoRequest } from '@shared/promo'
 import { cleanPromoDetails, emptyPromoDetails, freePromoRounds, isChoosableLayout, PROMO_MAX_IMAGES, PROMO_ROUND_OPTIONS, PROMO_ROUNDS_PER_DAY, PROMO_SIZES, promoPrice, schedulePromoRounds } from '@shared/promo'
 import { sixHourBlockIndex, thaiDayKey } from '@shared/thaiTime'
+import { TRIAL_PROMO_LOCKED, trialOnly } from '@shared/trial'
 import type { PromoRow, UserRow } from '../db/schema'
 import { newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
@@ -101,6 +102,8 @@ const text = (value: unknown, max: number) => String(value ?? '').trim().slice(0
 
 export async function submitPromoRequest(ctx: AppContext, user: UserRow, input: PromoInput, paymentInput: PaymentInput) {
   if (user.suspended) throw forbidden('บัญชีนี้ถูกระงับการทำธุรกรรมโดยผู้ดูแลระบบ กรุณาติดต่อทีมงาน')
+  const owned = await ctx.db.selectFrom('windows').select('trial_ends_at').where('owner_id', '=', user.id).execute()
+  if (trialOnly(owned.map((w) => ({ trial: !!w.trial_ends_at })))) throw forbidden(TRIAL_PROMO_LOCKED)
   const brand = text(input?.brand, 120)
   const link = text(input?.link, 500)
   const size = Number(input?.size)

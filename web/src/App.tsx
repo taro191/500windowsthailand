@@ -233,6 +233,16 @@ export default function App() {
       // Shared links open over the board, so skip the welcome screen (which renders neither).
       if (hash === '#contact' || hash.startsWith('#window-')) setView((v) => (v === 'welcome' ? 'main' : v))
       if (hash === '#contact') setContactOpen(true)
+      // Pages outside the app (e.g. Life Space) send signed-out visitors here to sign in.
+      if (hash === '#login') {
+        setView((v) => (v === 'welcome' ? 'main' : v))
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        if (!store.loadCurrentUser()) {
+          setAuthMode('login')
+          setAuthOpen(true)
+        }
+        return
+      }
       if (!hash.startsWith('#window-')) return
       const parts = hash.replace('#window-', '').split('-')
       if (parts.length === 2 && REGION_IDS.includes(parts[0] as RegionId)) {

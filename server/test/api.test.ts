@@ -524,6 +524,41 @@ describe('free trial window', () => {
     await ctx.db.updateTable('windows').set({ claimed_at: new Date(Date.now() - 16 * 86_400_000).toISOString() }).where('region', '=', 'south').where('num', '=', 157).execute()
     assert.equal((await host.c.post('/windows/south/157/refund')).status, 400)
   })
+
+  it('pays a refund by bank transfer once an admin records it, or returns it to the wallet', async () => {
+    const { c } = await verifiedUser('ขอโอนคืน')
+    await topUpByCard(c, 1000)
+    assert.equal((await c.post('/windows/south/159/claim', { content, payment: wallet(500) })).success, true)
+    assert.equal((await c.post('/windows/south/159/refund', { toBank: true })).status, 400, 'needs a payout account')
+    const account = { type: 'bank', bankCode: 'kbank', bankName: 'กสิกรไทย', accountNumber: '1234567890', accountName: 'ผู้ทดสอบ', autoPayout: false }
+    assert.equal((await c.patch('/me', { payoutAccount: account })).success, true)
+    const asked = await c.post('/windows/south/159/refund', { toBank: true })
+    assert.equal(asked.success, true, asked.error)
+    assert.equal(asked.toBank, true)
+    assert.equal(asked.user.balance, 500, 'not put in the wallet')
+    assert.equal(asked.window.status, 'available')
+    const mine = (await c.get('/me/refund-payouts')).payouts
+    assert.equal(mine.length, 1)
+    assert.equal(mine[0].status, 'pending')
+
+    const admin = await adminClient()
+    assert.ok((await admin.get('/admin/overview')).pendingRefundPayouts >= 1)
+    assert.equal((await c.get('/admin/refund-payouts')).status, 403)
+    const id = mine[0].id
+    assert.equal((await admin.post(`/admin/refund-payouts/${id}/decide`, { decision: 'paid', note: '' })).status, 400, 'needs the reference')
+    const paid = await admin.post(`/admin/refund-payouts/${id}/decide`, { decision: 'paid', note: 'REF-001' })
+    assert.equal(paid.success, true, paid.error)
+    assert.equal(paid.payouts.find((p: any) => p.id === id).status, 'paid')
+    assert.equal((await admin.post(`/admin/refund-payouts/${id}/decide`, { decision: 'returned', note: 'x' })).status, 409, 'only once')
+    assert.equal((await c.get('/session')).user.balance, 500, 'a transfer leaves the wallet as is')
+
+    // A transfer that can't be made goes to the wallet.
+    assert.equal((await c.post('/windows/south/160/claim', { content, payment: wallet(500) })).success, true)
+    assert.equal((await c.post('/windows/south/160/refund', { toBank: true })).success, true)
+    const second = (await c.get('/me/refund-payouts')).payouts.find((p: any) => p.status === 'pending')
+    assert.equal((await admin.post(`/admin/refund-payouts/${second.id}/decide`, { decision: 'returned', note: 'บัญชีไม่ถูกต้อง' })).success, true)
+    assert.equal((await c.get('/session')).user.balance, 500)
+  })
 })
 
 describe('Kapsulep & Co', () => {
@@ -639,6 +674,17 @@ describe('promo', () => {
     termsAccepted: true,
   })
   const future = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10)
+
+  it('is refused while the user only holds a free trial window', async () => {
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 600)
+    assert.equal((await c.post('/windows/north/161/trial', { content })).success, true)
+    const refused = await c.post('/promo/requests', { request: request(future), payment: wallet(60) })
+    assert.equal(refused.status, 403)
+    assert.match(refused.error, /บานทดลอง/)
+    assert.equal((await c.post('/windows/north/161/trial/pay', { payment: wallet(500) })).success, true)
+    assert.equal((await c.post('/promo/requests', { request: request(future), payment: wallet(60) })).success, true, 'paid owners can book')
+  })
 
   it('charges on submit and refunds the full amount when rejected', async () => {
     const { c } = await verifiedUser()
@@ -1976,17 +2022,22 @@ describe('central page', () => {
     assert.equal(first.status, 'draft')
     assert.ok(!(await client().get('/central')).news.some((n: any) => n.id === first.id), 'drafts stay hidden')
 
-    assert.equal((await admin.post(`/admin/central-news/${first.id}/publish`, { publish: true })).success, true)
+    // The author can't publish their own announcement; another admin reviews it.
+    assert.equal((await admin.post(`/admin/central-news/${first.id}/publish`, { publish: true })).status, 403)
+    assert.equal((await admin.post('/admin/users', { name: 'ผู้ตรวจประกาศ', email: 'news-reviewer@test.th', password: 'review-pass-1', role: 'admin' })).success, true)
+    const reviewer = client()
+    assert.equal((await reviewer.post('/auth/login', { identifier: 'news-reviewer@test.th', password: 'review-pass-1' })).success, true)
+    assert.equal((await reviewer.post(`/admin/central-news/${first.id}/publish`, { publish: true })).success, true)
     assert.ok((await client().get('/central')).news.some((n: any) => n.id === first.id))
     for (const title of ['ประกาศ 2', 'ประกาศ 3', 'ประกาศ 4', 'ประกาศ 5']) {
       const list = (await add(title)).news
       const id = list.find((n: any) => n.title === title).id
-      const published = await admin.post(`/admin/central-news/${id}/publish`, { publish: true })
+      const published = await reviewer.post(`/admin/central-news/${id}/publish`, { publish: true })
       assert.equal(published.success, title !== 'ประกาศ 5', title)
     }
     // Later, after the others ended, a fifth fits.
     const later = (await add('ประกาศ 6', at(400))).news.find((n: any) => n.title === 'ประกาศ 6')
-    assert.equal((await admin.post(`/admin/central-news/${later.id}/publish`, { publish: true })).status, 409, 'the others have no end')
+    assert.equal((await reviewer.post(`/admin/central-news/${later.id}/publish`, { publish: true })).status, 409, 'the others have no end')
 
     // Editing a published one makes it a draft again.
     const edited = await admin.post(`/admin/central-news/${first.id}`, { type: 'news', title: 'ประกาศ 1 แก้', publishAt: at(-1) })

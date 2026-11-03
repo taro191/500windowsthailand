@@ -379,7 +379,7 @@ export function assertNotSuspended(row: { suspended_at: string | null }) {
   if (row.suspended_at) throw forbidden('หน้าต่างนี้ถูกระงับชั่วคราว อยู่ระหว่างรอการตรวจสอบจากทีมงาน')
 }
 
-/** Free trial windows (not paid yet) can't use Friend and Co or the Kapsulep & Co card. */
+/** Free trial windows (not paid yet) can't use Friend and Co or the Store card. */
 export function assertNotTrial(row: { trial_ends_at: string | null }, feature: string) {
   if (row.trial_ends_at) throw forbidden(`บานทดลองใช้ฟรียังใช้ ${feature} ไม่ได้ ชำระค่าจับจองเพื่อปลดล็อก`)
 }

@@ -19,13 +19,13 @@ const EMBED_VARS = {
 } as React.CSSProperties
 
 /**
- * "Kapsulep & Co": web apps from the team (Co Store, set on the admin page) and windows picked
+ * "500 Windows Thailand : Store": web apps from the team (Co Store, set on the admin page) and windows picked
  * every 2 hours from all over Thailand (Co Center). Hidden when both are empty.
  */
 export function CoCard({ ctx }: { ctx: DetailContext }) {
   const { coStore } = useSettings()
   const apps = coStore.apps
-  const title = coStore.title.replace(/\s*:\s*Store\s*$/i, '') || 'Kapsulep & Co'
+  const title = coStore.title || '500 Windows Thailand : Store'
   const [hasCenter, setHasCenter] = useState(() => !!window.KAP_CO_EMBED?.has())
   const [tab, setTab] = useState<'store' | 'center'>('store')
   const [category, setCategory] = useState('')

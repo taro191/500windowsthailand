@@ -1,4 +1,4 @@
-// Co Center (the shared showcase in the "Kapsulep & Co" card): the public data its embedded
+// Co Center (the shared showcase in the "500 Windows Thailand : Store" card): the public data its embedded
 // script (web/public/kap/co-center-embed.js) picks windows from, see docs/CO-CENTER-SPEC.md.
 import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
 import type { RegionId } from '@shared/types'

@@ -105,7 +105,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     endsAt: null,
   },
   contact: DEFAULT_CONTACT,
-  coStore: { title: 'Kapsulep & Co', apps: [] },
+  coStore: { title: '500 Windows Thailand : Store', apps: [] },
   paidOnly: { codes: '' },
 }
 
@@ -238,8 +238,8 @@ export function validateSettings(settings: PlatformSettings): string | null {
 
 function validateCoStore(coStore: PlatformSettings['coStore'] | undefined): string | null {
   const L = CO_STORE_LIMITS
-  if (!coStore || typeof coStore.title !== 'string' || !Array.isArray(coStore.apps)) return 'ข้อมูล Kapsulep & Co ไม่ครบ'
-  if (coStore.title.length > L.title) return `ชื่อการ์ด Kapsulep & Co ยาวเกิน ${L.title} ตัวอักษร`
+  if (!coStore || typeof coStore.title !== 'string' || !Array.isArray(coStore.apps)) return 'ข้อมูล Store ไม่ครบ'
+  if (coStore.title.length > L.title) return `ชื่อการ์ด Store ยาวเกิน ${L.title} ตัวอักษร`
   if (coStore.apps.length > L.apps) return `เว็บแอปใน Co Store ได้ไม่เกิน ${L.apps} รายการ`
   const ids = new Set<string>()
   for (const app of coStore.apps) {

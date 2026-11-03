@@ -11,6 +11,8 @@ export interface AdminData {
   orders: PaymentOrder[]
   auditLog: AuditEntry[]
   contactMessages: ContactMessageEntry[]
+  /** Refunds waiting for a bank transfer. */
+  pendingRefundPayouts: number
 }
 
 export interface AdminPageProps {
