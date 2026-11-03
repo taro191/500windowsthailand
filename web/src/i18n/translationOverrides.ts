@@ -770,4 +770,5 @@ export const translationOverrides = {
   "ผู้ที่เลือกทดลองใช้ฟรีขอรับไม่ได้": "cannot be taken as a free trial",
   "ถือครองก่อนถูกตั้งเป็นบานไม่เปิดขาย ยังเป็นของผู้ถือครองเดิม": "Held before being set as not for sale; it stays with its owner",
   "ไม่ขาย": "Not sold",
+  "ทดลองใช้งาน": "Try it free for",
 } as const;

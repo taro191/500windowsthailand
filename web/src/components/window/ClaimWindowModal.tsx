@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Ban, CircleAlert, FlaskConical, History, Image as ImageIcon, ShieldCheck, Sparkles, Upload, X } from 'lucide-react'
 import type { AuthMode, CategoryId, Quota, User, WindowContentInput, WindowItem } from '@shared/types'
 import { REGIONS_BY_ID } from '@shared/regions'
@@ -27,6 +27,8 @@ interface ClaimWindowModalProps {
   onSubmitClaim: (windowId: number, content: WindowContentInput, options: { trial?: boolean; restoreTrial?: boolean }) => void
   onOpenAuth: (mode: AuthMode) => void
   onOpenKyc: () => void
+  /** Opened from the "try it free" button: scroll to the free-trial step. */
+  focusTrial?: boolean
 }
 
 export function ClaimWindowModal({
@@ -37,6 +39,7 @@ export function ClaimWindowModal({
   onSubmitClaim,
   onOpenAuth,
   onOpenKyc,
+  focusTrial = false,
 }: ClaimWindowModalProps) {
   const region = REGIONS_BY_ID[windowItem.region]
   const isThailand = windowItem.region === 'thailand'
@@ -52,6 +55,10 @@ export function ClaimWindowModal({
   const [restoring, setRestoring] = useState(false)
   const archive = currentUser?.trialArchive
   const canTrial = !!currentUser && !currentUser.trialUsed
+  const trialRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focusTrial) trialRef.current?.scrollIntoView({ block: 'center' })
+  }, [focusTrial])
   const settings = useSettings()
   const paidOnly = isPaidOnly(windowItem.code, settings.paidOnly.codes)
   const notForSale = inCodeList(windowItem.code, settings.notForSale.codes)
@@ -420,7 +427,7 @@ export function ClaimWindowModal({
           </div>
 
           {canTrial && canAcquireHere && (
-            <div className="p-3.5 rounded-xl bg-sky-950/30 border border-sky-700/40 space-y-2.5">
+            <div ref={trialRef} className="p-3.5 rounded-xl bg-sky-950/30 border border-sky-700/40 space-y-2.5">
               <div className="flex items-center gap-1.5 text-xs font-bold text-sky-200">
                 <FlaskConical className="w-4 h-4" />
                 <span>ทดลองใช้ฟรี {TRIAL_DAYS} วัน (สิทธิ์ 1 บานต่อ 1 บัญชี)</span>

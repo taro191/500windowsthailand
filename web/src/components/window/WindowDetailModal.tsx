@@ -5,7 +5,8 @@ import { CATEGORIES } from '@shared/categories'
 import { highlightKind, highlightLabel, starLevel } from '@shared/windowBadges'
 import { emptyProfile } from '@shared/windowProfile'
 import { quotaFullMessage } from '@shared/windowQuota'
-import { daysLeft, REFUND_DAYS, trialPayBy, TRIAL_GRACE_DAYS } from '@shared/trial'
+import { daysLeft, REFUND_DAYS, trialPayBy, TRIAL_DAYS, TRIAL_GRACE_DAYS } from '@shared/trial'
+import { inCodeList, isPaidOnly } from '@shared/paidOnly'
 import { copyToClipboard } from '@/lib/browser'
 import { claimPriceOf, editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import { loadBoard, markWelcomed, publishWindow, refundWindow, saveWindowProfile } from '@/lib/store'
@@ -30,7 +31,8 @@ interface WindowDetailModalProps {
   currentUser: User | null
   quota: Quota
   onClose: () => void
-  onClaim: (window: WindowItem) => void
+  /** `trial`: open the claim form at the free-trial step. */
+  onClaim: (window: WindowItem, trial?: boolean) => void
   onBuyResale: (window: WindowItem) => void
   /** Owner of a free trial window: pay the claim price to keep and publish it. */
   onPayTrial: (window: WindowItem) => void
@@ -59,6 +61,7 @@ const windowUrl = (w: { region: string; id: number }) => `${window.location.orig
 export function WindowDetailModal(props: WindowDetailModalProps) {
   const { windowItem: w, currentUser, quota, onClose, onClaim, onBuyResale, onOpenKyc, onNotify } = props
   const rules = useRules()
+  const settings = useSettings()
   const [viewer, setViewer] = useState<{ images: string[]; index: number; caption?: LightboxCaption } | null>(null)
   const [searching, setSearching] = useState<string | null>(null)
   const isOwner = !!currentUser && !!w && w.ownerId === currentUser.id
@@ -180,6 +183,12 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
   /** Runs `action` unless the signed-in user still has to complete KYC. */
   const requireKyc = (action: () => void) => () => (currentUser && !currentUser.isVerified ? onOpenKyc() : action())
   const cta = `${btn} ${btnPri} w-full !py-3 !text-[15px]`
+  // One free trial per account; not on paid-only or not-for-sale codes.
+  const offerTrial =
+    isAvailable &&
+    !currentUser?.trialUsed &&
+    !isPaidOnly(w.code, settings.paidOnly.codes) &&
+    !inCodeList(w.code, settings.notForSale.codes)
   const purchase =
     (isAvailable || (isForResale && !isOwner)) &&
     (!canAcquireHere && currentUser ? (
@@ -188,9 +197,20 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
         <span className={`text-[12px] ${muted}`}>(โควตาผู้ใช้ 1 คน อ้างอิงเลขบัตรประชาชน: ไทย {quota.thailandLimit} บาน + ภูมิภาค {quota.regionalLimit} บาน)</span>
       </div>
     ) : isAvailable ? (
-      <button type="button" onClick={requireKyc(() => onClaim(w))} className={cta}>
-        ✨ จับจองเป็นเจ้าของบานนี้ ({rules.claimPriceLabel})
-      </button>
+      <div className="flex flex-col gap-2">
+        <button type="button" onClick={requireKyc(() => onClaim(w))} className={cta}>
+          ✨ จับจองเป็นเจ้าของบานนี้ ({rules.claimPriceLabel})
+        </button>
+        {offerTrial && (
+          <button
+            type="button"
+            onClick={requireKyc(() => onClaim(w, true))}
+            className={`${btn} w-full !py-3 !text-[15px] !border-transparent !bg-amber-400 hover:!bg-amber-300 !text-stone-950 font-bold`}
+          >
+            ทดลองใช้งาน {TRIAL_DAYS} วัน
+          </button>
+        )}
+      </div>
     ) : (
       <button type="button" onClick={requireKyc(() => onBuyResale(w))} className={cta}>
         🛍️ ซื้อต่อหน้าต่างนี้ในราคา ฿{w.resalePrice?.toLocaleString()}

@@ -1,4 +1,4 @@
-import { Check, ChevronRight, CircleAlert, Compass, Gauge, Globe2, LayoutDashboard, LogOut, MapPin, MessageCircle, ShieldCheck, Sparkles, UserCog, Wallet, X } from 'lucide-react'
+import { Check, ChevronRight, CircleAlert, Compass, Gauge, LayoutDashboard, LogOut, MapPin, MessageCircle, ShieldCheck, Sparkles, UserCog, Wallet, X } from 'lucide-react'
 import type { AuthMode, HubTab, RegionId, StatusCounts, StatusFilter, User } from '@shared/types'
 import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { maskPhone } from '@shared/identity'
@@ -19,6 +19,7 @@ interface MobileDrawerProps {
   onLogout: () => void
   onOpenHub: (tab: HubTab) => void
   onOpenContact: () => void
+  onOpenCentral: () => void
   onBackToWelcome: () => void
   onOpenTopUp?: () => void
   /** Only passed for admins. */
@@ -40,6 +41,7 @@ export function MobileDrawer({
   onOpenProfile,
   onOpenWalletHistory,
   onOpenContact,
+  onOpenCentral,
   onLogout,
   onOpenHub,
   onBackToWelcome,
@@ -84,7 +86,7 @@ export function MobileDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 font-['Plus_Jakarta_Sans','Prompt',sans-serif]">
       <div
-        className="w-full max-w-sm bg-[#0e0b17] border-l border-purple-900/40 h-full flex flex-col shadow-2xl overflow-hidden"
+        className="w-full sm:max-w-sm bg-[#0e0b17] border-l border-purple-900/40 h-full flex flex-col shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3.5 bg-[#09080e] border-b border-purple-900/30">
@@ -312,26 +314,13 @@ export function MobileDrawer({
                 <ChevronRight className="w-4 h-4 text-stone-500" />
               </button>
             ))}
-            <a
-              href="/kap/central.html"
-              className="w-full p-2.5 bg-stone-950 hover:bg-stone-850 border border-stone-800 rounded-xl text-left flex items-center justify-between cursor-pointer text-stone-200 hover:text-amber-300 transition-colors no-underline"
-            >
+            <button onClick={then(onOpenCentral)} className="w-full p-2.5 bg-stone-950 hover:bg-stone-850 border border-stone-800 rounded-xl text-left flex items-center justify-between cursor-pointer text-stone-200 hover:text-amber-300 transition-colors">
               <span className="flex items-center gap-2">
                 <LayoutDashboard className="w-3.5 h-3.5 text-amber-400" />
                 <span>ส่วนกลาง · หน้าต่างของฉัน ข่าวสาร</span>
               </span>
               <ChevronRight className="w-4 h-4 text-stone-500" />
-            </a>
-            <a
-              href="/kap/co-center.html"
-              className="w-full p-2.5 bg-stone-950 hover:bg-stone-850 border border-stone-800 rounded-xl text-left flex items-center justify-between cursor-pointer text-stone-200 hover:text-amber-300 transition-colors no-underline"
-            >
-              <span className="flex items-center gap-2">
-                <Globe2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>Co Center · หน้าต่างแนะนำ</span>
-              </span>
-              <ChevronRight className="w-4 h-4 text-stone-500" />
-            </a>
+            </button>
             <button
               onClick={then(onOpenContact)}
               className="w-full p-2.5 bg-stone-950 hover:bg-stone-850 border border-stone-800 rounded-xl text-left flex items-center justify-between cursor-pointer text-stone-200 hover:text-amber-300 transition-colors"

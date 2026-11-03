@@ -38,6 +38,7 @@ import { BottomNav } from '@/components/layout/BottomNav'
 import { WindowGrid } from '@/components/board/WindowGrid'
 import { WindowDetailModal } from '@/components/window/WindowDetailModal'
 import { ClaimWindowModal } from '@/components/window/ClaimWindowModal'
+import { CentralOverlay } from '@/components/layout/CentralOverlay'
 import { BuyResaleModal } from '@/components/window/BuyResaleModal'
 import { EditWindowModal } from '@/components/window/EditWindowModal'
 import { CheckoutModal } from '@/components/payment/CheckoutModal'
@@ -98,6 +99,7 @@ export default function App() {
 
   const [selectedWindow, setSelectedWindow] = useState<WindowItem | null>(null)
   const [claimTarget, setClaimTarget] = useState<WindowItem | null>(null)
+  const [claimTrial, setClaimTrial] = useState(false)
   const [resaleTarget, setResaleTarget] = useState<WindowItem | null>(null)
   const [editTarget, setEditTarget] = useState<WindowItem | null>(null)
   const [payment, setPayment] = useState<PendingPayment | null>(null)
@@ -115,6 +117,9 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [walletHistoryOpen, setWalletHistoryOpen] = useState(false)
   const [contactOpen, setContactOpen] = useState(() => window.location.hash === '#contact')
+  const [centralOpen, setCentralOpen] = useState(false)
+  const openCentral = useCallback(() => setCentralOpen(true), [])
+  const closeCentral = useCallback(() => setCentralOpen(false), [])
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(true)
   const [topUpOpen, setTopUpOpen] = useState(false)
@@ -233,6 +238,13 @@ export default function App() {
       // Shared links open over the board, so skip the welcome screen (which renders neither).
       if (hash === '#contact' || hash.startsWith('#window-')) setView((v) => (v === 'welcome' ? 'main' : v))
       if (hash === '#contact') setContactOpen(true)
+      // Pages outside the app link to the central page as /#central; it opens over the board.
+      if (hash === '#central') {
+        setView((v) => (v === 'welcome' ? 'main' : v))
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        setCentralOpen(true)
+        return
+      }
       // Pages outside the app (e.g. Life Space) send signed-out visitors here to sign in.
       if (hash === '#login') {
         setView((v) => (v === 'welcome' ? 'main' : v))
@@ -374,7 +386,7 @@ export default function App() {
 
   // ------------------------------------------------------------ claim, buy, pay
 
-  const startClaim = (window: WindowItem) => {
+  const startClaim = (window: WindowItem, trial = false) => {
     setSelectedWindow(null)
     if (isPromoSlot(window.id)) {
       showToast('หน้าต่างหมายเลข 481–486 ล็อกไว้เป็นพื้นที่โปรโมทของระบบ กดปุ่ม "โปรโมท" ใน Hub รวมข้อมูลเพื่อจองพื้นที่', 'info')
@@ -385,6 +397,7 @@ export default function App() {
     } else if (!currentUser.isVerified) {
       openKyc('ต้องยืนยันตัวตนด้วยเลขบัตรประชาชน 13 หลักและเบอร์โทรศัพท์ก่อนจับจองหน้าต่าง')
     } else {
+      setClaimTrial(trial)
       setClaimTarget(window)
     }
   }
@@ -681,6 +694,7 @@ export default function App() {
         onOpenHub={openHub}
         onOpenAuth={openAuth}
         onOpenContact={() => setContactOpen(true)}
+        onOpenCentral={openCentral}
       />
 
       {promoView && (
@@ -726,6 +740,7 @@ export default function App() {
       {claimTarget && (
         <ClaimWindowModal
           windowItem={claimTarget}
+          focusTrial={claimTrial}
           currentUser={currentUser}
           quota={quota}
           onClose={() => setClaimTarget(null)}
@@ -845,6 +860,8 @@ export default function App() {
         <WalletHistoryModal key={currentUser.id} currentUser={currentUser} onClose={() => setWalletHistoryOpen(false)} onRefreshed={syncAccount} />
       )}
 
+      {centralOpen && <CentralOverlay onClose={closeCentral} />}
+
       {contactOpen && (
         <ContactModal
           currentUser={currentUser}
@@ -868,6 +885,7 @@ export default function App() {
         onLogout={handleLogout}
         onOpenHub={openHub}
         onOpenContact={() => setContactOpen(true)}
+        onOpenCentral={openCentral}
         onBackToWelcome={() => setView('welcome')}
         onOpenTopUp={openTopUp}
         onOpenAdmin={isAdmin ? () => setView('admin') : undefined}
@@ -879,6 +897,7 @@ export default function App() {
       <BottomNav
         currentUser={currentUser}
         showingFollow={statusFilter === 'follow'}
+        onOpenCentral={openCentral}
         followCount={followedWindows.length}
         onHome={() => {
           setStatusFilter('all')
