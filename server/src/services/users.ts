@@ -3,6 +3,7 @@ import { randomInt } from 'node:crypto'
 import type { ExtraWindows, PayoutAccount, User } from '@shared/types'
 import { formatCitizenId, isValidCitizenId, isValidThaiMobile, maskCitizenId } from '@shared/identity'
 import { activeSignupBonus } from '@shared/settings'
+import { trialRestoreUntil } from '@shared/trial'
 import type { UserRow } from '../db/schema'
 import { hashPassword, newId, newToken, sha256, verifyPassword } from '../lib/crypto'
 import { deleteUpload, isDataUrl, saveImage } from '../lib/files'
@@ -79,9 +80,12 @@ export function parseTrialArchive(row: Pick<UserRow, 'trial_archive_json'>): Tri
   }
 }
 
+/** Shown while it can still be restored (into its own window, see purchases.claimWindow). */
 function trialArchiveOf(row: UserRow): User['trialArchive'] {
   const a = parseTrialArchive(row)
   if (!a) return undefined
+  const restoreUntil = trialRestoreUntil(a.archived_at)
+  if (Date.now() > restoreUntil.getTime()) return undefined
   return {
     code: a.code,
     title: a.title,
@@ -92,6 +96,7 @@ function trialArchiveOf(row: UserRow): User['trialArchive'] {
     ownerContact: a.owner_contact ?? undefined,
     externalLink: a.external_link ?? undefined,
     archivedAt: a.archived_at,
+    restoreUntil: restoreUntil.toISOString(),
   }
 }
 

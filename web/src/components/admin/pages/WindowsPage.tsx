@@ -16,7 +16,7 @@ export function StatusBadge({ window: w }: { window: WindowItem }) {
   const notForSale = useSettings().notForSale.codes
   if (w.lifecycle === 'suspended') return <Badge tone="danger">ระงับ รอตรวจสอบ</Badge>
   if (w.lifecycle === 'pending') return <Badge tone="warning">จองแล้ว รอตรวจสลิป</Badge>
-  if (w.lifecycle === 'unpaid') return <Badge tone="warning">ทดลองใช้ครบ รอชำระเงิน</Badge>
+  if (w.lifecycle === 'unpaid') return <Badge tone="warning">ทดลองใช้ครบ รอคืนเข้าระบบ</Badge>
   if (w.trialEndsAt) return <Badge tone="info">ทดลองใช้ฟรี</Badge>
   if (w.takenDown) return <Badge tone="danger">ระงับเนื้อหา</Badge>
   if (w.lifecycle === 'building') return <Badge tone="secondary">ยังไม่เผยแพร่</Badge>

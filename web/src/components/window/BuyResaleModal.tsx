@@ -5,6 +5,7 @@ import { quotaFullMessage } from '@shared/windowQuota'
 import { commissionOf } from '@/lib/ownershipRules'
 import { editPolicyLabel, useRules, useSettings } from '@/lib/settings'
 import { KapsulepLogo } from '../KapsulepLogo'
+import { TrialEndsNotice } from './TrialEndsNotice'
 
 interface BuyResaleModalProps {
   windowItem: WindowItem
@@ -159,6 +160,7 @@ export function BuyResaleModal({
             </p>
           </div>
 
+          <TrialEndsNotice currentUser={currentUser} windowItem={windowItem} />
           {currentUser ? (
             <button
               onClick={confirm}

@@ -11,9 +11,9 @@ import { REGIONS_BY_ID } from '@shared/regions'
 import { isPromoSlot } from '@shared/promo'
 import { buildQuota } from '@shared/windowQuota'
 import { inCodeList, isPaidOnly } from '@shared/paidOnly'
-import { REFUND_DAYS, TRIAL_GRACE_DAYS, trialEndsAt, trialPhase } from '@shared/trial'
+import { REFUND_DAYS, TRIAL_RESTORE_DAYS, trialEndsAt, trialPhase, trialRestoreUntil } from '@shared/trial'
 import type { DB } from '../db'
-import type { OrderRow, UserRow } from '../db/schema'
+import type { OrderRow, UserRow, WindowRow } from '../db/schema'
 import { newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { saveImage } from '../lib/files'
@@ -161,7 +161,8 @@ async function assertQuota(db: DB, userId: string, region: RegionId) {
     .select(['extra_thailand_windows', 'extra_regional_windows'])
     .where('id', '=', userId)
     .executeTakeFirstOrThrow()
-  const owned = await db.selectFrom('windows').select(['region', 'code']).where('owner_id', '=', userId).execute()
+  // A free trial window doesn't count: buying any window ends it (endTrialOf).
+  const owned = await db.selectFrom('windows').select(['region', 'code']).where('owner_id', '=', userId).where('trial_ends_at', 'is', null).execute()
   const pending = await db
     .selectFrom('payment_orders')
     .select(['region', 'label'])
@@ -214,7 +215,18 @@ interface ClaimPayload {
 
 async function applyClaim(
   db: DB,
-  args: { buyer: Pick<UserRow, 'id' | 'name'>; region: RegionId; num: number; price: number; content: ClaimPayload; payment: CheckedPayment; orderId?: string | null; heldBy?: string },
+  args: {
+    buyer: Pick<UserRow, 'id' | 'name'>
+    region: RegionId
+    num: number
+    price: number
+    content: ClaimPayload
+    payment: CheckedPayment
+    orderId?: string | null
+    heldBy?: string
+    /** Current claim price (settings.rules), for a trial window released by this purchase. */
+    claimPrice: number
+  },
 ) {
   const now = nowIso()
   const { content } = args
@@ -261,6 +273,7 @@ async function applyClaim(
 
   await insertImage(db, args.region, args.num, content.imageUrl, 'ภาพเปิดตัวหน้าต่างบานใหม่', now)
   if (content.restoredTrial) await db.updateTable('users').set({ trial_archive_json: null }).where('id', '=', args.buyer.id).execute()
+  await endTrialOf(db, args.buyer.id, args.claimPrice)
   const code = `${REGIONS_BY_ID[args.region].codePrefix}-${String(args.num).padStart(3, '0')}`
   await recordTransaction(db, {
     windowId: args.num,
@@ -296,6 +309,10 @@ export async function claimWindow(
 
   const archive = restoreTrial ? parseTrialArchive(user) : undefined
   if (restoreTrial && !archive) throw badRequest('ไม่พบข้อมูลบานทดลองใช้เดิมที่จะกู้คืน')
+  if (archive && (archive.code !== row.code || Date.now() > trialRestoreUntil(archive.archived_at).getTime())) {
+    throw badRequest(`กู้คืนข้อมูลบานทดลองได้เฉพาะบานเดิม (${archive.code}) ภายใน ${TRIAL_RESTORE_DAYS} วันหลังครบช่วงทดลอง`)
+  }
+  const { claimPrice } = (await getSettings(ctx)).rules
   const cleaned = cleanContent(input, region)
   const price = row.claim_price
   const payment = await checkPayment(ctx, price, paymentInput)
@@ -331,7 +348,7 @@ export async function claimWindow(
       return
     }
     if (orderId) await insertOrder(trx, { id: orderId, user, kind: 'claim', label, amount: price, payment, status: 'approved', region, num })
-    await applyClaim(trx, { buyer: user, region, num, price, content, payment, orderId })
+    await applyClaim(trx, { buyer: user, region, num, price, content, payment, orderId, claimPrice })
   })
   return result(ctx, user.id, payment.viaSlip, orderId)
 }
@@ -484,14 +501,14 @@ export async function startTrial(ctx: AppContext, user: UserRow, region: RegionI
   })
 }
 
-/** Pay the claim price for one's trial window (during the trial or the "รอชำระเงิน" period). */
+/** Pay the claim price for one's trial window (any time during the trial). */
 export async function payTrial(ctx: AppContext, user: UserRow, region: RegionId, num: number, paymentInput: PaymentInput): Promise<PurchaseResult> {
   assertCanTrade(user)
   const row = await ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', num).executeTakeFirst()
   if (!row) throw notFound('ไม่พบบานหน้าต่าง')
   if (row.owner_id !== user.id || !row.trial_ends_at) throw badRequest('บานนี้ไม่ใช่บานทดลองใช้ของคุณ')
   if (row.reserved_order_id) throw conflict('มีรายการชำระเงินของบานนี้รอตรวจสอบอยู่แล้ว')
-  if (trialPhase(row.trial_ends_at) === 'expired') throw badRequest('เลยกำหนดชำระเงินของบานทดลองใช้แล้ว')
+  if (trialPhase(row.trial_ends_at) === 'expired') throw badRequest('ครบช่วงทดลองใช้แล้ว บานนี้กลับเข้าระบบ')
 
   const price = row.claim_price
   const payment = await checkPayment(ctx, price, paymentInput)
@@ -535,7 +552,7 @@ async function applyTrialPayment(
     .where('trial_ends_at', 'is not', null)
   update = args.heldBy ? update.where('reserved_order_id', '=', args.heldBy) : update.where('reserved_order_id', 'is', null)
   const updated = await update.executeTakeFirst()
-  if (Number(updated.numUpdatedRows) === 0) throw conflict('บานทดลองใช้นี้ไม่อยู่ในสถานะรอชำระเงินแล้ว')
+  if (Number(updated.numUpdatedRows) === 0) throw conflict('บานนี้ไม่ได้อยู่ในช่วงทดลองใช้แล้ว')
 
   const row = await db.selectFrom('windows').select(['code', 'title']).where('region', '=', args.region).where('num', '=', args.num).executeTakeFirstOrThrow()
   await recordTransaction(db, {
@@ -553,51 +570,63 @@ async function applyTrialPayment(
 }
 
 /**
- * Trial windows still unpaid after the "รอชำระเงิน" period go back to the pool; their content is kept on
- * the user (trial_archive_json) to restore into another window. Windows with a slip waiting are skipped.
+ * Puts a trial window back in the pool. `archive`: keep its content on the user (trial_archive_json) so they
+ * can pay to restore it into this same window for TRIAL_RESTORE_DAYS. False when it changed meanwhile.
+ */
+async function releaseTrial(db: DB, row: WindowRow, at: string, claimPrice: number, archive: boolean) {
+  const { region: _r, num: _n, ...empty } = emptyWindowRow(row.region as RegionId, row.num, at, claimPrice)
+  const released = await db
+    .updateTable('windows')
+    .set({ ...empty, previous_owner_id: row.owner_id })
+    .where('region', '=', row.region)
+    .where('num', '=', row.num)
+    .where('owner_id', '=', row.owner_id)
+    .where('trial_ends_at', '=', row.trial_ends_at)
+    .where('reserved_order_id', 'is', null)
+    .executeTakeFirst()
+  if (Number(released.numUpdatedRows) === 0 || !row.owner_id) return false
+  if (archive) {
+    const kept: TrialArchive = {
+      code: row.code,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      province: row.province,
+      image_url: row.image_url,
+      owner_contact: row.owner_contact,
+      external_link: row.external_link,
+      profile_json: row.profile_json,
+      archived_at: at,
+    }
+    await db.updateTable('users').set({ trial_archive_json: JSON.stringify(kept) }).where('id', '=', row.owner_id).execute()
+  }
+  await db.insertInto('window_owners').values({ id: newId('wo'), region: row.region, num: row.num, owner_id: row.owner_id, transferred_at: at, type: 'released' }).execute()
+  await db.deleteFrom('window_follows').where('region', '=', row.region).where('num', '=', row.num).execute()
+  return true
+}
+
+/** Buying a window ends the buyer's free trial at once; its content is not kept. One with a slip waiting stays. */
+async function endTrialOf(db: DB, userId: string, claimPrice: number) {
+  const rows = await db.selectFrom('windows').selectAll().where('owner_id', '=', userId).where('trial_ends_at', 'is not', null).where('reserved_order_id', 'is', null).execute()
+  for (const row of rows) await releaseTrial(db, row, nowIso(), claimPrice, false)
+}
+
+/**
+ * Trial windows unpaid when the trial ends go back to the pool right away, their content kept for restoring
+ * (releaseTrial). Windows with a slip waiting are skipped.
  */
 export async function expireTrials(ctx: AppContext, now = new Date()) {
-  const cutoff = new Date(now.getTime() - TRIAL_GRACE_DAYS * 86_400_000).toISOString()
   const rows = await ctx.db
     .selectFrom('windows')
     .selectAll()
     .where('trial_ends_at', 'is not', null)
-    .where('trial_ends_at', '<=', cutoff)
+    .where('trial_ends_at', '<=', now.toISOString())
     .where('reserved_order_id', 'is', null)
     .execute()
   if (!rows.length) return 0
   const { claimPrice } = (await getSettings(ctx)).rules
   const at = now.toISOString()
-  for (const row of rows) {
-    await ctx.db.transaction().execute(async (trx) => {
-      const { region: _r, num: _n, ...empty } = emptyWindowRow(row.region as RegionId, row.num, at, claimPrice)
-      const released = await trx
-        .updateTable('windows')
-        .set({ ...empty, previous_owner_id: row.owner_id })
-        .where('region', '=', row.region)
-        .where('num', '=', row.num)
-        .where('owner_id', '=', row.owner_id)
-        .where('trial_ends_at', '=', row.trial_ends_at)
-        .where('reserved_order_id', 'is', null)
-        .executeTakeFirst()
-      if (Number(released.numUpdatedRows) === 0 || !row.owner_id) return
-      const archive: TrialArchive = {
-        code: row.code,
-        title: row.title,
-        description: row.description,
-        category: row.category,
-        province: row.province,
-        image_url: row.image_url,
-        owner_contact: row.owner_contact,
-        external_link: row.external_link,
-        profile_json: row.profile_json,
-        archived_at: at,
-      }
-      await trx.updateTable('users').set({ trial_archive_json: JSON.stringify(archive) }).where('id', '=', row.owner_id).execute()
-      await trx.insertInto('window_owners').values({ id: newId('wo'), region: row.region, num: row.num, owner_id: row.owner_id, transferred_at: at, type: 'released' }).execute()
-      await trx.deleteFrom('window_follows').where('region', '=', row.region).where('num', '=', row.num).execute()
-    })
-  }
+  for (const row of rows) await ctx.db.transaction().execute((trx) => releaseTrial(trx, row, at, claimPrice, true))
   return rows.length
 }
 
@@ -657,6 +686,7 @@ async function applyResale(
   update = args.heldBy ? update.where('reserved_order_id', '=', args.heldBy) : update.where('reserved_order_id', 'is', null)
   const updated = await update.executeTakeFirst()
   if (Number(updated.numUpdatedRows) === 0) throw conflict('หน้าต่างบานนี้ไม่ได้เปิดขายต่อในราคานี้แล้ว')
+  await endTrialOf(db, args.buyer.id, args.rules.claimPrice)
 
   await db
     .insertInto('window_owners')
@@ -870,7 +900,7 @@ export async function decideOrder(ctx: AppContext, admin: UserRow, orderId: stri
       } else if (order.kind === 'claim') {
         const content = JSON.parse(order.payload_json || '{}') as ClaimPayload
         if ((content as { trial?: boolean }).trial) await applyTrialPayment(trx, { buyer, region, num: order.window_num!, price: order.amount, payment, orderId, heldBy: orderId })
-        else         await applyClaim(trx, { buyer, region, num: order.window_num!, price: order.amount, content, payment, orderId, heldBy: orderId })
+        else await applyClaim(trx, { buyer, region, num: order.window_num!, price: order.amount, content, payment, orderId, heldBy: orderId, claimPrice: rules.claimPrice })
       } else if (order.kind === 'resale') {
         const { sellerId } = JSON.parse(order.payload_json || '{}') as { sellerId: string }
         await applyResale(trx, { buyer, sellerId, region, num: order.window_num!, price: order.amount, payment, orderId, heldBy: orderId, rules })

@@ -5,7 +5,7 @@ import { CATEGORIES } from '@shared/categories'
 import { highlightKind, highlightLabel, starLevel } from '@shared/windowBadges'
 import { emptyProfile } from '@shared/windowProfile'
 import { quotaFullMessage } from '@shared/windowQuota'
-import { daysLeft, REFUND_DAYS, trialPayBy, TRIAL_DAYS, TRIAL_GRACE_DAYS } from '@shared/trial'
+import { daysLeft, REFUND_DAYS, TRIAL_DAYS, TRIAL_RESTORE_DAYS } from '@shared/trial'
 import { inCodeList, isPaidOnly } from '@shared/paidOnly'
 import { copyToClipboard } from '@/lib/browser'
 import { claimPriceOf, editPolicyLabel, useRules, useSettings } from '@/lib/settings'
@@ -463,34 +463,36 @@ function RefundBar({ until, hasAccount, onRefund }: { until: string; hasAccount:
   )
 }
 
-/** Owner of a free trial window: days left, then the pay-by date, and the pay button. */
+/** Owner of a free trial window: days left and the pay button. */
 function TrialBar({ w, price, onPay }: { w: WindowItem; price: number; onPay: () => void }) {
+  // Ended: released within minutes (or once a waiting slip is decided).
   const unpaid = w.lifecycle === 'unpaid'
-  const payBy = trialPayBy(w.trialEndsAt!)
-  const date = (d: Date) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
   const tone = unpaid ? 'text-(--kap-warn)' : 'text-[#3fb8b0]'
   return (
     <section className={`${card} ${unpaid ? '!border-(--kap-warn)' : '!border-[#3fb8b0]'} text-[13px] flex flex-wrap items-center gap-3`}>
       <div className="flex-1 min-w-[200px]">
         {unpaid ? (
           <>
-            <b className={tone}>⏳ ครบช่วงทดลองใช้แล้ว · รอชำระเงิน (เหลือ {daysLeft(payBy)} วัน)</b>
+            <b className={tone}>⏳ ครบช่วงทดลองใช้แล้ว</b>
             <p className={`${para} !mb-0`}>
-              ชำระค่าจับจองภายใน {date(payBy)} เพื่อเก็บบานนี้ไว้และเผยแพร่ ถ้าเลยกำหนด บานจะกลับเป็นบานว่าง แต่ข้อมูลของคุณยังเก็บไว้ให้กู้ใส่บานว่างอื่นได้
+              บานนี้กำลังกลับเป็นบานว่าง · ภายใน {TRIAL_RESTORE_DAYS} วัน ถ้าบานยังว่าง ชำระที่บานนี้เพื่อกู้คืนข้อมูลเดิมได้
             </p>
           </>
         ) : (
           <>
             <b className={tone}>🧪 บานทดลองใช้ฟรี · เหลือ {daysLeft(w.trialEndsAt!)} วัน</b>
             <p className={`${para} !mb-0`}>
-              ผู้เข้าชมจะเห็นหน้า "กำลังพัฒนา" จนกว่าคุณจะชำระค่าจับจอง ชำระแล้วเผยแพร่ทันที · ครบกำหนดแล้วมีเวลาชำระต่ออีก {TRIAL_GRACE_DAYS} วัน
+              ผู้เข้าชมจะเห็นหน้า "กำลังพัฒนา" จนกว่าคุณจะชำระค่าจับจอง ชำระแล้วเผยแพร่ทันที ข้อมูลเดิมอยู่ครบ · ครบ {TRIAL_DAYS} วันแล้วไม่ชำระ
+              บานจะว่างทันที
             </p>
           </>
         )}
       </div>
-      <button type="button" onClick={onPay} disabled={w.reserved} className={`${btn} ${btnPri} disabled:opacity-40`}>
-        {w.reserved ? 'รอตรวจสอบสลิป' : `ชำระ ฿${price.toLocaleString()} และเผยแพร่`}
-      </button>
+      {(!unpaid || w.reserved) && (
+        <button type="button" onClick={onPay} disabled={w.reserved} className={`${btn} ${btnPri} disabled:opacity-40`}>
+          {w.reserved ? 'รอตรวจสอบสลิป' : `ชำระ ฿${price.toLocaleString()} และเผยแพร่`}
+        </button>
+      )}
     </section>
   )
 }

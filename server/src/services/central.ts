@@ -3,7 +3,7 @@
 import type { CentralNews, RegionId } from '@shared/types'
 import { thaiDayKey } from '@shared/thaiTime'
 import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
-import { daysLeft, REFUND_DAYS, TRIAL_DAYS, TRIAL_GRACE_DAYS, trialPayBy, trialPhase } from '@shared/trial'
+import { daysLeft, REFUND_DAYS, TRIAL_DAYS, TRIAL_RESTORE_DAYS, trialPhase } from '@shared/trial'
 import type { CentralNewsTable, UserRow, WindowRow } from '../db/schema'
 import { newId } from '../lib/crypto'
 import { ApiError, badRequest, conflict, forbidden, notFound } from '../lib/errors'
@@ -59,9 +59,10 @@ type OwnRow = Pick<WindowRow, 'region' | 'num' | 'code' | 'title' | 'image_url' 
 function planOf(row: OwnRow) {
   if (row.suspended_at) return { type: row.trial_ends_at ? 'trial' : 'paid', status: 'suspended' }
   if (!row.trial_ends_at) return { type: 'paid', status: 'active' }
+  // Ended trials are released within minutes (purchases.expireTrials).
   return trialPhase(row.trial_ends_at) === 'trial'
     ? { type: 'trial', status: 'active', daysLeft: daysLeft(row.trial_ends_at) }
-    : { type: 'trial', status: 'expiring', daysLeft: daysLeft(trialPayBy(row.trial_ends_at)) }
+    : { type: 'trial', status: 'expired', daysLeft: 0 }
 }
 
 /** "หน้าต่างของฉัน": the user's windows with plan and numbers; null when signed out. */
@@ -137,11 +138,11 @@ export async function upgradeData(ctx: AppContext, user: UserRow | null, ref: st
     backUrl: '/kap/central.html',
     plan: {
       type: row.trial_ends_at ? 'trial' : 'paid',
-      status: row.suspended_at ? 'suspended' : phase === 'unpaid' || phase === 'expired' ? 'expired' : 'active',
-      daysLeft: row.trial_ends_at ? daysLeft(phase === 'trial' ? row.trial_ends_at : trialPayBy(row.trial_ends_at)) : undefined,
+      status: row.suspended_at ? 'suspended' : phase === 'expired' ? 'expired' : 'active',
+      daysLeft: row.trial_ends_at ? daysLeft(row.trial_ends_at) : undefined,
       price: `${(row.trial_ends_at ? row.claim_price : rules.claimPrice).toLocaleString('en-US')} บาท`,
     },
-    rules: { trialDays: TRIAL_DAYS, graceDays: TRIAL_GRACE_DAYS, refundDays: REFUND_DAYS, holdDays: rules.minHoldingDays },
+    rules: { trialDays: TRIAL_DAYS, restoreDays: TRIAL_RESTORE_DAYS, refundDays: REFUND_DAYS, holdDays: rules.minHoldingDays },
   }
 }
 

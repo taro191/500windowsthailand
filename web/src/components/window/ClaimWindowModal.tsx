@@ -6,12 +6,13 @@ import { CATEGORIES, CATEGORY_IDS } from '@shared/categories'
 import { DEMO_IMAGES } from '@shared/seedWindows'
 import { maskCitizenId } from '@shared/identity'
 import { quotaFullMessage } from '@shared/windowQuota'
-import { TRIAL_DAYS, TRIAL_GRACE_DAYS } from '@shared/trial'
+import { TRIAL_DAYS, TRIAL_RESTORE_DAYS } from '@shared/trial'
 import { inCodeList, isPaidOnly } from '@shared/paidOnly'
 import { claimPriceOf, useSettings } from '@/lib/settings'
 import { compressImage } from '@/lib/browser'
 import { KapsulepLogo } from '../KapsulepLogo'
 import { ContentGuidelines } from './ContentGuidelines'
+import { TrialEndsNotice } from './TrialEndsNotice'
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
@@ -53,7 +54,8 @@ export function ClaimWindowModal({
   const [error, setError] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [restoring, setRestoring] = useState(false)
-  const archive = currentUser?.trialArchive
+  // A released trial's content goes back only into its own window.
+  const archive = currentUser?.trialArchive?.code === windowItem.code ? currentUser.trialArchive : undefined
   const canTrial = !!currentUser && !currentUser.trialUsed
   const trialRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -260,7 +262,8 @@ export function ClaimWindowModal({
           {archive && !restoring && (
             <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-700/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-amber-100">
               <span>
-                คุณมีข้อมูลจากบานทดลองใช้เดิม <strong>{archive.code}</strong> «{archive.title}» ที่เก็บไว้ ใส่ลงบานนี้ได้เลย
+                บานนี้คือบานทดลองใช้เดิมของคุณ <strong>{archive.code}</strong> «{archive.title}» ชำระภายใน{' '}
+                {new Date(archive.restoreUntil).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} เพื่อกู้คืนข้อมูลเดิม
               </span>
               <button
                 type="button"
@@ -430,14 +433,25 @@ export function ClaimWindowModal({
             <div ref={trialRef} className="p-3.5 rounded-xl bg-sky-950/30 border border-sky-700/40 space-y-2.5">
               <div className="flex items-center gap-1.5 text-xs font-bold text-sky-200">
                 <FlaskConical className="w-4 h-4" />
-                <span>ทดลองใช้ฟรี {TRIAL_DAYS} วัน (สิทธิ์ 1 บานต่อ 1 บัญชี)</span>
+                <span>ทดลองใช้ฟรี {TRIAL_DAYS} วัน (1 บานต่อ 1 คน เลือกส่วนกลางประเทศไทยหรือภูมิภาค อย่างใดอย่างหนึ่ง)</span>
               </div>
-              <p className="m-0 text-[11px] leading-relaxed text-stone-300 font-light">
-                จัดหน้าต่างบานนี้ได้เต็มที่โดยยังไม่ต้องชำระเงิน ระหว่างนี้บานจะอยู่ในสถานะ «กำลังพัฒนา» ผู้อื่นยังไม่เห็นเนื้อหา
-                ชำระค่าจับจอง ฿{price.toLocaleString()} เมื่อไรก็เผยแพร่ได้ทันที · ครบ {TRIAL_DAYS} วันแล้วมีเวลาชำระอีก {TRIAL_GRACE_DAYS} วัน
-                หลังจากนั้นบานจะกลับเป็นบานว่าง แต่ข้อมูลยังเก็บไว้ให้กู้ใส่บานว่างอื่นได้ · ช่วงทดลองใช้ได้ทุกอย่าง ยกเว้น Friend and Co และ
-                500 Windows Thailand : Store ที่ปลดล็อกหลังชำระ
-              </p>
+              <ul className="m-0 pl-4 list-disc space-y-1 text-[11px] leading-relaxed text-stone-300 font-light">
+                <li>
+                  ใช้งานและจัดหน้าต่างได้เหมือนหน้าต่างจริงโดยยังไม่ต้องชำระเงิน ยกเว้น ระบบโปรโมทหน้าต่าง, Friend and Co และ 500 Windows
+                  Thailand : Store ที่ปลดล็อกหลังชำระ
+                </li>
+                <li>
+                  ชำระค่าบริการ ฿{price.toLocaleString()} (ชำระครั้งเดียว ถือสิทธิ์ 6 ปี) เมื่อไรก็ได้ภายใน {TRIAL_DAYS} วัน
+                  ถ้าชำระที่หน้าต่างบานทดลองนี้ ระบบเปลี่ยนเป็นหน้าต่างจริงให้ทันที ข้อมูลเดิมอยู่ครบ
+                </li>
+                <li>หากเลือกซื้อหมายเลขอื่น หน้าต่างทดลองเดิมจะหยุดใช้งานทันที และใช้หน้าต่างใหม่ที่ซื้อแทน</li>
+                <li>บางหมายเลขสงวนไว้เฉพาะผู้ใช้งานจริง ผู้ทดลองเลือกไม่ได้</li>
+                <li>
+                  หากครบ {TRIAL_DAYS} วันแล้วไม่ชำระ หน้าต่างจะถูกคืนสิทธิ์และว่างทันที ผู้อื่นรับไปได้ · ภายใน {TRIAL_RESTORE_DAYS} วันถัดมา
+                  ถ้าบานเดิมยังว่าง ชำระเพื่อกู้คืนข้อมูลเดิมได้ แต่ถ้ามีผู้อื่นรับไปแล้ว ต้องเลือกบานใหม่และเริ่มใหม่ทั้งหมด
+                  (นำข้อมูลเดิมไปใส่บานใหม่ไม่ได้)
+                </li>
+              </ul>
               {paidOnly ? (
                 <p className="m-0 text-[11px] leading-relaxed text-rose-300 font-medium">
                   🔒 หมายเลขนี้สงวนไว้สำหรับผู้ใช้งานจริง (ชำระเงิน) ทดลองใช้ฟรีกับบานนี้ไม่ได้ เลือกบานอื่นเพื่อทดลอง หรือจับจองบานนี้แบบชำระเงิน
@@ -455,6 +469,7 @@ export function ClaimWindowModal({
             </div>
           )}
 
+          <TrialEndsNotice currentUser={currentUser} windowItem={windowItem} />
           {currentUser ? (
             <button
               type="submit"

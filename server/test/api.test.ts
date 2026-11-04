@@ -403,8 +403,6 @@ describe('free trial window', () => {
     assert.equal((await c.post('/windows/central/40/publish')).status, 403, 'pay before publishing')
     assert.equal((await c.post('/windows/central/40/listing', { price: 900 })).status, 403)
 
-    await backdate(40, 1)
-    assert.equal((await client().get('/windows/central/40')).window.lifecycle, 'unpaid')
     await topUpByCard(c, 500)
     const paid = await c.post('/windows/central/40/trial/pay', { payment: wallet(500) })
     assert.equal(paid.success, true, paid.error)
@@ -430,31 +428,60 @@ describe('free trial window', () => {
     assert.equal(w.trialEndsAt, undefined)
   })
 
-  it('releases an unpaid trial after the grace period and lets the user restore it elsewhere', async () => {
+  it('releases an unpaid trial when it ends and restores it only into the same window', async () => {
     const { c } = await verifiedUser()
     const edited = { ...content, title: 'บานทดลองของฉัน' }
     assert.equal((await c.post('/windows/central/43/trial', { content: edited })).success, true)
     assert.equal((await c.put('/windows/central/43/profile', { gallery: [PNG] })).success, true)
-    await backdate(43, 29)
-    assert.equal(await expireTrials(ctx), 0, 'still in the "รอชำระเงิน" period')
-    await backdate(43, 31)
-    assert.equal(await expireTrials(ctx), 1)
+    await backdate(43, -1)
+    assert.equal(await expireTrials(ctx), 0, 'still in the trial')
+    await backdate(43, 0.01)
+    assert.equal((await c.post('/windows/central/43/trial/pay', { payment: wallet(500) })).status, 400, 'too late to pay')
+    assert.equal(await expireTrials(ctx), 1, 'released as soon as the trial ends')
     const freed = (await client().get('/windows/central/43')).window
     assert.equal(freed.status, 'available')
     assert.equal(freed.lifecycle, undefined)
 
     const me = (await c.get('/session')).user
     assert.equal(me.trialArchive.title, 'บานทดลองของฉัน')
+    assert.equal(me.trialArchive.code, freed.code)
+    assert.ok(Date.parse(me.trialArchive.restoreUntil) > Date.now() + 29 * 86_400_000)
     assert.equal((await c.post('/windows/central/44/trial', { content })).status, 403, 'the trial is used up')
     await topUpByCard(c, 500)
-    const claim = await c.post('/windows/central/44/claim', {
-      content: { ...content, imageUrl: me.trialArchive.imageUrl },
-      payment: wallet(500),
-      restoreTrial: true,
-    })
+    const restore = (num: number) =>
+      c.post(`/windows/central/${num}/claim`, { content: { ...content, imageUrl: me.trialArchive.imageUrl }, payment: wallet(500), restoreTrial: true })
+    const elsewhere = await restore(44)
+    assert.equal(elsewhere.status, 400, 'not into another window')
+    assert.match(elsewhere.error, /เฉพาะบานเดิม/)
+    const claim = await restore(43)
     assert.equal(claim.success, true, claim.error)
     assert.equal(claim.user.trialArchive, undefined)
     assert.equal(claim.window.profile.gallery.length, 1, 'profile restored')
+  })
+
+  it('keeps a released trial restorable for 30 days only', async () => {
+    const { c, user } = await verifiedUser()
+    assert.equal((await c.post('/windows/central/47/trial', { content })).success, true)
+    await backdate(47, 0.01)
+    assert.equal(await expireTrials(ctx), 1)
+    const archive = JSON.parse((await ctx.db.selectFrom('users').select('trial_archive_json').where('id', '=', user.id).executeTakeFirstOrThrow()).trial_archive_json!)
+    archive.archived_at = new Date(Date.now() - 31 * 86_400_000).toISOString()
+    await ctx.db.updateTable('users').set({ trial_archive_json: JSON.stringify(archive) }).where('id', '=', user.id).execute()
+    assert.equal((await c.get('/session')).user.trialArchive, undefined)
+    await topUpByCard(c, 500)
+    const late = await c.post('/windows/central/47/claim', { content, payment: wallet(500), restoreTrial: true })
+    assert.equal(late.status, 400)
+  })
+
+  it('ends the trial at once when the user buys another window', async () => {
+    const { c } = await verifiedUser()
+    assert.equal((await c.post('/windows/central/45/trial', { content })).success, true)
+    await topUpByCard(c, 500)
+    const bought = await c.post('/windows/central/46/claim', { content, payment: wallet(500) })
+    assert.equal(bought.success, true, bought.error)
+    const trial = (await client().get('/windows/central/45')).window
+    assert.equal(trial.status, 'available', 'the trial window is free again')
+    assert.equal(bought.user.trialArchive, undefined, 'its content is not kept')
   })
 
   it('keeps paid-only window codes for paying owners', async () => {

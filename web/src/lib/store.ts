@@ -179,13 +179,23 @@ export function saveActiveRegion(region: RegionId) {
  */
 export function getQuota(user: User): Quota {
   const held: WindowItem[] = []
-  for (const region of REGION_IDS) for (const w of loadRegionWindows(region)) if (w.ownerId === user.id) held.push(w)
+  // A free trial window doesn't count: buying any window ends it (shared/trial.ts).
+  for (const region of REGION_IDS) for (const w of loadRegionWindows(region)) if (w.ownerId === user.id && !w.trialEndsAt) held.push(w)
   for (const order of orders) {
     if (order.status !== 'pending' || !order.region || !order.windowId || order.kind === 'topup' || order.kind === 'promo') continue
     const w = loadRegionWindows(order.region).find((x) => x.id === order.windowId)
     if (w && !held.includes(w)) held.push(w)
   }
   return buildQuota(held, user.extraWindows)
+}
+
+/** The user's free trial window, if any. */
+export function myTrialWindow(user: User): WindowItem | undefined {
+  for (const region of REGION_IDS) {
+    const w = loadRegionWindows(region).find((x) => x.ownerId === user.id && x.trialEndsAt)
+    if (w) return w
+  }
+  return undefined
 }
 
 /** The user holds only free trial windows (they can't book promos yet, see shared/trial.ts). */

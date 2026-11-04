@@ -82,7 +82,7 @@ export interface User {
   /** The user has used their one free trial window. */
   trialUsed?: true
   /** Content of their trial window that went back to the pool unpaid; can be restored when claiming. */
-  trialArchive?: { code: string; title: string; description: string; category: string; province: string; imageUrl: string; ownerContact?: string; externalLink?: string; archivedAt: string }
+  trialArchive?: { code: string; title: string; description: string; category: string; province: string; imageUrl: string; ownerContact?: string; externalLink?: string; archivedAt: string; restoreUntil: string }
 }
 
 export interface ExtraWindows {

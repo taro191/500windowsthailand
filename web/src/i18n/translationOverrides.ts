@@ -771,4 +771,12 @@ export const translationOverrides = {
   "ถือครองก่อนถูกตั้งเป็นบานไม่เปิดขาย ยังเป็นของผู้ถือครองเดิม": "Held before being set as not for sale; it stays with its owner",
   "ไม่ขาย": "Not sold",
   "ทดลองใช้งาน": "Try it free for",
+  "ใช้งานและจัดหน้าต่างได้เหมือนหน้าต่างจริงโดยยังไม่ต้องชำระเงิน ยกเว้น ระบบโปรโมทหน้าต่าง, Friend and Co และ 500 Windows Thailand : Store ที่ปลดล็อกหลังชำระ": "Use and arrange the window like a real one without paying yet, except window promotion, Friend and Co and 500 Windows Thailand : Store, which unlock after paying",
+  "หากเลือกซื้อหมายเลขอื่น หน้าต่างทดลองเดิมจะหยุดใช้งานทันที และใช้หน้าต่างใหม่ที่ซื้อแทน": "If you buy another number, the trial window stops at once and the window you bought replaces it",
+  "บางหมายเลขสงวนไว้เฉพาะผู้ใช้งานจริง ผู้ทดลองเลือกไม่ได้": "Some numbers are reserved for paying owners and cannot be chosen for a trial",
+  "⏳ ครบช่วงทดลองใช้แล้ว": "⏳ The free trial has ended",
+  "ทดลองใช้ครบ รอคืนเข้าระบบ": "Trial ended, being released",
+  "ครบช่วงทดลองใช้แล้ว บานนี้กลับเข้าระบบ": "The free trial has ended; this window went back to the pool",
+  "บานนี้ไม่ได้อยู่ในช่วงทดลองใช้แล้ว": "This window is no longer on a free trial",
+  "ข้อมูลในบานทดลองไม่ย้ายมาบานนี้": "The trial window's content is not moved to this window",
 } as const;

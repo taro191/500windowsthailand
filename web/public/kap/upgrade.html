@@ -79,7 +79,7 @@ ul.f small{display:block;color:var(--mute);font-size:12.5px}
    <ul class="f">
     <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>จัดรูป ข้อความ และลิงก์ได้ครบเหมือนหน้าต่างจริง</span></li>
     <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ทดลองได้ 1 หน้าต่างต่อบัญชี<small>ส่วนกลางประเทศไทย หรือ ภูมิภาค อย่างใดอย่างหนึ่ง · บางหมายเลขสงวนไว้สำหรับผู้ใช้งานจริง</small></span></li>
-    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ครบกำหนดแล้วยังชำระได้อีก <span data-r="graceDays">30</span> วัน<small>ถ้าไม่ชำระ บานจะกลับเข้าระบบ แต่เนื้อหาเก็บไว้ให้ใช้กับบานใหม่ได้</small></span></li>
+    <li><svg class="y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg><span>ชำระเมื่อไรก็ได้ภายใน <span data-r="trialDays">60</span> วัน ข้อมูลเดิมอยู่ครบ<small>ครบแล้วไม่ชำระ บานจะว่างทันที · ภายใน <span data-r="restoreDays">30</span> วันถัดมา ถ้าบานเดิมยังว่าง ชำระเพื่อกู้คืนข้อมูลเดิมได้</small></span></li>
     <li class="off"><svg class="n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span>ผู้เยี่ยมชมยังมองไม่เห็นหน้าต่าง</span></li>
     <li class="off"><svg class="n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span>จองพื้นที่โปรโมท</span></li>
     <li class="off"><svg class="n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span>Friend and Co</span></li>
@@ -120,7 +120,7 @@ var $=function(i){return document.getElementById(i)};
 function safeUrl(u){u=String(u||'');return/^(https:\/\/\S+|\/(?!\/)\S*|[^\s:\/][^\s:]*)$/.test(u)?u:''}
 function toast(m){var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true},2800)}
 function emit(n,d){var ev=new CustomEvent('kap:'+n,{detail:d,cancelable:true});document.dispatchEvent(ev);return ev.defaultPrevented}
-function demoData(){return{windowName:'500 Windows Thailand',rules:{trialDays:60,graceDays:30,refundDays:15,holdDays:30},payUrl:'',backUrl:'central.html',plan:{type:'trial',status:'active',daysLeft:23,price:'500 บาท'}}}
+function demoData(){return{windowName:'500 Windows Thailand',rules:{trialDays:60,restoreDays:30,refundDays:15,holdDays:30},payUrl:'',backUrl:'central.html',plan:{type:'trial',status:'active',daysLeft:23,price:'500 บาท'}}}
 async function init(){
   var ad=window.KAP_UPGRADE_ADAPTER,d,demo=false;
   var err='';
