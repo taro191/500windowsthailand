@@ -61,7 +61,7 @@ export function OwnerStudio({ windowItem: w, currentUser, onOpenEditor, onListFo
         )}
         <div className={row}>
           <span className={muted}>ต้นทุนสิทธิ์บานแรกเข้า:</span>
-          <span className="font-mono text-emerald-400 font-bold">{w.claimPrice ? `${w.claimPrice.toLocaleString()} ฿` : rules.claimPriceLabel} (ตลอดชีพ)</span>
+          <span className="font-mono text-emerald-400 font-bold">{w.claimPrice ? `${w.claimPrice.toLocaleString()} ฿` : rules.claimPriceLabel}</span>
         </div>
       </div>
 

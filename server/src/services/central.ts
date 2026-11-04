@@ -10,10 +10,13 @@ import { ApiError, badRequest, conflict, forbidden, notFound } from '../lib/erro
 import { isDataUrl, saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
 import { audit } from './audit'
+import { windowCards } from './coCenter'
 import { getSettings } from './settings'
 
 /** At most this many announcements are shown at the same time. */
 export const NEWS_MAX = 4
+/** "แนะนำการใช้งาน": the platform's own how-to windows KAP-TH-001, 002, 003 and 009. */
+const GUIDE_NUMS = [1, 2, 3, 9]
 const NEWS_TYPES: CentralNews['type'][] = ['system', 'partner', 'product', 'news']
 
 function toNews(row: CentralNewsTable, admin = false): CentralNews {
@@ -47,6 +50,7 @@ export async function centralData(ctx: AppContext) {
     serverTime: now,
     apps: coStore.apps.map((a) => ({ id: a.id, status: 'published', n: a.name, d: a.description, u: a.url, c: a.category, b: a.badge, ic: a.iconUrl, i: a.icon })),
     news: rows.map((r) => toNews(r)),
+    guide: await windowCards(ctx, 'thailand', GUIDE_NUMS),
   }
 }
 

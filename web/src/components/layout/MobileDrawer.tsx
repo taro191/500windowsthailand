@@ -202,7 +202,7 @@ export function MobileDrawer({
             <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/50 space-y-2 font-['Prompt',sans-serif]">
               <span className="font-bold text-rose-300 block text-xs">คุณยังไม่ได้เข้าสู่ระบบ</span>
               <p className="text-[11px] text-stone-300 leading-relaxed font-light">
-                เข้าสู่ระบบเพื่อจับจองหน้าต่างส่วนตัว ({rules.claimPriceLabel} ตลอดชีพ) และจัดการกระเป๋าเงิน
+                เข้าสู่ระบบเพื่อจับจองหน้าต่างส่วนตัว ({rules.claimPriceLabel}) และจัดการกระเป๋าเงิน
               </p>
               <div className="flex items-center gap-2 pt-1 font-['Prompt',sans-serif]">
                 <button

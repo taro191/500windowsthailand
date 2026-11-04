@@ -105,7 +105,7 @@ export function RulesTab({ onRotateWindows }: RulesTabProps) {
       <div className="space-y-3">
         <SectionHeading icon={BookOpen} tone="amber" title="กติกา 5 ข้อของระบบ:" />
 
-        <RuleCard n={1} color="bg-cyan-950 text-cyan-300 border-cyan-700/60" title={`ซื้อเพื่อเป็นเจ้าของพื้นที่ส่วนตัว (${rules.claimPriceLabel} ตลอดชีพ)`}>
+        <RuleCard n={1} color="bg-cyan-950 text-cyan-300 border-cyan-700/60" title={`ซื้อเพื่อเป็นเจ้าของพื้นที่ส่วนตัว (${rules.claimPriceLabel})`}>
           <p className="text-[11px] text-stone-400 pl-7 leading-relaxed">
             ชำระครั้งเดียวเพื่อเป็นเจ้าของกรรมสิทธิ์บานหน้าต่างนั้นในหน้าต่างอย่างถาวร
           </p>

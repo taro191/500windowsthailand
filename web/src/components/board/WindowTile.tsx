@@ -260,7 +260,7 @@ function CardTile({ windowItem, zoomLevel, isSelected, onSelect, currentUser }: 
               <Plus className="w-5 h-5" />
             </div>
             <span className="text-xs font-medium text-stone-300 group-hover:text-rose-200">จับจองบานนี้</span>
-            <span className="text-[11px] text-stone-500 font-mono mt-0.5">{rules.claimPriceLabel} (ตลอดชีพ)</span>
+            <span className="text-[11px] text-stone-500 font-mono mt-0.5">{rules.claimPriceLabel}</span>
             {isPaidOnly(windowItem.code, paidOnly.codes) && (
               <span className="mt-1.5 text-[10px] px-1.5 rounded border border-rose-500/40 bg-rose-500/15 text-rose-300">สงวนสำหรับผู้ใช้งานจริง</span>
             )}

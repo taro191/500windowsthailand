@@ -118,6 +118,8 @@ export default function App() {
   const [walletHistoryOpen, setWalletHistoryOpen] = useState(false)
   const [contactOpen, setContactOpen] = useState(() => window.location.hash === '#contact')
   const [centralOpen, setCentralOpen] = useState(false)
+  // Set by the /#promo link; the dialog lives in HubPanel, which only exists on the main view.
+  const [promoPending, setPromoPending] = useState(false)
   const openCentral = useCallback(() => setCentralOpen(true), [])
   const closeCentral = useCallback(() => setCentralOpen(false), [])
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -238,6 +240,17 @@ export default function App() {
       // Shared links open over the board, so skip the welcome screen (which renders neither).
       if (hash === '#contact' || hash.startsWith('#window-')) setView((v) => (v === 'welcome' ? 'main' : v))
       if (hash === '#contact') setContactOpen(true)
+      // The central page's "โปรโมท" row links here: open the promo booking dialog.
+      if (hash === '#promo') {
+        setView((v) => (v === 'welcome' ? 'main' : v))
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        if (store.loadCurrentUser()) setPromoPending(true)
+        else {
+          setAuthMode('login')
+          setAuthOpen(true)
+        }
+        return
+      }
       // Pages outside the app link to the central page as /#central; it opens over the board.
       if (hash === '#central') {
         setView((v) => (v === 'welcome' ? 'main' : v))
@@ -297,6 +310,12 @@ export default function App() {
     window.addEventListener(OPEN_PROMO_EVENT, onOpenPromo)
     return () => window.removeEventListener(OPEN_PROMO_EVENT, onOpenPromo)
   }, [openHub])
+
+  useEffect(() => {
+    if (!promoPending || view !== 'main') return
+    setPromoPending(false)
+    window.dispatchEvent(new Event(OPEN_PROMO_EVENT))
+  }, [promoPending, view])
 
   useEffect(() => {
     const onShowPromo = (e: Event) => {

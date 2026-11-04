@@ -2093,4 +2093,19 @@ describe('central page', () => {
     const data = await client().get('/central')
     assert.ok(Array.isArray(data.apps) && data.serverTime)
   })
+
+  it('lists the how-to windows KAP-TH-001, 002, 003 and 009 once they are open to visitors', async () => {
+    const before = (await client().get('/central')).guide
+    assert.ok(Array.isArray(before))
+    assert.ok(!before.some((w: any) => w.id === 'KAP-TH-009'))
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 500)
+    const claimed = await c.post('/windows/thailand/9/claim', { content, payment: wallet(500) })
+    assert.equal(claimed.success, true, claimed.error)
+    const guide = (await client().get('/central')).guide
+    const nine = guide.find((w: any) => w.id === 'KAP-TH-009')
+    assert.ok(nine, 'listed once claimed')
+    assert.equal(nine.url, '/w/thailand/9')
+    assert.ok(guide.every((w: any) => ['KAP-TH-001', 'KAP-TH-002', 'KAP-TH-003', 'KAP-TH-009'].includes(w.id)))
+  })
 })

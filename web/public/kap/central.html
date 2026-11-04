@@ -242,6 +242,11 @@ main{padding-top:max(16px,env(safe-area-inset-top))}
  .hero{border-radius:20px;padding:16px 18px}.hero h1{font-size:23px}.hero p{font-size:13px}
  .ah{min-height:76px;padding:14px;gap:13px}.ah .sic{width:46px;height:46px;border-radius:15px;font-size:21px}.ah .tt b{font-size:18px}
  .abody{padding:14px 12px 18px}.acc{border-radius:20px}.ap{padding:14px;gap:14px}.at{width:56px;height:56px;border-radius:17px}}
+/* ===== 500windowsthailand: โปรโมท (ลิงก์ไปจองพื้นที่โปรโมท, เฉพาะผู้ล็อกอิน) + แนะนำการใช้งาน ===== */
+#sPromo{--sa:#c2410c;--sa2:#ea580c}#sGuide{--sa:#15803d;--sa2:#22a35a}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) #sPromo{--sa:#fb923c;--sa2:#ea580c}:root:not([data-theme=light]) #sGuide{--sa:#4ade80;--sa2:#22a35a}}
+:root[data-theme=dark] #sPromo{--sa:#fb923c;--sa2:#ea580c}:root[data-theme=dark] #sGuide{--sa:#4ade80;--sa2:#22a35a}
+a.ah{text-decoration:none}a.ah .chev{transform:rotate(-90deg)}
 /* ===== v8: หน้าต่างของฉัน (แสดงเมื่อล็อกอินแล้วเท่านั้น) ===== */
 #sMe{--sa:#be345a;--sa2:#e0568a}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]) #sMe{--sa:#f08aa6;--sa2:#e0568a}}
@@ -363,6 +368,18 @@ main{padding-top:max(16px,env(safe-area-inset-top))}
     <div class="nfil" id="newsFil"><label for="newsType">แสดง</label><select id="newsType" aria-label="เลือกประเภท"></select><span class="ncap">แสดงได้ครั้งละไม่เกิน 4 รายการ ตามช่วงเวลาที่ระบบกำหนด</span></div>
     <div class="news" id="newsGrid"></div>
       </div>
+  </section>
+
+  <section class="sec acc" id="sPromo" hidden>
+    <h2 class="ahh"><a class="ah" href="/#promo"><span class="sic" aria-hidden="true">📢</span><span class="tt"><b>โปรโมท</b><small>จองพื้นที่โปรโมทหน้าต่างของคุณบนหน้าแรก</small></span><i class="chev" aria-hidden="true"></i></a></h2>
+  </section>
+
+  <section class="sec acc" id="sGuide">
+    <h2 class="ahh"><button type="button" class="ah" id="t_sGuide" data-t="sGuide" aria-expanded="false" aria-controls="p_sGuide"><span class="sic" aria-hidden="true">📘</span><span class="tt"><b>แนะนำการใช้งาน</b><small>หน้าต่างแนะนำวิธีใช้ 500 Windows Thailand</small><span class="hm" id="hm_sGuide"></span></span><i class="chev" aria-hidden="true"></i></button></h2>
+    <div class="abody" id="p_sGuide" role="region" aria-labelledby="t_sGuide" hidden>
+      <p class="sub adesc">กดการ์ดเพื่อเปิดหน้าต่างแนะนำการใช้งาน</p>
+      <div class="row" id="guideRow"></div>
+    </div>
   </section>
 
   <footer class="ft"><span>500WinTH Today สุ่มโดยระบบ ไม่ใช่โฆษณาแบบจ่ายเงิน · ทุกคนเห็นรายการเดียวกันในรอบเวลาเดียวกัน (เวลาไทย)</span>
@@ -568,7 +585,7 @@ async function refresh(){try{await loadExtra()}catch(e){console.warn('[KAP_CENTR
   $('demo').hidden=!(demo||xdemo);$('demoCtl').hidden=!demo;tick()}
 
 ['rowA','rowB'].forEach(i=>['pointerdown','touchstart','wheel'].forEach(t=>$(i).addEventListener(t,()=>{lastTouch=Date.now()},{passive:true})));
-const PANEL={me:'sMe',co:'sCo',apps:'sApps',news:'sNews'},HASH={sMe:'me',sCo:'co',sApps:'apps',sNews:'news'};
+const PANEL={me:'sMe',co:'sCo',apps:'sApps',news:'sNews',guide:'sGuide'},HASH={sMe:'me',sCo:'co',sApps:'apps',sNews:'news',sGuide:'guide'};
 const SEEN_K='kap_central_seen_v1';let seenS=null,shown={sApps:[],sNews:[]};
 function seenLoad(){if(seenS)return seenS;try{seenS=JSON.parse(localStorage.getItem(SEEN_K)||'null')}catch(e){}return seenS=seenS&&typeof seenS==='object'?seenS:null}
 function seenSave(){try{localStorage.setItem(SEEN_K,JSON.stringify(seenS))}catch(e){}}
@@ -585,8 +602,8 @@ function openAcc(id,on,go){const ids=Object.keys(HASH);if(!HASH[id])id='sCo';
   ids.forEach(k=>{const o=on&&k===id;$('p_'+k).hidden=!o;$('t_'+k).setAttribute('aria-expanded',String(o));$(k).classList.toggle('open',o)});
   if(go){try{history.replaceState(null,'',on?'#'+HASH[id]:location.pathname+location.search)}catch(e){}
     if(on)requestAnimationFrame(()=>$(id).scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'}))}}
-document.querySelectorAll('.ah').forEach(b=>{const sp=document.createElement('span');sp.className='nbd';sp.id='nbd_'+b.dataset.t;sp.hidden=true;const t=b.querySelector('.tt b');if(t)t.appendChild(sp)});
-document.querySelectorAll('.ah').forEach(b=>b.onclick=()=>{meTouched=true;openAcc(b.dataset.t,b.getAttribute('aria-expanded')!=='true',true)});
+document.querySelectorAll('.ah[data-t]').forEach(b=>{const sp=document.createElement('span');sp.className='nbd';sp.id='nbd_'+b.dataset.t;sp.hidden=true;const t=b.querySelector('.tt b');if(t)t.appendChild(sp)});
+document.querySelectorAll('.ah[data-t]').forEach(b=>b.onclick=()=>{meTouched=true;openAcc(b.dataset.t,b.getAttribute('aria-expanded')!=='true',true)});
 addEventListener('hashchange',()=>{const k=PANEL[location.hash.slice(1)];if(k)openAcc(k,true,false)});
 openAcc(PANEL[location.hash.slice(1)]||'sCo',true,false);
 document.addEventListener('visibilitychange',tick);
@@ -713,7 +730,7 @@ function emptyCard(kind,info){const c=el('div','mw es');const lg=el('div','ml');
   if(info.locked)c.appendChild(aBtn('อัปเกรดเพื่อปลดล็อก','star','',info.url,e=>emit('upgrade',{kind,url:info.url},true)));
   else c.appendChild(aBtn('สร้างหน้าต่าง','plus','pri',info.url,e=>emit('create-window',{kind,url:info.url},true)));
   return c}
-function renderMe(){const sec=$('sMe');
+function renderMe(){const sec=$('sMe');$('sPromo').hidden=!me;
   if(!me){const wasOpen=!$('p_sMe').hidden;sec.hidden=true;if(wasOpen)openAcc('sCo',true,false);return}
   sec.hidden=false;
   $('meHi').textContent='สวัสดี'+(me.name?' '+me.name:'')+' · หน้าต่างของคุณ (ส่วนกลางประเทศไทย 1 + ภูมิภาค 1)';
@@ -733,7 +750,10 @@ setInterval(meLoad,120000);document.addEventListener('visibilitychange',()=>{if(
 
 async function loadExtra(){const ad=window.KAP_CENTRAL_ADAPTER;let d;
   if(ad&&ad.load){d=await ad.load();xdemo=false}else{xdemo=true;d=demoExtra()}
-  apps=normApps(d&&d.apps);news=normNews(d&&d.news);renderApps();renderNews();await meLoad()}
+  apps=normApps(d&&d.apps);news=normNews(d&&d.news);renderApps();renderNews();renderGuide(d&&d.guide);await meLoad()}
+function renderGuide(list){const ws=(Array.isArray(list)?list:[]).slice(0,8).filter(w=>w&&w.id),g=$('guideRow');
+  g.replaceChildren(...ws.map((w,i)=>card(w,'guide',i)));if(!ws.length)g.appendChild(el('p','empty','ยังไม่มีหน้าต่างแนะนำ'));
+  $('hm_sGuide').textContent=ws.length?ws.length+' หน้าต่าง':''}
 
 window.KAP_CO={on:(n,f)=>{(L[n]=L[n]||[]).push(f)},refresh,pick:ms=>pick(wins,ms==null?now():ms),config:CFG};
 slotTxt();
