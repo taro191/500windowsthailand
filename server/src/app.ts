@@ -383,6 +383,17 @@ export function createApp(ctx: AppContext) {
     return ok(c, { ...result })
   })
 
+  api.get('/promo/templates', requireUser, async (c) => ok(c, { templates: await promo.myPromoTemplates(ctx, me(c).id) }))
+  api.post('/promo/templates', requireUser, async (c) => {
+    const { template } = await body<{ template: promo.PromoTemplateInput }>(c)
+    return ok(c, await promo.savePromoTemplate(ctx, me(c), template))
+  })
+  api.put('/promo/templates/:id', requireUser, async (c) => {
+    const { template } = await body<{ template: promo.PromoTemplateInput }>(c)
+    return ok(c, await promo.savePromoTemplate(ctx, me(c), template, c.req.param('id')))
+  })
+  api.post('/promo/templates/:id/delete', requireUser, async (c) => ok(c, await promo.deletePromoTemplate(ctx, me(c), c.req.param('id'))))
+
   api.post('/promo/requests', requireUser, async (c) => {
     const { request, payment } = await body<{ request: promo.PromoInput; payment: purchases.PaymentInput }>(c)
     const result = await promo.submitPromoRequest(ctx, me(c), request, payment)

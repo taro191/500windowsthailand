@@ -400,3 +400,12 @@
 .promo-day:disabled {
   opacity: 0.48;
 }
+
+/* Saved promo designs */
+.promo-templates h4 { display: inline-flex; align-items: center; gap: 6px; }
+.promo-templates .promo-history-row.is-active { background: var(--promo-surface-active); border-radius: 8px; padding-inline: 8px; }
+.promo-templates .promo-history-row .promo-pill { margin-left: 0; }
+.promo-templates .promo-history-row > span:first-child { margin-right: auto; }
+.promo-template-save { display: grid; gap: 0; margin-top: 10px; }
+.promo-template-save .promo-secondary { margin: 8px 0 0; }
+.promo-template-save .promo-secondary:disabled { opacity: .45; }

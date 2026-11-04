@@ -20,6 +20,8 @@ export const DEFAULT_RULES: PlatformSettings['rules'] = {
   minHoldingDays: 30,
   minResalePrice: 100,
   promoPricePerWindowRound: 30,
+  promoMonthlyRounds: 28,
+  promoAdvanceDays: 30,
 }
 
 export const DEFAULT_CONTACT: ContactInfo = {
@@ -220,6 +222,10 @@ export function validateSettings(settings: PlatformSettings): string | null {
     return 'ระยะถือครองขั้นต่ำต้องเป็นจำนวนเต็ม 0–3,650 วัน'
   if (!wholeBaht(rules.minResalePrice, 1)) return 'ราคาขายต่อขั้นต่ำต้องเป็นจำนวนเต็ม 1–1,000,000 บาท'
   if (!wholeBaht(rules.promoPricePerWindowRound, 1)) return 'ราคาโปรโมทต้องเป็นจำนวนเต็ม 1–1,000,000 บาท'
+  if (!Number.isInteger(rules.promoMonthlyRounds) || rules.promoMonthlyRounds < 1 || rules.promoMonthlyRounds > 124)
+    return 'จำนวนรอบโปรโมทต่อเดือนต้องเป็นจำนวนเต็ม 1–124 รอบ'
+  if (!Number.isInteger(rules.promoAdvanceDays) || rules.promoAdvanceDays < 0 || rules.promoAdvanceDays > 365)
+    return 'จำนวนวันจองโปรโมทล่วงหน้าต้องเป็นจำนวนเต็ม 0–365 วัน'
 
   const { signupBonus } = settings
   if (!signupBonus) return 'ข้อมูลโบนัสสมัครสมาชิกไม่ครบ'

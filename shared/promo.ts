@@ -135,6 +135,42 @@ export const PROMO_ROUND_OPTIONS = [1, 2, 3, 4]
 export const PROMO_ROUNDS_PER_DAY = 4
 export const PROMO_MAX_IMAGES = 6
 
+/** Saved promo designs per owner, reused for new bookings. */
+export const PROMO_TEMPLATE_LIMIT = 5
+export const PROMO_TEMPLATE_MAX_BYTES = 30 * 1024 * 1024
+
+export interface PromoTemplate {
+  id: string
+  name: string
+  brand: string
+  tagline: string
+  link: string
+  contact: string
+  images: string[]
+  details: PromoDetails
+  layout?: PromoLayout
+  size: number
+  /** Bytes its images take on the server. */
+  bytes: number
+  /** An approved request had exactly this content, so booking it unchanged is approved at once. */
+  approved: boolean
+  updatedAt: string
+}
+
+/** Rounds booked (not rejected) per month `YYYY-MM` of the promo date. */
+export function promoRoundsByMonth(requests: { startDate: string; rounds: number; status: string }[]) {
+  const months = new Map<string, number>()
+  for (const r of requests) if (r.status !== 'rejected' && r.startDate) months.set(r.startDate.slice(0, 7), (months.get(r.startDate.slice(0, 7)) ?? 0) + r.rounds)
+  return months
+}
+
+/** Last bookable date: `days` after `today` (both `YYYY-MM-DD`). */
+export function lastPromoDate(today: string, days: number) {
+  const d = new Date(`${today}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 export type PromoRequestStatus = 'pending' | 'approved' | 'rejected'
 
 export interface PromoRequest {

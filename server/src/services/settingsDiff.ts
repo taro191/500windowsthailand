@@ -14,6 +14,8 @@ const RULES: [keyof PlatformSettings['rules'], string, (n: number) => string][] 
   ['minHoldingDays', 'ระยะถือครองขั้นต่ำก่อนขายต่อ', (n) => `${n} วัน`],
   ['minResalePrice', 'ราคาขายต่อขั้นต่ำ', baht],
   ['promoPricePerWindowRound', 'ราคาโปรโมท (ต่อบาน/รอบ)', baht],
+  ['promoMonthlyRounds', 'รอบโปรโมทสูงสุดต่อคนต่อเดือน', (n) => `${n} รอบ`],
+  ['promoAdvanceDays', 'จองโปรโมทล่วงหน้าได้', (n) => `${n} วัน`],
 ]
 
 /** "กสิกรไทย 240-2-76668-1 (บรรพต ชิณสิทธิ์)" */

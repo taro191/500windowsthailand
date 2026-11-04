@@ -24,7 +24,7 @@ import { getRotationCycle } from '@shared/thaiTime'
 import { orderWindowsForCycle } from '@shared/boardOrder'
 import { buildQuota } from '@shared/windowQuota'
 import { trialOnly } from '@shared/trial'
-import type { PromoAd, PromoRequest } from '@shared/promo'
+import type { PromoAd, PromoRequest, PromoTemplate } from '@shared/promo'
 import { get, patch, post, put, type ApiResult } from './api'
 import { enabledChannels, setSettings } from './settings'
 import { setPromoData } from './promo'
@@ -378,6 +378,22 @@ export async function payPromoRequest(request: PromoInput, payment: PaymentBreak
   currentUser = result.user
   await Promise.all([refreshSession(), refreshPromo()])
   return { success: true, request: result.request, updatedUser: result.user }
+}
+
+/** The user's saved promo designs. */
+export async function loadPromoTemplates(): Promise<Result<{ templates: PromoTemplate[] }>> {
+  return get<{ templates: PromoTemplate[] }>('/promo/templates')
+}
+
+export type PromoTemplateInput = Pick<PromoTemplate, 'name' | 'brand' | 'tagline' | 'link' | 'contact' | 'images' | 'details' | 'layout' | 'size'>
+
+/** Saves a new design, or replaces design `id`. */
+export async function savePromoTemplate(template: PromoTemplateInput, id?: string): Promise<Result<{ template: PromoTemplate; templates: PromoTemplate[] }>> {
+  return id ? put('/promo/templates/' + id, { template }) : post('/promo/templates', { template })
+}
+
+export async function deletePromoTemplate(id: string): Promise<Result<{ templates: PromoTemplate[] }>> {
+  return post<{ templates: PromoTemplate[] }>(`/promo/templates/${id}/delete`)
 }
 
 // ---------------------------------------------------------------- window actions

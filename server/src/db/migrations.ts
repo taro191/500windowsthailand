@@ -552,6 +552,33 @@ const migrations: Record<string, Migration> = {
       await db.schema.createIndex('refund_payouts_user').on('refund_payouts').column('user_id').execute()
     },
   },
+
+  '025_promo_templates': {
+    // Saved promo designs, and the content hash that lets a known approved design skip review.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('promo_templates')
+        .addColumn('id', id, (c) => c.primaryKey())
+        .addColumn('user_id', id, (c) => c.notNull())
+        .addColumn('name', varchar(80), (c) => c.notNull())
+        .addColumn('brand', varchar(120), (c) => c.notNull())
+        .addColumn('tagline', 'text', (c) => c.notNull())
+        .addColumn('link', varchar(500), (c) => c.notNull())
+        .addColumn('contact', varchar(255), (c) => c.notNull())
+        .addColumn('images_json', 'text', (c) => c.notNull())
+        .addColumn('details_json', 'text', (c) => c.notNull())
+        .addColumn('layout', varchar(20))
+        .addColumn('size', 'integer', (c) => c.notNull())
+        .addColumn('bytes', 'integer', (c) => c.notNull())
+        .addColumn('content_hash', varchar(64), (c) => c.notNull())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('updated_at', time, (c) => c.notNull())
+        .execute()
+      await db.schema.createIndex('promo_templates_user').on('promo_templates').column('user_id').execute()
+      await db.schema.alterTable('promo_requests').addColumn('content_hash', varchar(64)).execute()
+    },
+  },
 }
 
 /** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, CircleCheck, ImagePlus, Megaphone, X, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Bookmark, CircleCheck, ImagePlus, Megaphone, X, type LucideIcon } from 'lucide-react'
 import type { AuthMode, User } from '@shared/types'
 import {
   cleanPromoDetails,
   emptyPromoDetails,
   isValidPromoStartDate,
+  lastPromoDate,
   loadPromoRequests,
   PROMO_CHOOSABLE_LAYOUTS,
   PROMO_DETAIL_LIMITS,
@@ -12,16 +13,20 @@ import {
   localDateKey,
   PROMO_ROUND_OPTIONS,
   PROMO_SIZES,
+  PROMO_TEMPLATE_LIMIT,
+  PROMO_TEMPLATE_MAX_BYTES,
   promoPrice,
   promoRoundsAvailable,
+  promoRoundsByMonth,
   resizeImageFile,
   type PromoDetails,
   type PromoLayout,
   type PromoRequest,
+  type PromoTemplate,
 } from '@/lib/promo'
 import { PromoDisplay } from './PromoDisplay'
 import { useRules } from '@/lib/settings'
-import { isTrialOnly, payPromoRequest, type PromoInput } from '@/lib/store'
+import { deletePromoTemplate, isTrialOnly, loadPromoTemplates, payPromoRequest, savePromoTemplate, type PromoInput } from '@/lib/store'
 import { TRIAL_PROMO_LOCKED } from '@shared/trial'
 import { PaymentPanel } from '../payment/PaymentPanel'
 import { useDialogFocus } from '@/hooks/useDialogFocus'
@@ -49,6 +54,13 @@ type DetailsForm = Omit<PromoDetails, 'links' | 'points' | 'terms'> & { links: s
 const emptyDetailsForm = (): DetailsForm => ({ ...emptyPromoDetails(), links: '', points: '', terms: '' })
 
 const splitLines = (value: string) => value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+
+const detailsToForm = (d: PromoDetails): DetailsForm => ({
+  ...d,
+  links: d.links.map((k) => (k.label ? `${k.label} | ${k.url}` : k.url)).join('\n'),
+  points: d.points.join('\n'),
+  terms: d.terms.join('\n'),
+})
 
 function detailsFromForm(form: DetailsForm): Partial<PromoDetails> {
   return {
@@ -92,6 +104,9 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
   const [history, setHistory] = useState<PromoRequest[]>([])
   const [uploading, setUploading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [templates, setTemplates] = useState<PromoTemplate[]>([])
+  /** Saved design the form was filled from. */
+  const [templateId, setTemplateId] = useState<string | null>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const uploadVersion = useRef(0)
   const submitted = useRef(false)
@@ -108,7 +123,15 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
     setError('')
     submitted.current = false
     setHistory(currentUserId ? loadPromoRequests() : [])
+    setTemplateId(null)
+    setTemplates([])
+    let live = true
+    if (currentUserId)
+      void loadPromoTemplates().then((r) => {
+        if (live && r.success) setTemplates(r.templates)
+      })
     return () => {
+      live = false
       // Ignore any image still being resized when the dialog closes.
       uploadVersion.current++
       setUploading(false)
@@ -121,10 +144,12 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
   const price = promoPrice(size, rounds)
   const today = localDateKey()
   const currentMonth = today.slice(0, 7)
-  const maxMonthDate = new Date()
-  maxMonthDate.setMonth(maxMonthDate.getMonth() + 11)
-  const maximumMonth = localDateKey(maxMonthDate).slice(0, 7)
-  const availableRounds = startDate < today ? 0 : promoRoundsAvailable(startDate)
+  const lastDate = lastPromoDate(today, rules.promoAdvanceDays)
+  const maximumMonth = lastDate.slice(0, 7)
+  const availableRounds = startDate < today || startDate > lastDate ? 0 : promoRoundsAvailable(startDate)
+  const monthUsed = promoRoundsByMonth(history).get(startDate.slice(0, 7)) ?? 0
+  const monthLeft = Math.max(0, rules.promoMonthlyRounds - monthUsed)
+  const monthName = new Date(`${startDate}T00:00:00`).toLocaleDateString('th-TH', { month: 'long' })
 
   const [calendarYear, calendarMonthNumber] = calendarMonth.split('-').map(Number)
   const monthStart = new Date(calendarYear, calendarMonthNumber - 1, 1, 12)
@@ -135,13 +160,15 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
     if (dayNumber < 1 || dayNumber > daysInMonth) return { key: `empty-${index}`, inMonth: false as const }
     const value = `${calendarMonth}-${String(dayNumber).padStart(2, '0')}`
     const isPast = value < today
+    const tooFar = value > lastDate
     return {
       key: value,
       inMonth: true as const,
       value,
       dayNumber,
       isPast,
-      available: isPast ? 0 : promoRoundsAvailable(value),
+      tooFar,
+      available: isPast || tooFar ? 0 : promoRoundsAvailable(value),
     }
   })
   const calendarTitle = monthStart.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
@@ -166,7 +193,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
         `ลิงก์: ${saved.link || '—'}`,
         `ติดต่อกลับ: ${saved.contact || 'ไม่ได้ระบุ'}`,
         `ชำระเงินแล้ว: ${money(saved.payment?.amount ?? saved.price)}${saved.payment?.orderStatus === 'pending' ? ' (รอตรวจสลิป)' : ''}`,
-        'สถานะ: รอตรวจสอบคำขอ (ถ้าไม่อนุมัติ คืนเงินเต็มจำนวนเข้ากระเป๋า)',
+        saved.status === 'approved' ? 'สถานะ: อนุมัติแล้ว (ใช้แบบที่เคยอนุมัติ)' : 'สถานะ: รอตรวจสอบคำขอ (ถ้าไม่อนุมัติ คืนเงินเต็มจำนวนเข้ากระเป๋า)',
       ].join('\n')
     : ''
 
@@ -211,7 +238,10 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
       return 'กรุณาระบุชื่อแบรนด์ และตรวจสอบความยาวข้อมูลให้ไม่เกินที่กำหนด'
     if (!PROMO_SIZES.includes(size) || !PROMO_ROUND_OPTIONS.includes(rounds)) return 'กรุณาเลือกจำนวนบานและจำนวนรอบที่รองรับ'
     if (!isValidPromoStartDate(startDate)) return 'กรุณาเลือกวันโปรโมทเป็นวันนี้หรือวันในอนาคต'
+    if (startDate > lastDate) return `จองโปรโมทล่วงหน้าได้ไม่เกิน ${rules.promoAdvanceDays} วัน`
     if (availableRounds < rounds) return `วันที่เลือกเหลือ ${availableRounds} รอบ กรุณาลดจำนวนรอบหรือเลือกวันอื่น`
+    if (rounds > monthLeft)
+      return `โปรโมทได้สูงสุด ${rules.promoMonthlyRounds} รอบต่อเดือน เดือน${monthName}คุณจองไปแล้ว ${monthUsed} รอบ เหลือ ${monthLeft} รอบ`
     if (link.trim()) {
       try {
         const url = new URL(link.trim())
@@ -260,6 +290,57 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
       startDate,
       termsAccepted: true,
     })
+  }
+
+  /** What viewers would see, as stored with a request or a saved design. */
+  const formContent = () => ({
+    brand: brand.trim(),
+    tagline: tagline.trim(),
+    link: link.trim(),
+    contact: contact.trim(),
+    images: [...images],
+    details: cleanPromoDetails(detailsFromForm(details)).details,
+    layout,
+    size,
+  })
+
+  const applyTemplate = (t: PromoTemplate) => {
+    setSize(t.size)
+    setLayout(t.layout ?? 'horizontal')
+    setBrand(t.brand)
+    setTagline(t.tagline)
+    setLink(t.link)
+    setContact(t.contact)
+    setImages(t.images)
+    setDetails(detailsToForm(t.details))
+    setTemplateId(t.id)
+    setError('')
+  }
+
+  /** Saves the form as a design (replacing `id`); stored image paths replace the uploaded data. */
+  const saveTemplate = async (name: string, id?: string) => {
+    if (!brand.trim()) return setError('กรุณาระบุชื่อแบรนด์ก่อนบันทึกแบบ')
+    const result = await savePromoTemplate({ ...formContent(), name }, id)
+    if (!result.success) return setError(result.error)
+    setTemplates(result.templates)
+    setTemplateId(result.template.id)
+    setImages(result.template.images)
+    setError('')
+  }
+
+  const removeTemplate = async (id: string) => {
+    const result = await deletePromoTemplate(id)
+    if (!result.success) return setError(result.error)
+    setTemplates(result.templates)
+    if (templateId === id) setTemplateId(null)
+  }
+
+  const activeTemplate = templates.find((t) => t.id === templateId)
+  const sameAsTemplate = (t: PromoTemplate) => {
+    const c = formContent()
+    const key = (x: Pick<PromoTemplate, 'brand' | 'tagline' | 'link' | 'contact' | 'images' | 'details' | 'layout'>) =>
+      JSON.stringify([x.brand, x.tagline, x.link, x.contact, x.images, x.details, x.layout ?? null])
+    return key(c) === key(t)
   }
 
   /** Payment approved and request stored. */
@@ -315,9 +396,13 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
               <Icon icon={CircleCheck} />
             </span>
             <h4 tabIndex={-1} className="promo-success-title">
-              บันทึกคำขอแล้ว
+              {saved.status === 'approved' ? 'อนุมัติแล้ว' : 'บันทึกคำขอแล้ว'}
             </h4>
-            <p>ชำระเงินและส่งคำขอเรียบร้อยแล้ว สถานะ: รอตรวจสอบคำขอ · ถ้าไม่อนุมัติ ระบบจะคืนเงินเต็มจำนวนเข้ากระเป๋าของคุณ</p>
+            <p>
+              {saved.status === 'approved'
+                ? 'ชำระเงินเรียบร้อย ใช้แบบที่เคยอนุมัติแล้วจึงอนุมัติให้ทันที โฆษณาจะขึ้นตามรอบที่จอง'
+                : 'ชำระเงินและส่งคำขอเรียบร้อยแล้ว สถานะ: รอตรวจสอบคำขอ · ถ้าไม่อนุมัติ ระบบจะคืนเงินเต็มจำนวนเข้ากระเป๋าของคุณ'}
+            </p>
             <div className="promo-request-summary">
               <strong>{saved.brand}</strong>
               <span>
@@ -376,9 +461,24 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                 </span>
                 <div>
                   <strong>ราคาและเงื่อนไขการโปรโมท</strong>
-                  <p>1 รอบใช้เวลา 6 ชั่วโมง ราคา {rules.promoPricePerWindowRound.toLocaleString()} บาทต่อหน้าต่าง 1 บาน · เลือกแพ็กเกจ 2 / 3 / 4 / 6 บานได้เหมือนเดิม</p>
+                  <p>
+                    1 รอบใช้เวลา 6 ชั่วโมง ราคา {rules.promoPricePerWindowRound.toLocaleString()} บาทต่อหน้าต่าง 1 บาน · เลือกแพ็กเกจ 2 / 3 / 4 / 6 บานได้เหมือนเดิม ·
+                    จองล่วงหน้าได้ {rules.promoAdvanceDays} วัน สูงสุด {rules.promoMonthlyRounds} รอบต่อเดือน
+                  </p>
                 </div>
               </div>
+
+              {currentUser && (
+                <SavedTemplates
+                  templates={templates}
+                  active={activeTemplate}
+                  unchanged={!!activeTemplate && sameAsTemplate(activeTemplate)}
+                  disabled={uploading}
+                  onUse={applyTemplate}
+                  onSave={saveTemplate}
+                  onDelete={removeTemplate}
+                />
+              )}
 
               <section className="promo-section">
                 <SectionTitle number="01" title="เลือกแพ็กเกจโปรโมท" hint={`${rules.promoPricePerWindowRound.toLocaleString()} บาท / บาน / รอบ`} />
@@ -516,9 +616,9 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                               type="button"
                               role="gridcell"
                               className={`promo-day ${startDate === day.value ? 'is-selected' : ''} ${day.value === today ? 'is-today' : ''}`}
-                              aria-label={`${dateLabel(day.value)} ${day.available ? `ว่าง ${day.available} รอบ` : day.isPast ? 'ผ่านมาแล้ว' : 'เต็ม'}`}
+                              aria-label={`${dateLabel(day.value)} ${day.available ? `ว่าง ${day.available} รอบ` : day.isPast ? 'ผ่านมาแล้ว' : day.tooFar ? 'ยังไม่เปิดจอง' : 'เต็ม'}`}
                               aria-pressed={startDate === day.value}
-                              disabled={day.isPast || day.available === 0}
+                              disabled={day.isPast || day.tooFar || day.available === 0}
                               onClick={() => {
                                 setStartDate(day.value)
                                 setRounds((current) => Math.min(current, day.available))
@@ -535,7 +635,7 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                       </div>
                       <div className="promo-calendar-legend">
                         <span>ตัวเลขมุมล่าง = รอบว่าง</span>
-                        <span>เลือกได้ล่วงหน้า 12 เดือน</span>
+                        <span>จองล่วงหน้าได้ {rules.promoAdvanceDays} วัน</span>
                       </div>
                     </div>
                   )}
@@ -543,6 +643,11 @@ export function PromoRequestModal({ isOpen, onClose, currentUser, onOpenAuth, on
                   <p className="promo-subtle">
                     {dateLabel(startDate)} · {rounds} รอบ ({rounds * 6} ชม.) · รวม {money(price)}
                   </p>
+                  {currentUser && (
+                    <p className={monthLeft < rounds ? 'promo-error' : 'promo-subtle'} role="status">
+                      เดือน{monthName} จองแล้ว {monthUsed} / {rules.promoMonthlyRounds} รอบ · เหลือ {monthLeft} รอบ
+                    </p>
+                  )}
                 </div>
               </section>
 
@@ -810,6 +915,109 @@ function ImageGrid({
         </div>
       ))}
     </div>
+  )
+}
+
+const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
+
+/** Saved designs: fill the form from one, save the form as a new design or over the one in use. */
+function SavedTemplates({
+  templates,
+  active,
+  unchanged,
+  disabled,
+  onUse,
+  onSave,
+  onDelete,
+}: {
+  templates: PromoTemplate[]
+  active?: PromoTemplate
+  unchanged: boolean
+  disabled: boolean
+  onUse: (t: PromoTemplate) => void
+  onSave: (name: string, id?: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+}) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const used = templates.reduce((sum, t) => sum + t.bytes, 0)
+  const full = templates.length >= PROMO_TEMPLATE_LIMIT
+  const run = async (task: Promise<void>) => {
+    setBusy(true)
+    await task
+    setBusy(false)
+  }
+
+  return (
+    <section className="promo-section promo-templates">
+      <div className="promo-section-heading">
+        <h4>
+          <Icon icon={Bookmark} /> แบบโปรโมทที่บันทึกไว้
+        </h4>
+        <span className="promo-subtle">
+          {templates.length} / {PROMO_TEMPLATE_LIMIT} แบบ · {mb(used)} / {mb(PROMO_TEMPLATE_MAX_BYTES)}
+        </span>
+      </div>
+      {templates.length === 0 && <p className="promo-subtle">ยังไม่มีแบบที่บันทึก กรอกข้อมูลด้านล่างแล้วกด "บันทึกเป็นแบบใหม่" เพื่อใช้ซ้ำครั้งต่อไป</p>}
+      {templates.map((t) => (
+        <div key={t.id} className={`promo-history-row ${active?.id === t.id ? 'is-active' : ''}`}>
+          <span>
+            {t.name}
+            <small>
+              {t.brand} · {t.size} บาน · {t.images.length} รูป · {mb(t.bytes)}
+            </small>
+          </span>
+          {t.approved && <span className="promo-pill">เคยอนุมัติแล้ว</span>}
+          {confirmDelete === t.id ? (
+            <button type="button" className="promo-text-button" disabled={busy} onClick={() => run(onDelete(t.id).then(() => setConfirmDelete(null)))}>
+              ยืนยันลบ
+            </button>
+          ) : (
+            <button type="button" className="promo-text-button" disabled={busy} onClick={() => setConfirmDelete(t.id)}>
+              ลบ
+            </button>
+          )}
+          <button
+            type="button"
+            className="promo-text-button"
+            disabled={busy || disabled}
+            onClick={() => {
+              setConfirmDelete(null)
+              setName(t.name)
+              onUse(t)
+            }}
+          >
+            {active?.id === t.id ? 'กำลังใช้' : 'ใช้แบบนี้'}
+          </button>
+        </div>
+      ))}
+      {active?.approved && (
+        <p className={unchanged ? 'promo-subtle' : 'promo-error'}>
+          {unchanged
+            ? '✓ ใช้แบบนี้โดยไม่แก้ไข ระบบอนุมัติให้ทันทีหลังชำระ (ถ้าชำระด้วยการโอน จะอนุมัติเมื่อตรวจสลิปผ่าน)'
+            : 'มีการแก้ไขจากแบบที่เคยอนุมัติ คำขอนี้จะรอผู้ดูแลตรวจสอบก่อน'}
+        </p>
+      )}
+      <div className="promo-template-save">
+        <input
+          className="promo-input"
+          value={name}
+          maxLength={60}
+          placeholder="ชื่อแบบ (เว้นว่าง = ใช้ชื่อแบรนด์)"
+          aria-label="ชื่อแบบโปรโมท"
+          onChange={(e) => setName(e.target.value)}
+        />
+        {active && (
+          <button type="button" className="promo-secondary" disabled={busy || disabled} onClick={() => run(onSave(name, active.id))}>
+            บันทึกทับแบบ «{active.name}»
+          </button>
+        )}
+        <button type="button" className="promo-secondary" disabled={busy || disabled || full} onClick={() => run(onSave(name))}>
+          {full ? `ครบ ${PROMO_TEMPLATE_LIMIT} แบบแล้ว ลบแบบเดิมก่อน` : 'บันทึกเป็นแบบใหม่'}
+        </button>
+      </div>
+    </section>
   )
 }
 

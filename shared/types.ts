@@ -428,6 +428,10 @@ export interface PlatformSettings {
     minResalePrice: number
     /** Promotion price per window per 6-hour round. */
     promoPricePerWindowRound: number
+    /** Promo rounds one user may book per calendar month (by promo date). */
+    promoMonthlyRounds: number
+    /** How many days ahead a promo can be booked. */
+    promoAdvanceDays: number
   }
   /** Wallet credit for accounts that sign up between startsAt and endsAt (ISO; null = open). 0 = off. */
   signupBonus: {

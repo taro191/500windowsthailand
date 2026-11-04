@@ -252,6 +252,26 @@ export interface PromoRequestsTable {
   decided_at: string | null
   decided_by: string | null
   decision_note: string | null
+  /** Hash of the shown content (see services/promo.ts contentHash), for approving a known design at once. */
+  content_hash: string | null
+}
+
+export interface PromoTemplatesTable {
+  id: string
+  user_id: string
+  name: string
+  brand: string
+  tagline: string
+  link: string
+  contact: string
+  images_json: string
+  details_json: string
+  layout: string | null
+  size: number
+  bytes: number
+  content_hash: string
+  created_at: string
+  updated_at: string
 }
 
 export interface SettingsTable {
@@ -403,6 +423,7 @@ export interface Database {
   transactions: TransactionsTable
   payment_orders: PaymentOrdersTable
   promo_requests: PromoRequestsTable
+  promo_templates: PromoTemplatesTable
   settings: SettingsTable
   themes: ThemesTable
   admin_files: AdminFilesTable
@@ -422,4 +443,5 @@ export type WindowUpdate = Updateable<WindowsTable>
 export type TransactionRow = Selectable<TransactionsTable>
 export type OrderRow = Selectable<PaymentOrdersTable>
 export type PromoRow = Selectable<PromoRequestsTable>
+export type PromoTemplateRow = Selectable<PromoTemplatesTable>
 export type ContactMessageRow = Selectable<ContactMessagesTable>

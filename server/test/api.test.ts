@@ -676,7 +676,7 @@ describe('resale', () => {
   it('follows the rules the admin sets: claim price, holding days, minimum price and commission', async () => {
     const admin = await adminClient()
     const { settings } = await client().get('/config')
-    const rules = { claimPrice: 700, commissionPercent: 10, minHoldingDays: 7, minResalePrice: 300, promoPricePerWindowRound: 40 }
+    const rules = { claimPrice: 700, commissionPercent: 10, minHoldingDays: 7, minResalePrice: 300, promoPricePerWindowRound: 40, promoMonthlyRounds: 28, promoAdvanceDays: 30 }
     const invalid = await admin.put('/admin/settings', { settings: { ...settings, rules: { ...rules, commissionPercent: 80 } }, what: 'x' })
     assert.equal(invalid.status, 400)
     const saved = await admin.put('/admin/settings', { settings: { ...settings, rules }, what: 'กติกาทั่วไป' })
@@ -765,6 +765,70 @@ describe('promo', () => {
     assert.equal(full.success, true, full.error)
     const over = await c.post('/promo/requests', { request: request(day), payment: wallet(60) })
     assert.equal(over.status, 409)
+  })
+
+  const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+
+  it('books at most the monthly rounds per user and only up to 30 days ahead', async () => {
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 1000)
+    assert.equal((await c.post('/promo/requests', { request: request(inDays(32)), payment: wallet(60) })).status, 400, 'too far ahead')
+    const admin = await adminClient()
+    const { settings } = await client().get('/config')
+    await admin.put('/admin/settings', { settings: { ...settings, rules: { ...settings.rules, promoMonthlyRounds: 2 } }, what: 'กติกาทั่วไป' })
+    try {
+      const sameMonth = inDays(12)
+      assert.equal((await c.post('/promo/requests', { request: request(sameMonth), payment: wallet(60) })).success, true)
+      const over = await c.post('/promo/requests', { request: { ...request(sameMonth), rounds: 2 }, payment: wallet(120) })
+      assert.equal(over.status, 400)
+      assert.match(over.error, /สูงสุด 2 รอบต่อเดือน/)
+      const nextMonth = new Date(`${sameMonth.slice(0, 7)}-01T12:00:00Z`)
+      nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1)
+      const later = nextMonth.toISOString().slice(0, 10)
+      if (later <= inDays(30)) assert.equal((await c.post('/promo/requests', { request: { ...request(later), rounds: 2 }, payment: wallet(120) })).success, true, 'a new month has its own rounds')
+    } finally {
+      await admin.put('/admin/settings', { settings, what: 'กติกาทั่วไป' })
+    }
+  })
+
+  it('saves promo designs, reuses their images and approves an unchanged approved design at once', async () => {
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 1000)
+    const saved = await c.post('/promo/templates', { template: { ...request(future), name: 'แบบหลัก' } })
+    assert.equal(saved.success, true, saved.error)
+    const t = saved.template
+    assert.equal(t.name, 'แบบหลัก')
+    assert.match(t.images[0], /^\/uploads\/promo\//)
+    assert.ok(t.bytes > 0)
+    assert.equal(t.approved, false)
+
+    const book = (day: string, extra: object = {}) =>
+      c.post('/promo/requests', { request: { ...request(day), images: t.images, layout: t.layout, details: t.details, ...extra }, payment: wallet(60) })
+    const first = await book(inDays(14))
+    assert.equal(first.success, true, first.error)
+    assert.equal(first.request.status, 'pending', 'a new design is reviewed')
+    assert.equal(first.request.images[0], t.images[0], 'the stored image is reused')
+    const admin = await adminClient()
+    assert.equal((await admin.post(`/admin/promo/${first.request.id}/decide`, { decision: 'approved' })).success, true)
+    assert.equal((await c.get('/promo/templates')).templates[0].approved, true)
+
+    const again = await book(inDays(15))
+    assert.equal(again.request.status, 'approved', 'the same design is approved at once')
+    const changed = await book(inDays(16), { brand: 'ร้านทดสอบใหม่' })
+    assert.equal(changed.request.status, 'pending', 'an edited design goes to review')
+
+    const other = await verifiedUser('ผู้อื่น')
+    await topUpByCard(other.c, 100)
+    const stolen = await other.c.post('/promo/requests', { request: { ...request(inDays(17)), images: t.images }, payment: wallet(60) })
+    assert.equal(stolen.status, 400, "another user's image can't be reused")
+
+    for (let i = 0; i < 4; i++) assert.equal((await c.post('/promo/templates', { template: { ...request(future), name: `แบบ ${i}` } })).success, true)
+    assert.equal((await c.post('/promo/templates', { template: request(future) })).status, 400, 'five designs at most')
+    const renamed = await c.put(`/promo/templates/${t.id}`, { template: { ...t, name: 'แบบหลัก 2' } })
+    assert.equal(renamed.template.name, 'แบบหลัก 2')
+    assert.equal(renamed.template.approved, true)
+    const removed = await c.post(`/promo/templates/${t.id}/delete`)
+    assert.equal(removed.templates.length, 4)
   })
 
   it('gives each booking its own rounds of the day and drops ads once their rounds are over', async () => {

@@ -538,6 +538,8 @@ const RULE_FIELDS: { key: keyof PlatformSettings['rules']; label: string; hint: 
   { key: 'minHoldingDays', label: 'ระยะถือครองขั้นต่ำก่อนขายต่อ (วัน)', hint: '0 = ขายต่อได้ทันที' },
   { key: 'minResalePrice', label: 'ราคาขายต่อขั้นต่ำ (บาท)', hint: 'ราคาสูงสุดยังเป็นไปตามเมนู "เพดานราคาขายต่อ"' },
   { key: 'promoPricePerWindowRound', label: 'ราคาโปรโมท (บาท / บาน / รอบ 6 ชม.)', hint: 'ใช้กับคำขอโปรโมทใหม่' },
+  { key: 'promoMonthlyRounds', label: 'รอบโปรโมทสูงสุดต่อคนต่อเดือน (รอบ)', hint: 'นับตามเดือนของวันโปรโมท ไม่นับคำขอที่ไม่อนุมัติ · 1 รอบ = 6 ชม.' },
+  { key: 'promoAdvanceDays', label: 'จองโปรโมทล่วงหน้าได้ (วัน)', hint: 'นับจากวันนี้ · 0 = จองได้เฉพาะวันนี้' },
 ]
 
 export function RulesPage({ notify }: AdminPageProps) {

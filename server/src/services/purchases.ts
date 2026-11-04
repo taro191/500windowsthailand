@@ -909,6 +909,23 @@ export async function decideOrder(ctx: AppContext, admin: UserRow, orderId: stri
         const transactionId = await recordPromoPayment(trx, buyer, request, payment, orderId)
         const paid = { ...JSON.parse(request.payment_json || '{}'), orderStatus: 'approved', transactionId }
         await trx.updateTable('promo_requests').set({ payment_json: JSON.stringify(paid) }).where('id', '=', request.id).execute()
+        // Same content as an ad approved before: no second review (see services/promo.ts).
+        const known = request.content_hash
+          ? await trx
+              .selectFrom('promo_requests')
+              .select('id')
+              .where('user_id', '=', request.user_id)
+              .where('status', '=', 'approved')
+              .where('content_hash', '=', request.content_hash)
+              .executeTakeFirst()
+          : undefined
+        if (known)
+          await trx
+            .updateTable('promo_requests')
+            .set({ status: 'approved', decided_at: nowIso(), decision_note: 'อนุมัติอัตโนมัติ: ใช้แบบโปรโมทเดิมที่เคยอนุมัติแล้ว' })
+            .where('id', '=', request.id)
+            .where('status', '=', 'pending')
+            .execute()
       }
     } else {
       await refundWalletPart(trx, order, buyer, reason)
