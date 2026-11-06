@@ -483,7 +483,8 @@ export async function startTrial(ctx: AppContext, user: UserRow, region: RegionI
         note_at: null,
         welcomed_at: null,
         content_updated_at: now,
-        published_at: null,
+        // Visitors see a trial window's content like any other.
+        published_at: now,
         taken_down_at: null,
         takedown_reason: null,
         trial_ends_at: trialEndsAt(new Date(now)).toISOString(),

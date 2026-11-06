@@ -110,6 +110,13 @@ export function OwnerStudio({ windowItem: w, currentUser, onOpenEditor, onListFo
         )}
       </div>
 
+      {w.trialEndsAt ? (
+        <div className={`${box} space-y-1`}>
+          <b className="text-(--kap-warn)">🔒 บานทดลองใช้ฟรีเปิดขายต่อไม่ได้</b>
+          <p className={`m-0 text-[12px] ${muted}`}>ชำระค่าจับจองเพื่อเปลี่ยนเป็นบานจริงก่อน จึงจะเปิดขายต่อได้ตามเงื่อนไขปกติ</p>
+        </div>
+      ) : (
+        <>
       {!holding.isEligible && (
         <div className={`${box} space-y-1`}>
           <b className="text-(--kap-warn)">⏳ เงื่อนไขข้อ 1: ต้องถือครองไม่ต่ำกว่า {rules.minHoldingDays} วัน</b>
@@ -144,6 +151,8 @@ export function OwnerStudio({ windowItem: w, currentUser, onOpenEditor, onListFo
         >
           🏷️ {holding.isEligible ? 'ตั้งราคาเปิดขายต่อให้ผู้อื่น' : `เปิดขายต่อ (ถือครอง ${holding.daysHeld}/${rules.minHoldingDays} วัน)`}
         </button>
+      )}
+        </>
       )}
     </section>
   )

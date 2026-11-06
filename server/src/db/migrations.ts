@@ -579,6 +579,20 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('promo_requests').addColumn('content_hash', varchar(64)).execute()
     },
   },
+
+  '026_publish_trials': {
+    // Trial windows are now public from the start; publish the ones still hidden (not taken down).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db
+        .updateTable('windows')
+        .set({ published_at: new Date().toISOString() })
+        .where('trial_ends_at', 'is not', null)
+        .where('published_at', 'is', null)
+        .where('taken_down_at', 'is', null)
+        .execute()
+    },
+  },
 }
 
 /** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */

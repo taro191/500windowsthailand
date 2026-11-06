@@ -444,7 +444,7 @@ export default function App() {
       setClaimTarget(null)
       refreshBoard()
       syncAccount()
-      showToast(`เริ่มทดลองใช้บาน ${result.window.code} ฟรี ${TRIAL_DAYS} วันแล้ว จัดหน้าต่างให้พร้อม แล้วชำระเงินเพื่อเผยแพร่ได้ทุกเมื่อ`)
+      showToast(`เริ่มทดลองใช้บาน ${result.window.code} ฟรี ${TRIAL_DAYS} วันแล้ว ทุกคนเห็นบานนี้แล้ว ชำระเงินเพื่อเป็นบานจริงได้ทุกเมื่อ`)
       setSelectedWindow(result.window)
       return
     }

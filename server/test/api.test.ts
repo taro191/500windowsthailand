@@ -390,18 +390,19 @@ describe('free trial window', () => {
   const backdate = (num: number, days: number) =>
     ctx.db.updateTable('windows').set({ trial_ends_at: new Date(Date.now() - days * 86_400_000).toISOString() }).where('region', '=', 'central').where('num', '=', num).execute()
 
-  it('holds one window per user unpaid and hidden, and publishes once paid', async () => {
+  it('holds one window per user unpaid, shown to visitors, not for resale until paid', async () => {
     assert.equal((await client().post('/windows/central/40/trial', { content })).status, 401)
     const { c } = await verifiedUser()
     const started = await c.post('/windows/central/40/trial', { content })
     assert.equal(started.success, true, started.error)
     assert.equal(started.user.trialUsed, true)
-    assert.equal(started.window.lifecycle, 'building')
+    assert.equal(started.window.lifecycle, undefined, 'public from the start')
     assert.ok(Date.parse(started.window.trialEndsAt) > Date.now() + 59 * 86_400_000)
-    assert.equal((await client().get('/windows/central/40')).window.title, '', 'hidden from visitors')
+    const visitor = (await client().get('/windows/central/40')).window
+    assert.equal(visitor.title, content.title, 'visitors see the content')
+    assert.ok(visitor.trialEndsAt, 'marked as a trial for everyone')
     assert.equal((await c.post('/windows/central/41/trial', { content })).status, 403, 'one trial per user')
-    assert.equal((await c.post('/windows/central/40/publish')).status, 403, 'pay before publishing')
-    assert.equal((await c.post('/windows/central/40/listing', { price: 900 })).status, 403)
+    assert.equal((await c.post('/windows/central/40/listing', { price: 900 })).status, 403, 'no resale during the trial')
 
     await topUpByCard(c, 500)
     const paid = await c.post('/windows/central/40/trial/pay', { payment: wallet(500) })

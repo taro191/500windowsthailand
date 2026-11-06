@@ -799,4 +799,6 @@ export const translationOverrides = {
   "อนุมัติอัตโนมัติ: ใช้แบบโปรโมทเดิมที่เคยอนุมัติแล้ว": "Approved automatically: a promo design approved before",
   "รูปที่เลือกไม่ถูกต้อง กรุณาอัปโหลดรูปใหม่": "The selected image is not valid, please upload it again",
   "ไม่พบแบบโปรโมทนี้": "Promo design not found",
+  "🔒 บานทดลองใช้ฟรีเปิดขายต่อไม่ได้": "🔒 A free trial window cannot be listed for resale",
+  "ชำระค่าจับจองเพื่อเปลี่ยนเป็นบานจริงก่อน จึงจะเปิดขายต่อได้ตามเงื่อนไขปกติ": "Pay for the window to make it a real one first; then it can be resold under the usual rules",
 } as const;

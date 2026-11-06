@@ -111,14 +111,14 @@ function lifecycleOf(row: RowWithOwner): WindowItem['lifecycle'] {
  * their content (title, images, owner, profile…) except to their owner and admins (`showHidden`).
  */
 export function toWindowItem(row: RowWithOwner, extras: Extras = {}): WindowItem {
-  const item = buildWindowItem(row, extras)
+  const item = { ...buildWindowItem(row, extras), trialEndsAt: row.trial_ends_at ?? undefined }
   const lifecycle = lifecycleOf(row)
   if (!lifecycle) return item
   if (lifecycle === 'pending') return { ...item, lifecycle, reservedBy: extras.reservedBy, reservedByMe: extras.reservedByViewer || undefined }
   const isOwner = !!extras.viewerId && row.owner_id === extras.viewerId
   if (isOwner || extras.showHidden) {
     const takenDown = row.taken_down_at ? { at: row.taken_down_at, reason: row.takedown_reason ?? '' } : undefined
-    return { ...item, lifecycle, unpublished: row.published_at ? undefined : true, trialEndsAt: row.trial_ends_at ?? undefined, takenDown }
+    return { ...item, lifecycle, unpublished: row.published_at ? undefined : true, takenDown }
   }
   return {
     ...item,
@@ -704,7 +704,6 @@ export async function publishWindow(ctx: AppContext, user: UserRow, region: Regi
   const row = await loadRow(ctx.db, region, num)
   if (!row.owner_id || row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   if (row.suspended_at) throw forbidden('หน้าต่างบานนี้อยู่ระหว่างรอการตรวจสอบ ยังเผยแพร่ไม่ได้จนกว่าจะยกเลิกการระงับ')
-  if (row.trial_ends_at) throw forbidden('บานทดลองใช้ต้องชำระค่าจับจองก่อนจึงจะเผยแพร่ได้')
   if (!row.published_at) {
     if (!row.image_url && !profileImages(parseProfile(row.profile_json)).length) throw badRequest('เพิ่มรูปภาพอย่างน้อย 1 รูปก่อนเผยแพร่')
     // Content an admin took down goes public again only after the owner changes it.

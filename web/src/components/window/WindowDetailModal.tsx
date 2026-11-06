@@ -316,7 +316,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
             {w.trialEndsAt && isOwner && (
               <TrialBar w={w} price={claimPriceOf(w)} onPay={payTrial} />
             )}
-            {w.unpublished && isOwner && !w.trialEndsAt && (
+            {w.unpublished && isOwner && (
               <section className={`${card} !border-[#3fb8b0] text-[13px] flex flex-wrap items-center gap-3`}>
                 <div className="flex-1 min-w-[200px]">
                   <b className="text-[#3fb8b0]">หน้าต่างนี้ยังไม่เผยแพร่</b>
@@ -482,7 +482,7 @@ function TrialBar({ w, price, onPay }: { w: WindowItem; price: number; onPay: ()
           <>
             <b className={tone}>🧪 บานทดลองใช้ฟรี · เหลือ {daysLeft(w.trialEndsAt!)} วัน</b>
             <p className={`${para} !mb-0`}>
-              ผู้เข้าชมจะเห็นหน้า "กำลังพัฒนา" จนกว่าคุณจะชำระค่าจับจอง ชำระแล้วเผยแพร่ทันที ข้อมูลเดิมอยู่ครบ · ครบ {TRIAL_DAYS} วันแล้วไม่ชำระ
+              ทุกคนเห็นเนื้อหาบานนี้ตามปกติ · ชำระแล้วเป็นบานจริงทันที ข้อมูลเดิมอยู่ครบ · ระหว่างทดลองเปิดขายต่อไม่ได้ · ครบ {TRIAL_DAYS} วันแล้วไม่ชำระ
               บานจะว่างทันที
             </p>
           </>
@@ -490,7 +490,7 @@ function TrialBar({ w, price, onPay }: { w: WindowItem; price: number; onPay: ()
       </div>
       {(!unpaid || w.reserved) && (
         <button type="button" onClick={onPay} disabled={w.reserved} className={`${btn} ${btnPri} disabled:opacity-40`}>
-          {w.reserved ? 'รอตรวจสอบสลิป' : `ชำระ ฿${price.toLocaleString()} และเผยแพร่`}
+          {w.reserved ? 'รอตรวจสอบสลิป' : `ชำระ ฿${price.toLocaleString()} เป็นบานจริง`}
         </button>
       )}
     </section>

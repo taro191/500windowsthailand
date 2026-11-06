@@ -286,7 +286,7 @@ export interface WindowItem {
   reservedByMe?: true
   /** Owner and admins only: the owner hasn't pressed "เผยแพร่" yet (also while suspended). */
   unpublished?: true
-  /** Owner and admins only: a free trial window not paid yet; end of the free period (shared/trial.ts). */
+  /** A free trial window not paid yet: end of the free period (shared/trial.ts). Its content is public. */
   trialEndsAt?: string
   /** Owner and admins only: an admin hid the content from visitors (content kept); edit and publish again to lift it. */
   takenDown?: { at: string; reason: string }
