@@ -358,7 +358,7 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
             <Showcase ctx={ctx} kind="products" />
             <LinksCard ctx={ctx} />
             {w.trialEndsAt ? (
-              <TrialLockedCard isOwner={isOwner} onPay={payTrial} />
+              <TrialLockedCard w={w} isOwner={isOwner} price={claimPriceOf(w)} onPay={payTrial} />
             ) : (
               <>
                 <FriendCard ctx={ctx} />
@@ -426,16 +426,16 @@ function SearchDialog({ initial, onClose, onOpenWindow }: { initial: string; onC
 }
 
 /** Friend and Co and the Store card, locked on a free trial window until it is paid. */
-function TrialLockedCard({ isOwner, onPay }: { isOwner: boolean; onPay: () => void }) {
+function TrialLockedCard({ w, isOwner, price, onPay }: { w: WindowItem; isOwner: boolean; price: number; onPay: () => void }) {
+  // Owner only, and not once the trial has ended (the window is going back to the pool).
+  const canPay = isOwner && (w.lifecycle !== 'unpaid' || w.reserved)
   return (
-    <section className={`${card} text-[13px] flex flex-wrap items-center gap-3`}>
-      <div className="flex-1 min-w-[200px]">
-        <b>🔒 Friend and Co · 500 Windows Thailand : Store</b>
-        <p className={`${para} !mb-0`}>บานทดลองใช้ฟรียังใช้ 2 ส่วนนี้ไม่ได้ ชำระค่าจับจองแล้วปลดล็อกทันที ข้อมูลเดิมอยู่ครบ</p>
-      </div>
-      {isOwner && (
-        <button type="button" onClick={onPay} className={`${btn} ${btnPri}`}>
-          อัปเกรดเป็นบานจริง
+    <section className={`${card} text-[13px]`}>
+      <b>🔒 Friend and Co · 500 Windows Thailand : Store</b>
+      <p className={`${para} !mb-0`}>บานทดลองใช้ฟรียังใช้ 2 ส่วนนี้ไม่ได้ ชำระค่าจับจองแล้วปลดล็อกทันที ข้อมูลเดิมอยู่ครบ</p>
+      {canPay && (
+        <button type="button" onClick={onPay} disabled={w.reserved} className={`${btn} ${btnPri} mt-3 disabled:opacity-40`}>
+          {w.reserved ? 'รอตรวจสอบสลิป' : `ชำระเงิน ฿${price.toLocaleString()}`}
         </button>
       )}
     </section>
