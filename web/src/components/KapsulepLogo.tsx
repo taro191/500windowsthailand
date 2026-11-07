@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import logoUrl from '@/assets/kapsulep-logo.jpg'
+import logoUrl from '@/assets/500winth-logo.png'
 
 interface KapsulepLogoProps {
   size?: number
