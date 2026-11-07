@@ -47,6 +47,7 @@ interface HubPanelProps {
   onUpdatePayoutAccount: (account: PayoutAccount) => void
   onRotateWindows: (forceRandom: boolean) => void
   onOpenAuth: (mode: AuthMode) => void
+  onLogout: () => void
   followCount: number
   /** A promo request was paid: refresh the wallet balance. */
   onUserUpdated: (user: User) => void
@@ -180,6 +181,7 @@ export function HubPanel(props: HubPanelProps) {
                   onUpdatePayoutAccount={props.onUpdatePayoutAccount}
                   onSelectWindow={props.onSelectWindow}
                   onOpenAuth={props.onOpenAuth}
+                  onLogout={props.onLogout}
                   onClose={onClose}
                 />
               )}

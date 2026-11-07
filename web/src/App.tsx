@@ -812,6 +812,7 @@ export default function App() {
       <HubPanel
         isOpen={hubOpen}
         onClose={() => setHubOpen(false)}
+        onLogout={handleLogout}
         initialTab={hubTab}
         currentUser={currentUser}
         myWindows={myWindows}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Check, CircleCheck, History, QrCode, Sparkles, UserCog, Wallet } from 'lucide-react'
+import { Building2, Check, CircleCheck, History, LogOut, QrCode, Sparkles, UserCog, Wallet } from 'lucide-react'
 import type { AuthMode, PayoutAccount, RefundPayout, Transaction, User, WindowItem } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
@@ -20,6 +20,7 @@ interface WalletTabProps {
   onUpdatePayoutAccount: (account: PayoutAccount) => void
   onSelectWindow: (window: WindowItem) => void
   onOpenAuth: (mode: AuthMode) => void
+  onLogout: () => void
   onClose: () => void
 }
 
@@ -54,6 +55,13 @@ export function WalletTab(props: WalletTabProps) {
   return (
     <div className="space-y-5">
       <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} onOpenProfile={props.onOpenProfile} />
+      <button
+        type="button"
+        onClick={props.onLogout}
+        className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 hover:brightness-110 active:scale-[0.99] text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-rose-500/30 cursor-pointer transition"
+      >
+        <LogOut className="w-4 h-4" /> ออกจากระบบ
+      </button>
       <BalanceCard user={currentUser} onOpenTopUp={props.onOpenTopUp} onOpenHistory={props.onOpenWalletHistory} />
       <PendingRefundPayouts />
       <PayoutAccountCard user={currentUser} onUpdatePayoutAccount={props.onUpdatePayoutAccount} />

@@ -188,15 +188,14 @@ export function MobileDrawer({
                       <Gauge className="w-3 h-3" /> Admin
                     </button>
                   )}
-                  <button
-                    onClick={then(onLogout)}
-                    aria-label="ออกจากระบบ"
-                    className="px-2 py-1 rounded bg-[#181329] hover:bg-stone-800 text-rose-300 border border-rose-900/60 text-[10px] font-medium cursor-pointer"
-                  >
-                    <LogOut className="w-3 h-3" />
-                  </button>
                 </div>
               </div>
+              <button
+                onClick={then(onLogout)}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 hover:brightness-110 active:scale-[0.99] text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-rose-500/30 cursor-pointer transition font-['Prompt',sans-serif]"
+              >
+                <LogOut className="w-4 h-4" /> ออกจากระบบ
+              </button>
             </div>
           ) : (
             <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/50 space-y-2 font-['Prompt',sans-serif]">
