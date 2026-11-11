@@ -387,6 +387,24 @@ export interface LifeSpaceTable {
   updated_at: string
 }
 
+/** A public link-in-bio page, one per account (see services/pods.ts). */
+export interface PodsTable {
+  user_id: string
+  slug: string
+  name: string
+  bio: string
+  avatar: string
+  /** Index into POD_COLORS, -1 = the page's panel colour. */
+  profile_color: number
+  window_region: string | null
+  window_num: number | null
+  window_color: number
+  /** PodLink[] as JSON. */
+  links_json: string
+  created_at: string
+  updated_at: string
+}
+
 /** A refund the owner asked to receive by bank transfer (see services/refundPayouts.ts). */
 export interface RefundPayoutsTable {
   id: string
@@ -433,6 +451,7 @@ export interface Database {
   window_archives: WindowArchivesTable
   central_news: CentralNewsTable
   refund_payouts: RefundPayoutsTable
+  pods: PodsTable
 }
 
 export type UserRow = Selectable<UsersTable>
@@ -444,4 +463,5 @@ export type TransactionRow = Selectable<TransactionsTable>
 export type OrderRow = Selectable<PaymentOrdersTable>
 export type PromoRow = Selectable<PromoRequestsTable>
 export type PromoTemplateRow = Selectable<PromoTemplatesTable>
+export type PodRow = Selectable<PodsTable>
 export type ContactMessageRow = Selectable<ContactMessagesTable>

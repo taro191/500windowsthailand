@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { PodPage } from './components/pod/PodPage'
 import { init } from './lib/store'
 import { startDomTranslator } from './i18n/domTranslator'
 import { watchOverlays, watchTyping } from './lib/scrollLock'
@@ -60,11 +61,9 @@ function Boot() {
 }
 
 const root = document.getElementById('root')!
-createRoot(root).render(
-  <StrictMode>
-    <Boot />
-  </StrictMode>,
-)
+// Pods (/pod, /pod/<slug>) are standalone pages that don't need the board.
+const podPath = window.location.pathname.match(/^\/pod(?:\/([A-Za-z0-9-]+))?\/?$/)
+createRoot(root).render(<StrictMode>{podPath ? <PodPage slug={podPath[1] ?? null} /> : <Boot />}</StrictMode>)
 startDomTranslator(root)
 watchOverlays()
 watchTyping()

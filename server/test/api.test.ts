@@ -832,6 +832,52 @@ describe('promo', () => {
     assert.equal(removed.templates.length, 4)
   })
 
+  it('saves a public pod with a held window, its own images and a unique address', async () => {
+    const { c } = await verifiedUser()
+    await topUpByCard(c, 1000)
+    assert.equal((await c.post('/windows/north/71/claim', { content, payment: wallet(500) })).success, true)
+    assert.equal((await c.get('/me/pod')).pod, null)
+    assert.equal((await c.get('/me/pod')).windows.length, 1)
+
+    const pod = {
+      slug: 'My-Shop',
+      name: 'ร้านของฉัน',
+      bio: 'แนะนำตัว',
+      avatar: PNG,
+      profileColor: 2,
+      window: { region: 'north', num: 71 },
+      windowColor: 1,
+      links: [{ title: 'Shop', desc: 'ร้านออนไลน์', url: 'shop.example.com', img: PNG }],
+    }
+    const saved = await c.put('/me/pod', { pod })
+    assert.equal(saved.success, true, saved.error)
+    assert.equal(saved.pod.slug, 'my-shop')
+    assert.match(saved.pod.avatar, /^\/uploads\/pods\//)
+    assert.equal(saved.pod.window.num, 71)
+
+    const visitor = await client().get('/pods/my-shop')
+    assert.equal(visitor.pod.name, 'ร้านของฉัน')
+    assert.equal(visitor.isOwner, false)
+    assert.equal(visitor.windows, undefined)
+    assert.equal((await c.get('/pods/my-shop')).isOwner, true)
+    assert.equal((await client().get('/pods/nobody-here')).status, 404)
+
+    const other = await verifiedUser('ผู้อื่น')
+    assert.equal((await other.c.put('/me/pod', { pod: { ...pod, avatar: '', links: [], window: null } })).status, 409, 'address taken')
+    const stolen = await other.c.put('/me/pod', { pod: { ...pod, slug: 'other-shop', avatar: saved.pod.avatar, links: [], window: null } })
+    assert.equal(stolen.status, 400, "another pod's image can't be reused")
+    const notHeld = await other.c.put('/me/pod', { pod: { ...pod, slug: 'other-shop', avatar: '', links: [] } })
+    assert.equal(notHeld.status, 400, "a window you don't hold")
+    assert.equal((await other.c.put('/me/pod', { pod: { ...pod, slug: 'admin', avatar: '', links: [], window: null } })).status, 400)
+    const badLink = { ...pod, slug: 'other-shop', avatar: '', window: null, links: [{ title: 'x', desc: '', url: 'javascript:alert(1)', img: '' }] }
+    assert.equal((await other.c.put('/me/pod', { pod: badLink })).status, 400)
+
+    const kept = await c.put('/me/pod', { pod: { ...saved.pod, window: { region: 'north', num: 71 }, links: [] } })
+    assert.equal(kept.success, true, kept.error)
+    assert.equal(kept.pod.avatar, saved.pod.avatar, 'the stored avatar is kept')
+    assert.equal(kept.pod.links.length, 0)
+  })
+
   it('gives each booking its own rounds of the day and drops ads once their rounds are over', async () => {
     const day = '2030-01-15'
     const first = firstRoundOfDay(day)

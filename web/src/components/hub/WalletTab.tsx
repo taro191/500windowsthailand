@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Check, CircleCheck, History, LogOut, QrCode, Sparkles, UserCog, Wallet } from 'lucide-react'
+import { Building2, Check, ChevronRight, CircleCheck, History, Link2, LogOut, QrCode, Sparkles, UserCog, Wallet } from 'lucide-react'
 import type { AuthMode, PayoutAccount, RefundPayout, Transaction, User, WindowItem } from '@shared/types'
 import { BANKS } from '@shared/banks'
 import { maskCitizenId, maskPhone } from '@shared/identity'
@@ -55,6 +55,19 @@ export function WalletTab(props: WalletTabProps) {
   return (
     <div className="space-y-5">
       <ProfileCard user={currentUser} onUpdateUserName={props.onUpdateUserName} onOpenProfile={props.onOpenProfile} />
+      <a
+        href="/pod"
+        className="flex items-center gap-3 p-3 rounded-xl bg-stone-950 border border-amber-500/40 hover:border-amber-400 text-stone-100 no-underline"
+      >
+        <span className="w-9 h-9 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center shrink-0">
+          <Link2 className="w-4 h-4" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <b className="block text-sm">Pod ของฉัน</b>
+          <span className="block text-[11px] text-stone-400">หน้ารวมลิงก์ส่วนตัว แชร์ร้านค้าและบานหน้าต่างของคุณ</span>
+        </span>
+        <ChevronRight className="w-4 h-4 text-amber-300 shrink-0" />
+      </a>
       <button
         type="button"
         onClick={props.onLogout}

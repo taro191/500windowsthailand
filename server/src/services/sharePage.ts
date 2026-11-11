@@ -21,6 +21,29 @@ function setMeta(html: string, attr: 'name' | 'property', key: string, value: st
   return pattern.test(html) ? html.replace(pattern, () => tag) : html.replace('</head>', `    ${tag}\n  </head>`)
 }
 
+/** index.html for a pod (/pod/<slug>) with its name, intro and picture, or null when there is none. */
+export async function podSharePage(ctx: AppContext, html: string, slug: string, origin: string) {
+  const row = await ctx.db
+    .selectFrom('pods')
+    .innerJoin('users', 'users.id', 'pods.user_id')
+    .select(['pods.slug', 'pods.name', 'pods.bio', 'pods.avatar', 'users.disabled'])
+    .where('pods.slug', '=', slug.toLowerCase())
+    .executeTakeFirst()
+  if (!row || row.disabled) return null
+  const title = `${row.name} | 500 Windows Thailand : Pod`
+  const description = (row.bio || 'หน้ารวมลิงก์บน 500 Windows Thailand').replace(/\s+/g, ' ').trim().slice(0, 200)
+  let page = html.replace(/<title>[^<]*<\/title>/, () => `<title>${escapeHtml(title)}</title>`)
+  page = setMeta(page, 'name', 'description', description)
+  page = setMeta(page, 'property', 'og:title', title)
+  page = setMeta(page, 'property', 'og:description', description)
+  page = setMeta(page, 'property', 'og:url', `${origin}/pod/${row.slug}`)
+  if (row.avatar.startsWith('/')) {
+    page = setMeta(page, 'property', 'og:image', origin + row.avatar)
+    page = setMeta(page, 'name', 'twitter:image', origin + row.avatar)
+  }
+  return page
+}
+
 /** index.html for a shared window, or null when the link does not name a window. */
 export async function windowSharePage(ctx: AppContext, html: string, region: string, numParam: string, origin: string) {
   const num = Number(numParam)

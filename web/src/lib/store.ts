@@ -25,6 +25,7 @@ import { orderWindowsForCycle } from '@shared/boardOrder'
 import { buildQuota } from '@shared/windowQuota'
 import { trialOnly } from '@shared/trial'
 import type { PromoAd, PromoRequest, PromoTemplate } from '@shared/promo'
+import type { Pod, PodInput, PodWindow } from '@shared/pod'
 import { get, patch, post, put, type ApiResult } from './api'
 import { enabledChannels, setSettings } from './settings'
 import { setPromoData } from './promo'
@@ -519,3 +520,19 @@ export const demoBackdateOwnership = async (region: RegionId, windowId: number, 
 /** Channels offered at checkout and top-up (card only while the server accepts it). */
 export const paymentChannels = (settings: PlatformSettings): PaymentChannel[] =>
   enabledChannels(settings).filter((c) => c.type !== 'card' || appConfig.cardPayments === 'simulated')
+
+// ------------------------------------------------------------ Pod (/pod/<slug>)
+
+/** A public pod; the signed-in owner also gets `isOwner` and the windows they can show on it. */
+export async function loadPod(slug: string): Promise<Result<{ pod: Pod; isOwner: boolean; windows?: PodWindow[] }>> {
+  return get<{ pod: Pod; isOwner: boolean; windows?: PodWindow[] }>(`/pods/${encodeURIComponent(slug)}`)
+}
+
+/** The signed-in user's pod (null before it is made) and their windows. */
+export async function loadMyPod(): Promise<Result<{ pod: Pod | null; windows: PodWindow[] }>> {
+  return get<{ pod: Pod | null; windows: PodWindow[] }>('/me/pod')
+}
+
+export async function savePod(pod: PodInput): Promise<Result<{ pod: Pod }>> {
+  return put<{ pod: Pod }>('/me/pod', { pod })
+}

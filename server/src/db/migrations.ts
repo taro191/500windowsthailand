@@ -593,6 +593,27 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+
+  '027_pods': {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('pods')
+        .addColumn('user_id', id, (c) => c.primaryKey())
+        .addColumn('slug', varchar(40), (c) => c.notNull().unique())
+        .addColumn('name', varchar(80), (c) => c.notNull())
+        .addColumn('bio', 'text', (c) => c.notNull())
+        .addColumn('avatar', varchar(255), (c) => c.notNull())
+        .addColumn('profile_color', 'integer', (c) => c.notNull())
+        .addColumn('window_region', varchar(20))
+        .addColumn('window_num', 'integer')
+        .addColumn('window_color', 'integer', (c) => c.notNull())
+        .addColumn('links_json', 'text', (c) => c.notNull())
+        .addColumn('created_at', time, (c) => c.notNull())
+        .addColumn('updated_at', time, (c) => c.notNull())
+        .execute()
+    },
+  },
 }
 
 /** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */

@@ -30,6 +30,7 @@ import * as adminFiles from './services/adminFiles'
 import * as lifeSpace from './services/lifeSpace'
 import * as central from './services/central'
 import * as refundPayouts from './services/refundPayouts'
+import * as pods from './services/pods'
 import { userTransactions } from './services/ledger'
 import { notifyPendingSlip } from './services/notify'
 import { sendContactMessage, updateContactMessage } from './services/contact'
@@ -239,6 +240,9 @@ export function createApp(ctx: AppContext) {
 
   // Life Space daily journal (only sent after the user consents in the page).
   api.get('/me/refund-payouts', async (c) => ok(c, { payouts: await refundPayouts.myRefundPayouts(ctx, me(c).id) }))
+  api.get('/me/pod', async (c) => ok(c, await pods.myPod(ctx, me(c))))
+  api.put('/me/pod', async (c) => ok(c, await pods.savePod(ctx, me(c), (await body<{ pod?: Partial<pods.PodInput> }>(c)).pod)))
+  api.get('/pods/:slug', async (c) => ok(c, await pods.getPod(ctx, c.req.param('slug'), c.get('user') ?? null)))
   api.get('/me/life-space', async (c) => ok(c, await lifeSpace.getLifeSpace(ctx, me(c))))
   api.put('/me/life-space', async (c) => ok(c, await lifeSpace.saveLifeSpace(ctx, me(c), (await body<{ data?: unknown }>(c)).data)))
   api.post('/me/life-space/delete', async (c) => {

@@ -1,0 +1,115 @@
+/* 500 Windows Thailand : Pod (/pod/<slug>) — from the 500pod-and-co-v3 design, scoped under .pod. */
+.pod {
+  --bg: #1e1e1e;
+  --ink: #f5f3ec;
+  --mute: #a8a8a2;
+  --panel: #2a2a2a;
+  --yel: #ffc857;
+  --dk: #1e1e1e;
+  color-scheme: dark;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Prompt', 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: light) {
+  .pod {
+    --bg: #f1efe8;
+    --ink: #1e1e1e;
+    --mute: #6e6e68;
+    --panel: #fff;
+    color-scheme: light;
+  }
+}
+.pod *,
+.pod *::before,
+.pod *::after {
+  box-sizing: border-box;
+}
+.pod .wrap { max-width: 428px; margin: 0 auto; padding: 22px 20px 56px; }
+.pod .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.pod .top .acts { display: flex; gap: 10px; }
+.pod .home { color: var(--mute); font-size: 13px; text-decoration: none; }
+.pod .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; max-width: 90vw; text-align: center; z-index: 10; }
+.pod .toast.on { opacity: 1; transform: translate(-50%, 0); }
+.pod .pill { border: 0; border-radius: 999px; background: var(--yel); color: var(--dk); font: inherit; font-weight: 600; font-size: 14px; padding: 10px 20px; cursor: pointer; }
+.pod .pill:disabled { opacity: 0.6; cursor: default; }
+.pod .pill.ico { width: 44px; height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.pod .pill.sub { background: transparent; color: var(--ink); border: 1.5px solid rgba(128, 128, 128, 0.45); }
+.pod .hero { text-align: center; margin-top: 10px; }
+.pod .avrow { position: relative; display: flex; justify-content: center; margin-bottom: 16px; }
+.pod .avatar { width: 116px; height: 116px; border-radius: 50%; background: var(--yel); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 38px; font-weight: 700; color: var(--dk); border: 0; padding: 0; font-family: inherit; }
+.pod .avatar img,
+.pod .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pod .edit .avatar,
+.pod .edit .thumb { cursor: pointer; outline: 2px dashed var(--yel); outline-offset: 3px; }
+.pod h1 { font-size: 26px; line-height: 1.2; margin: 0 0 8px; font-weight: 700; overflow-wrap: anywhere; }
+.pod .bio { color: var(--mute); font-size: 15px; white-space: pre-wrap; margin: 0; overflow-wrap: anywhere; }
+.pod input,
+.pod textarea,
+.pod select { width: 100%; font: inherit; color: inherit; background: transparent; border: 1.5px solid rgba(128, 128, 128, 0.45); border-radius: 18px; padding: 11px 14px; }
+.pod select option { color: #1e1e1e; }
+.pod ::placeholder { color: inherit; opacity: 0.5; }
+.pod textarea { resize: vertical; min-height: 84px; }
+.pod .cnt { font-size: 12px; opacity: 0.7; text-align: right; margin-top: 2px; }
+.pod .sec { display: flex; justify-content: space-between; align-items: baseline; margin: 26px 4px 12px; font-size: 20px; font-weight: 700; }
+.pod .sec small { font-size: 13px; font-weight: 500; color: var(--mute); }
+.pod .card { display: block; border-radius: 28px; padding: 16px; margin-bottom: 14px; color: var(--dk); text-decoration: none; }
+.pod .ct { display: flex; gap: 14px; align-items: center; }
+.pod .thumb { flex: 0 0 96px; height: 96px; border-radius: 24px; background: rgba(0, 0, 0, 0.1); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; color: var(--dk); border: 0; padding: 0; font-family: inherit; }
+.pod .body { flex: 1; min-width: 0; }
+.pod .body b { display: block; font-size: 19px; line-height: 1.25; overflow-wrap: anywhere; }
+.pod .body span { display: block; font-size: 14px; opacity: 0.75; margin-top: 2px; overflow-wrap: anywhere; }
+.pod .go { flex: 0 0 44px; height: 44px; border-radius: 50%; background: var(--dk); color: #fff; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 18px; }
+.pod .in { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #f7f6f2; border-radius: 999px; padding: 8px 8px 8px 18px; margin-top: 14px; font-size: 13px; }
+.pod .in em { font-style: normal; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod .in u { text-decoration: none; font-weight: 600; background: rgba(0, 0, 0, 0.1); border-radius: 999px; padding: 5px 14px; flex: none; }
+.pod .ed .row { display: flex; gap: 12px; align-items: flex-start; }
+.pod .ed .f { flex: 1; display: grid; gap: 8px; min-width: 0; }
+.pod .ed textarea { min-height: 56px; margin-top: 10px; }
+.pod .ed input,
+.pod .ed textarea,
+.pod .ed select { border-color: rgba(30, 30, 30, 0.35); }
+.pod .del { background: none; border: 0; color: var(--dk); font: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; margin-top: 8px; padding: 0; }
+.pod .add { width: 100%; border: 2px dashed rgba(128, 128, 128, 0.5); background: transparent; color: inherit; border-radius: 28px; padding: 16px; font: inherit; font-weight: 600; cursor: pointer; }
+.pod .sw { display: flex; gap: 10px; flex-wrap: wrap; }
+.pod .dot { width: 32px; height: 32px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; }
+.pod .dot.on { outline: 3px solid var(--ink); outline-offset: 2px; }
+.pod .foot { display: block; text-align: center; color: var(--mute); font-size: 12px; margin-top: 34px; text-decoration: none; }
+.pod .pf { background: var(--panel); color: var(--ink); text-align: center; padding: 24px 16px; margin-top: 10px; }
+.pod .pf .avrow { margin-bottom: 14px; }
+.pod .wc.ed { display: grid; gap: 8px; }
+.pod .wc .dot.on { outline-color: var(--dk); }
+.pod .pf .cnt { opacity: 0.9; }
+.pod .pf .sw { gap: 8px; flex-wrap: nowrap; }
+.pod .pf .dot { width: 30px; height: 30px; flex: 0 1 30px; color: inherit; }
+.pod .pf .dot.on { outline-color: currentColor; outline-offset: 2px; }
+.pod .pf .mv { color: inherit; }
+.pod .dot.df { border: 1.5px solid rgba(128, 128, 128, 0.6); }
+.pod .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.pod .duo .card { margin: 0; display: flex; flex-direction: column; min-width: 0; }
+.pod .duo .pf { margin-top: 0; padding: 16px 12px; justify-content: center; }
+.pod .duo .pf .avrow { margin: 0; }
+.pod .duo .avatar { width: 100%; max-width: 140px; height: auto; aspect-ratio: 1; font-size: 44px; }
+.pod .duo + .hero { margin-top: 22px; }
+.pod .edit .hero { margin: 14px 0; }
+.pod .wt { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.pod .duo .wc .thumb { flex: 0 0 52px; height: 52px; border-radius: 16px; }
+.pod .duo .wc .thumb svg { width: 28px; height: 28px; }
+.pod .duo .go { flex: 0 0 40px; height: 40px; font-size: 16px; }
+.pod .duo .wc .body { flex: 1 1 auto; }
+.pod .duo .wc .body b { font-size: 17px; }
+.pod .duo .wc .body span { font-size: 12px; }
+.pod .duo .wc .in { margin-top: 12px; justify-content: center; padding: 6px; }
+.pod .mv { background: none; border: 0; color: var(--dk); font: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; margin: 8px 14px 0 0; padding: 0; }
+.pod .slug { background: var(--panel); border-radius: 28px; padding: 16px; margin-top: 14px; display: grid; gap: 8px; }
+.pod .slug b { font-size: 15px; }
+.pod .slug .row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--mute); }
+.pod .slug .row input { flex: 1; min-width: 0; color: var(--ink); }
+.pod .note { font-size: 12px; color: var(--mute); text-align: center; margin: 8px 4px 0; }
+.pod .center { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; }
+.pod .center a { text-decoration: none; }
+.pod input[type='file'] { display: none; }

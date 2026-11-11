@@ -11,7 +11,7 @@ import { createSecrets } from './lib/crypto'
 import { createApp } from './app'
 import { startFinanceFeed } from './services/financeFeed'
 import { startTrialSweep } from './services/purchases'
-import { requestOrigin, windowSharePage } from './services/sharePage'
+import { podSharePage, requestOrigin, windowSharePage } from './services/sharePage'
 import type { AppContext } from './context'
 
 async function main() {
@@ -35,6 +35,11 @@ async function main() {
     app.get('/w/:region/:num', async (c) => {
       const origin = requestOrigin(c.req.url, c.req.header('x-forwarded-proto'))
       const page = await windowSharePage(ctx, html, c.req.param('region'), c.req.param('num'), origin).catch(() => null)
+      return c.html(page ?? html)
+    })
+    app.get('/pod/:slug', async (c) => {
+      const origin = requestOrigin(c.req.url, c.req.header('x-forwarded-proto'))
+      const page = await podSharePage(ctx, html, c.req.param('slug'), origin).catch(() => null)
       return c.html(page ?? html)
     })
     app.get('*', (c) => c.html(html))

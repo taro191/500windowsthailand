@@ -6,7 +6,7 @@ import path from 'node:path'
 import { badRequest } from './errors'
 import { newId } from './crypto'
 
-export type UploadFolder = 'windows' | 'promo' | 'slips' | 'avatars'
+export type UploadFolder = 'windows' | 'promo' | 'slips' | 'avatars' | 'pods'
 
 const TYPES: Record<string, { ext: string; magic: (b: Buffer) => boolean }> = {
   'image/jpeg': { ext: 'jpg', magic: (b) => b[0] === 0xff && b[1] === 0xd8 },
@@ -37,7 +37,7 @@ export async function saveImage(uploadDir: string, dataUrl: string, folder: Uplo
 
 /** Absolute file path for a stored `/uploads/...` path, or null if it is not one. */
 export function uploadFilePath(uploadDir: string, publicPath: string): string | null {
-  const match = publicPath.match(/^\/uploads\/(windows|promo|slips|avatars)\/(img_[A-Za-z0-9_-]+\.(jpg|png|webp|gif))$/)
+  const match = publicPath.match(/^\/uploads\/(windows|promo|slips|avatars|pods)\/(img_[A-Za-z0-9_-]+\.(jpg|png|webp|gif))$/)
   return match ? path.join(uploadDir, match[1], match[2]) : null
 }
 
