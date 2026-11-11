@@ -14,6 +14,7 @@ import { listContactMessages } from './contact'
 import { toTransaction } from './ledger'
 import { toOrder } from './purchases'
 import { toPromoRequest } from './promo'
+import { imagesOf as podImages } from './pods'
 import { getSettings, saveSettings } from './settings'
 import { settingsChanges } from './settingsDiff'
 import { adminUserDto, citizenIdOf, DEFAULT_AVATAR_URL, digits, isEmail, isSuperAdmin, markVerified, MIN_PASSWORD_LENGTH } from './users'
@@ -327,6 +328,76 @@ export async function setUserRole(ctx: AppContext, admin: UserRow, userId: strin
   await audit(ctx.db, admin, 'เปลี่ยนสิทธิ์ผู้ใช้', `${user.name} → ${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}`)
   notifyAdminAction(ctx, 'security.role', admin, 'เปลี่ยนสิทธิ์ผู้ใช้', `${user.name} → ${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}`)
   return adminUserDto(ctx, { ...user, role })
+}
+
+/**
+ * Super admin only: deletes an account and everything it made. Its windows go back to the pool as
+ * empty windows. Money moves (transactions) stay for the accounts; anything still waiting on a
+ * slip or a refund must be decided first.
+ */
+export async function deleteUser(ctx: AppContext, admin: UserRow, userId: string, input: { reason?: unknown; confirmName?: unknown }) {
+  assertSuperAdmin(ctx, admin)
+  if (userId === admin.id) throw badRequest('ลบบัญชีของตัวเองไม่ได้')
+  const user = await managedUser(ctx, userId)
+  if (user.role === 'admin') throw badRequest(`${user.name} เป็นผู้ดูแลระบบ กรุณาเปลี่ยนเป็นผู้ใช้ทั่วไปก่อนลบ`)
+  const reason = requireReason(input.reason)
+  if (String(input.confirmName ?? '').trim() !== user.name.trim()) throw badRequest('พิมพ์ชื่อผู้ใช้เพื่อยืนยันไม่ตรง')
+
+  const db = ctx.db
+  const pendingOrder = await db.selectFrom('payment_orders').select('label').where('user_id', '=', userId).where('status', '=', 'pending').executeTakeFirst()
+  if (pendingOrder) throw badRequest(`${user.name} มีรายการชำระเงินรอตรวจสอบ (${pendingOrder.label}) กรุณาพิจารณาสลิปก่อน`)
+  const pendingRefund = await db.selectFrom('refund_payouts').select('window_code').where('user_id', '=', userId).where('status', '=', 'pending').executeTakeFirst()
+  if (pendingRefund) throw badRequest(`${user.name} มีคำขอคืนเงินรอดำเนินการ (${pendingRefund.window_code}) กรุณาจัดการก่อน`)
+  const owned = await db.selectFrom('windows').selectAll().where('owner_id', '=', userId).execute()
+  const reserved = owned.find((w) => w.reserved_order_id)
+  if (reserved) throw badRequest(`บาน ${reserved.code} ของ ${user.name} มีรายการชำระเงินรอตรวจสอบ กรุณาพิจารณาสลิปก่อน`)
+
+  const pod = await db.selectFrom('pods').select(['avatar', 'links_json']).where('user_id', '=', userId).executeTakeFirst()
+  const now = nowIso()
+  const { claimPrice } = (await getSettings(ctx)).rules
+  await db.transaction().execute(async (trx) => {
+    for (const w of owned) {
+      const { region: _r, num: _n, ...empty } = emptyWindowRow(w.region as RegionId, w.num, now, claimPrice)
+      await trx.updateTable('windows').set({ ...empty, previous_owner_id: null }).where('region', '=', w.region).where('num', '=', w.num).execute()
+      // Pictures added since this owner took the window; earlier owners' history stays.
+      const since = (w.owner_changed_at ?? w.claimed_at ?? '').slice(0, 10)
+      if (since) await trx.deleteFrom('window_images').where('region', '=', w.region).where('num', '=', w.num).where('date', '>=', since).execute()
+      await trx.deleteFrom('window_follows').where('region', '=', w.region).where('num', '=', w.num).execute()
+    }
+    await trx.updateTable('windows').set({ previous_owner_id: null }).where('previous_owner_id', '=', userId).execute()
+    await trx.updateTable('central_news').set({ author_id: null }).where('author_id', '=', userId).execute()
+    await trx.deleteFrom('window_owners').where('owner_id', '=', userId).execute()
+    await trx.deleteFrom('window_follows').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('window_reviews').where((eb) => eb.or([eb('user_id', '=', userId), eb('owner_id', '=', userId)])).execute()
+    await trx.deleteFrom('window_updates').where('owner_id', '=', userId).execute()
+    await trx.deleteFrom('window_links').where((eb) => eb.or([eb('owner_id', '=', userId), eb('from_owner_id', '=', userId)])).execute()
+    await trx.deleteFrom('window_archives').where('owner_id', '=', userId).execute()
+    await trx.deleteFrom('payment_orders').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('refund_payouts').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('promo_requests').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('promo_templates').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('contact_messages').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('life_space').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('pods').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('sessions').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('otp_codes').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('password_resets').where('user_id', '=', userId).execute()
+    await trx.deleteFrom('users').where('id', '=', userId).execute()
+    const windowsText = owned.length ? ` · คืนบานว่าง ${owned.map((w) => w.code).join(', ')}` : ''
+    await audit(trx, admin, 'ลบผู้ใช้และข้อมูลทั้งหมด', `${user.name} (${user.email}) · ยอดกระเป๋า ฿${user.balance.toLocaleString()}${windowsText} · ${reason}`)
+  })
+  for (const file of [user.avatar_url === DEFAULT_AVATAR_URL ? '' : user.avatar_url, ...podImages(pod)]) await deleteUpload(ctx.config.uploadDir, file)
+  notifyAdminAction(
+    ctx,
+    'security.userEdit',
+    admin,
+    'ลบผู้ใช้และข้อมูลทั้งหมด',
+    `ผู้ใช้: ${user.name} (${user.email})
+ยอดกระเป๋าที่ถูกลบ: ฿${user.balance.toLocaleString()}
+บานที่คืนเป็นบานว่าง: ${owned.map((w) => w.code).join(', ') || '-'}
+เหตุผล: ${reason}`,
+  )
+  return { windows: owned.map((w) => w.code) }
 }
 
 export interface UserInfoInput {

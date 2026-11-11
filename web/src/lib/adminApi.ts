@@ -96,6 +96,10 @@ export const setUserExtraWindows = (userId: string, extra: ExtraWindows) => post
 /** Super admin only (as is createUser). */
 export const setUserRole = (userId: string, role: 'admin' | 'user') => post<{ user: User }>(`/admin/users/${userId}/role`, { role })
 
+/** Super admin only: deletes the account and its data; its windows become empty again. */
+export const deleteUser = (userId: string, reason: string, confirmName: string) =>
+  post<{ windows: string[] }>(`/admin/users/${userId}/delete`, { reason, confirmName })
+
 export const createUser = (user: { name: string; email: string; password: string; role: 'admin' | 'user' }) =>
   post<{ user: User }>('/admin/users', user)
 

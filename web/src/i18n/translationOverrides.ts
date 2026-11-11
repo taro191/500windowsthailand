@@ -843,4 +843,11 @@ export const translationOverrides = {
   "＋ สร้าง Link Pod ของฉัน": "＋ Create my Link Pod",
   "คัดลอกลิงก์ Link Pod แล้ว": "Link Pod link copied",
   "คัดลอกไม่สำเร็จ": "Couldn't copy",
+  "ลบผู้ใช้": "Delete user",
+  "กำลังลบ...": "Deleting...",
+  "ลบถาวร กู้คืนไม่ได้": "Permanent, can't be undone",
+  "บัญชี ข้อมูลส่วนตัว รูปโปรไฟล์ และการเข้าสู่ระบบทุกอุปกรณ์": "The account, personal details, profile picture and sign-ins on every device",
+  "Link Pod, Life Space, คำขอโปรโมท, รายการชำระเงิน และข้อความติดต่อ": "Link Pod, Life Space, promo requests, payment orders and contact messages",
+  "ประวัติธุรกรรมการเงินยังเก็บไว้เพื่อบัญชีของระบบ": "Money transactions are kept for the platform's accounts",
+  "เหตุผล": "Reason",
 } as const;

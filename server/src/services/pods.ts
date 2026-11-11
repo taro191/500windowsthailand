@@ -62,7 +62,7 @@ async function toPod(db: AppContext['db'], row: PodRow): Promise<Pod> {
   }
 }
 
-const imagesOf = (row: Pick<PodRow, 'avatar' | 'links_json'> | undefined) =>
+export const imagesOf = (row: Pick<PodRow, 'avatar' | 'links_json'> | undefined) =>
   row ? [row.avatar, ...(JSON.parse(row.links_json || '[]') as PodLink[]).map((l) => l.img)].filter(Boolean) : []
 
 /** A public pod; the owner (signed in) also gets the windows they can show on it. */

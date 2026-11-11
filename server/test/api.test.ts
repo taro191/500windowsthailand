@@ -1163,6 +1163,35 @@ describe('user management', () => {
     await setBonus({ amount: 0, startsAt: null, endsAt: null })
   })
 
+  it('lets only the super admin delete a user, emptying their windows', async () => {
+    const admin = await adminClient()
+    const { c, user } = await verifiedUser()
+    await topUpByCard(c, 1000)
+    assert.equal((await c.post('/windows/north/88/claim', { content, payment: wallet(500) })).success, true)
+    assert.equal((await c.put('/me/pod', { pod: { slug: 'to-delete', name: 'x', bio: '', avatar: '', profileColor: 0, window: null, windowColor: 0, links: [] } })).success, true)
+    const { c: fan } = await verifiedUser()
+    await fan.post('/windows/north/88/follow')
+
+    const { c: other, user: otherUser } = await verifiedUser()
+    await admin.post(`/admin/users/${otherUser.id}/role`, { role: 'admin' })
+    assert.equal((await other.post(`/admin/users/${user.id}/delete`, { reason: 'x', confirmName: user.name })).status, 403)
+    assert.equal((await admin.post(`/admin/users/${user.id}/delete`, { reason: '', confirmName: user.name })).status, 400)
+    assert.equal((await admin.post(`/admin/users/${user.id}/delete`, { reason: 'สแปม', confirmName: 'ชื่ออื่น' })).status, 400)
+    assert.equal((await admin.post(`/admin/users/${otherUser.id}/delete`, { reason: 'x', confirmName: otherUser.name })).status, 400, 'admins are demoted first')
+
+    const deleted = await admin.post(`/admin/users/${user.id}/delete`, { reason: 'สแปม', confirmName: user.name })
+    assert.equal(deleted.success, true, deleted.error)
+    assert.deepEqual(deleted.windows, [(await client().get('/windows/north/88')).window.code])
+    const w = (await client().get('/windows/north/88')).window
+    assert.equal(w.status, 'available')
+    assert.equal(w.ownerId, '')
+    assert.equal((await client().get('/pods/to-delete')).status, 404)
+    assert.equal((await c.get('/session')).user, null, 'signed out everywhere')
+    assert.equal((await c.post('/auth/login', { identifier: user.email, password: 'secret-pass' })).success, false)
+    const overview = await admin.get('/admin/overview')
+    assert.equal(overview.users.some((u: { id: string }) => u.id === user.id), false)
+  })
+
   it('keeps user creation and admin rights to the super admin', async () => {
     const admin = await adminClient()
     const { c: other, user } = await verifiedUser()

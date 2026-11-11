@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Ban, ImageOff, LayoutGrid, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus, Undo2, Users } from 'lucide-react'
+import { Ban, ImageOff, LayoutGrid, Pencil, Power, PowerOff, Save, Search, ShieldCheck, ShieldOff, Trash2, UserMinus, UserPlus, Undo2, Users } from 'lucide-react'
 import type { ExtraWindows, User } from '@shared/types'
 import {
   createUser,
+  deleteUser,
   removeUserAvatar,
   revokeKyc,
   setUserDisabled,
@@ -193,10 +194,62 @@ function ExtraWindowsCard({
   )
 }
 
+/** Super admin only: deletes the account and everything it made after typing its name. */
+function DeleteUserCard({ user, held, onClose, refresh, notify }: { user: User; held: number; onClose: () => void } & Pick<AdminPageProps, 'refresh' | 'notify'>) {
+  const [reason, setReason] = useState('')
+  const [confirmName, setConfirmName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const ready = reason.trim() !== '' && confirmName.trim() === user.name.trim()
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!ready) return
+    setSaving(true)
+    const result = await deleteUser(user.id, reason, confirmName)
+    setSaving(false)
+    if (!result.success) return notify(result.error || 'ลบผู้ใช้ไม่สำเร็จ', 'error')
+    onClose()
+    await refresh()
+    notify(`ลบบัญชี ${user.name} แล้ว${result.windows.length ? ` · คืนบานว่าง ${result.windows.length} บาน` : ''}`)
+  }
+
+  return (
+    <Modal title={`ลบผู้ใช้ · ${user.name}`} icon={Trash2} onClose={onClose}>
+      <form onSubmit={submit}>
+        <div className="mb-3 rounded border border-[#dc3545] bg-[#dc3545]/10 p-3 text-[0.9rem] text-[#a71d2a]">
+          <b>ลบถาวร กู้คืนไม่ได้</b>
+          <ul className="list-disc pl-5 mt-1">
+            <li>บัญชี ข้อมูลส่วนตัว รูปโปรไฟล์ และการเข้าสู่ระบบทุกอุปกรณ์</li>
+            <li>บานที่ถือครอง {held} บาน คืนเป็นบานว่าง พร้อมเนื้อหา รีวิว อัปเดต ผู้ติดตาม และ Friend &amp; Co</li>
+            <li>ยอดเงินในกระเป๋า {baht(user.balance)} หายไปด้วย</li>
+            <li>Link Pod, Life Space, คำขอโปรโมท, รายการชำระเงิน และข้อความติดต่อ</li>
+          </ul>
+          <div className="mt-1 text-[0.8rem]">ประวัติธุรกรรมการเงินยังเก็บไว้เพื่อบัญชีของระบบ</div>
+        </div>
+        <FormRow label="เหตุผล">
+          <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} required className={inputClass} />
+        </FormRow>
+        <FormRow label={`พิมพ์ชื่อ "${user.name}" เพื่อยืนยัน`}>
+          <input value={confirmName} onChange={(e) => setConfirmName(e.target.value)} autoComplete="off" className={inputClass} />
+        </FormRow>
+        <div className="flex justify-end gap-2">
+          <Button tone="secondary" outline onClick={onClose}>
+            ยกเลิก
+          </Button>
+          <Button type="submit" tone="danger" disabled={!ready || saving}>
+            <Trash2 className="w-4 h-4" /> {saving ? 'กำลังลบ...' : 'ลบผู้ใช้'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
   const [granting, setGranting] = useState<User | null>(null)
+  const [deleting, setDeleting] = useState<User | null>(null)
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -276,12 +329,20 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
   const edit = (u: User) => {
     setAdding(false)
     setGranting(null)
+    setDeleting(null)
     setEditing(u)
   }
   const grant = (u: User) => {
     setAdding(false)
     setEditing(null)
+    setDeleting(null)
     setGranting(u)
+  }
+  const remove = (u: User) => {
+    setAdding(false)
+    setEditing(null)
+    setGranting(null)
+    setDeleting(u)
   }
   const removeAvatar = (u: User) =>
     act(`ลบรูปโปรไฟล์ของ ${u.name}? ผู้ใช้จะกลับไปใช้รูปเริ่มต้น (อัปโหลดรูปใหม่เองได้)`, () => removeUserAvatar(u.id), `ลบรูปโปรไฟล์ของ ${u.name} แล้ว`)
@@ -292,6 +353,16 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
     <>
       {adding && <NewUserCard onClose={() => setAdding(false)} refresh={refresh} notify={notify} />}
       {editing && <EditUserCard key={editing.id} user={editing} onClose={() => setEditing(null)} refresh={refresh} notify={notify} />}
+      {deleting && (
+        <DeleteUserCard
+          key={deleting.id}
+          user={deleting}
+          held={heldBy(deleting.id).thailand + heldBy(deleting.id).regional}
+          onClose={() => setDeleting(null)}
+          refresh={refresh}
+          notify={notify}
+        />
+      )}
       {granting && (
         <ExtraWindowsCard
           key={granting.id}
@@ -444,6 +515,11 @@ export function UsersPage({ admin, data, refresh, notify }: AdminPageProps) {
                       {u.avatarUrl && (
                         <Button size="sm" tone="secondary" onClick={() => removeAvatar(u)}>
                           <ImageOff className="w-3.5 h-3.5" /> ลบรูปโปรไฟล์
+                        </Button>
+                      )}
+                      {admin.superAdmin && u.role !== 'admin' && (
+                        <Button size="sm" tone="danger" outline onClick={() => remove(u)}>
+                          <Trash2 className="w-3.5 h-3.5" /> ลบผู้ใช้
                         </Button>
                       )}
                     </div>

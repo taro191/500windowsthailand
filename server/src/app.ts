@@ -547,6 +547,10 @@ export function createApp(ctx: AppContext) {
 
   adminApi.post('/users/:id/remove-avatar', async (c) => ok(c, { user: await admin.removeUserAvatar(ctx, me(c), c.req.param('id')) }))
 
+  adminApi.post('/users/:id/delete', async (c) =>
+    ok(c, await admin.deleteUser(ctx, me(c), c.req.param('id'), await body<{ reason?: string; confirmName?: string }>(c))),
+  )
+
   adminApi.put('/users/:id', async (c) =>
     ok(c, { user: await admin.updateUserInfo(ctx, me(c), c.req.param('id'), await body<admin.UserInfoInput>(c)) }),
   )
