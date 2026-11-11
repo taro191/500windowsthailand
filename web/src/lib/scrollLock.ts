@@ -30,7 +30,10 @@ export function unlockScroll() {
   style.bottom = ''
   style.overflow = ''
   delete document.documentElement.dataset.overlay
-  window.scrollTo(0, savedY)
+  const y = savedY
+  window.scrollTo(0, y)
+  // iOS may still be closing the keyboard and pan the view again, so settle it once more.
+  setTimeout(() => locks === 0 && window.scrollTo(0, y), 400)
 }
 
 const isTextField = (el: EventTarget | null): el is HTMLElement =>

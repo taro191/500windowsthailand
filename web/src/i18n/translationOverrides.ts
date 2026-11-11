@@ -834,4 +834,7 @@ export const translationOverrides = {
   "กรุณาระบุชื่อ": "Please enter a name",
   "เลือกได้เฉพาะบานหน้าต่างที่คุณถือครอง": "You can only choose a window you hold",
   "เปลี่ยนรูป": "Change picture",
+  "หน้าเว็บขัดข้อง": "Something went wrong",
+  "กรุณากดโหลดใหม่ ถ้ายังเกิดซ้ำ ช่วยแคปหน้าจอนี้ส่งให้ผู้ดูแล": "Please reload. If it happens again, send a screenshot of this screen to the admin",
+  "โหลดใหม่": "Reload",
 } as const;

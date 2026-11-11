@@ -58,6 +58,8 @@ function AuthDialog({
     setBusy(false)
     if (!result.success) return setError(result.error || 'ทำรายการไม่สำเร็จ')
     setSuccess(message(result.user))
+    // Put the iOS keyboard away before the dialog goes, or Safari can leave the view panned off the page.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     setTimeout(onClose, 800)
   }
 
