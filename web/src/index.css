@@ -91,6 +91,15 @@ html[data-typing] .kap-bottom-nav {
   display: none;
 }
 
+/* A screen-sized backdrop blur over the tall board costs iOS Safari a lot of memory and can
+   leave the page blank, so dialogs on touch screens just dim what's behind them. */
+@media (pointer: coarse) {
+  .fixed.inset-0[class*='backdrop-blur'] {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 /* ---------------------------------------------------------------- base */
 
 html,
