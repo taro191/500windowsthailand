@@ -116,7 +116,8 @@ type TileProps = Omit<WindowTileProps, 'zoomLevel'>
 function CompactTile({ windowItem, isSelected, onSelect, currentUser, showRegion }: TileProps) {
   const t = getTileInfo(windowItem, currentUser)
   const rules = useRules()
-  const offSale = t.isAvailable && inCodeList(windowItem.code, useSettings().notForSale.codes)
+  const settings = useSettings()
+  const offSale = t.isAvailable && inCodeList(windowItem.code, settings.notForSale.codes)
   const status = t.look
     ? t.look.title
     : offSale
