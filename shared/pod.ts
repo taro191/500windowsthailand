@@ -75,7 +75,9 @@ export function podLinkHref(url: string): string {
   if (!value) return ''
   try {
     const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`)
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : ''
+    // Safe links only: https, a real domain name, no login details in the address.
+    const safe = parsed.protocol === 'https:' && !parsed.username && !parsed.password && /^(?=.*[a-z])[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(parsed.hostname)
+    return safe ? parsed.href : ''
   } catch {
     return ''
   }

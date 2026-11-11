@@ -63,7 +63,7 @@ export function WalletTab(props: WalletTabProps) {
           <Link2 className="w-4 h-4" />
         </span>
         <span className="flex-1 min-w-0">
-          <b className="block text-sm">Pod ของฉัน</b>
+          <b className="block text-sm">Link Pod ของฉัน</b>
           <span className="block text-[11px] text-stone-400">หน้ารวมลิงก์ส่วนตัว แชร์ร้านค้าและบานหน้าต่างของคุณ</span>
         </span>
         <ChevronRight className="w-4 h-4 text-amber-300 shrink-0" />

@@ -1,6 +1,68 @@
+import { useEffect, useState } from 'react'
+import type { Pod } from '@shared/pod'
 import type { ProfileLink } from '@shared/types'
 import { PROFILE_LIMITS, PROFILE_LINK_TYPES, safeLinkUrl } from '@shared/windowProfile'
+import { loadWindowPod } from '@/lib/store'
 import { btn, btnPri, card, CardHead, ConfirmButton, field, para, useCardDraft, type DetailContext } from './ui'
+
+type PodCard = Pick<Pod, 'slug' | 'name' | 'bio' | 'avatar'>
+
+/** Link Pod: the owner's own link page, kept apart from the links above and edited/shared on its own. */
+function LinkPod({ ctx }: { ctx: DetailContext }) {
+  const [pod, setPod] = useState<PodCard | null>(null)
+  const { region, id } = ctx.w
+  useEffect(() => {
+    let live = true
+    setPod(null)
+    loadWindowPod(region, id).then((r) => live && r.success && setPod(r.pod))
+    return () => {
+      live = false
+    }
+  }, [region, id, ctx.w.ownerId])
+
+  if (!pod && !ctx.isOwner) return null
+  const url = pod ? `${window.location.origin}/pod/${pod.slug}` : ''
+  const share = async () => {
+    try {
+      if (navigator.share) return await navigator.share({ title: pod?.name, url })
+      await navigator.clipboard.writeText(url)
+      ctx.notify('คัดลอกลิงก์ Link Pod แล้ว')
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') ctx.notify('คัดลอกไม่สำเร็จ', 'info')
+    }
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-(--kap-line)">
+      <div className="text-[13px] font-semibold text-(--kap-muted) mb-1.5">🫛 Link Pod</div>
+      {pod ? (
+        <div className="flex items-center gap-2.5 p-2.5 border border-(--kap-line) rounded-xl bg-white/[.03] min-w-0">
+          <a href={`/pod/${pod.slug}`} className="flex items-center gap-2.5 flex-1 min-w-0 no-underline text-(--kap-text)">
+            <span className="w-10 h-10 rounded-full bg-[#ffc857] text-[#1e1e1e] font-bold flex items-center justify-center overflow-hidden shrink-0">
+              {pod.avatar ? <img src={pod.avatar} alt="" className="w-full h-full object-cover" /> : pod.name.slice(0, 1)}
+            </span>
+            <span className="min-w-0">
+              <b className="block text-[14px] truncate">{pod.name}</b>
+              <span className="block text-[12px] text-(--kap-muted) truncate">/pod/{pod.slug}</span>
+            </span>
+          </a>
+          <button type="button" onClick={share} className={btn}>
+            แชร์
+          </button>
+          {ctx.isOwner && (
+            <a href="/pod" className={`${btn} no-underline`} aria-label="แก้ไข Link Pod" title="แก้ไข Link Pod">
+              ✏️
+            </a>
+          )}
+        </div>
+      ) : (
+        <a href="/pod" className={`${btn} ${btnPri} no-underline inline-flex`}>
+          ＋ สร้าง Link Pod ของฉัน
+        </a>
+      )}
+    </div>
+  )
+}
 
 const defaultLabel = (icon: string) => PROFILE_LINK_TYPES.find(([i]) => i === icon)?.[1] ?? ''
 
@@ -75,6 +137,7 @@ export function LinksCard({ ctx }: { ctx: DetailContext }) {
       ) : (
         <p className={para}>ยังไม่มีช่องทาง</p>
       )}
+      <LinkPod ctx={ctx} />
     </section>
   )
 }

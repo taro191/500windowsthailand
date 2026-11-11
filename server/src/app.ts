@@ -242,6 +242,10 @@ export function createApp(ctx: AppContext) {
   api.get('/me/refund-payouts', async (c) => ok(c, { payouts: await refundPayouts.myRefundPayouts(ctx, me(c).id) }))
   api.get('/me/pod', async (c) => ok(c, await pods.myPod(ctx, me(c))))
   api.put('/me/pod', async (c) => ok(c, await pods.savePod(ctx, me(c), (await body<{ pod?: Partial<pods.PodInput> }>(c)).pod)))
+  api.get('/windows/:region/:num/pod', async (c) => {
+    const { region, num } = windowRoute(c)
+    return ok(c, await pods.windowPod(ctx, region, num))
+  })
   api.get('/pods/:slug', async (c) => ok(c, await pods.getPod(ctx, c.req.param('slug'), c.get('user') ?? null)))
   api.get('/me/life-space', async (c) => ok(c, await lifeSpace.getLifeSpace(ctx, me(c))))
   api.put('/me/life-space', async (c) => ok(c, await lifeSpace.saveLifeSpace(ctx, me(c), (await body<{ data?: unknown }>(c)).data)))

@@ -861,6 +861,12 @@ describe('promo', () => {
     assert.equal(visitor.windows, undefined)
     assert.equal((await c.get('/pods/my-shop')).isOwner, true)
     assert.equal((await client().get('/pods/nobody-here')).status, 404)
+    assert.equal((await client().get('/windows/north/71/pod')).pod.slug, 'my-shop', "shown on the owner's window")
+    assert.equal((await client().get('/windows/north/72/pod')).pod, null)
+    for (const url of ['http://shop.example.com', 'https://user:pw@shop.example.com', 'https://localhost/x', 'https://10.0.0.1/']) {
+      const unsafe = await c.put('/me/pod', { pod: { ...pod, links: [{ title: 'x', desc: '', url, img: '' }] } })
+      assert.equal(unsafe.status, 400, url)
+    }
 
     const other = await verifiedUser('ผู้อื่น')
     assert.equal((await other.c.put('/me/pod', { pod: { ...pod, avatar: '', links: [], window: null } })).status, 409, 'address taken')

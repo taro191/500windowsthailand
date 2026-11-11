@@ -837,4 +837,10 @@ export const translationOverrides = {
   "หน้าเว็บขัดข้อง": "Something went wrong",
   "กรุณากดโหลดใหม่ ถ้ายังเกิดซ้ำ ช่วยแคปหน้าจอนี้ส่งให้ผู้ดูแล": "Please reload. If it happens again, send a screenshot of this screen to the admin",
   "โหลดใหม่": "Reload",
+  "Link Pod ของฉัน": "My Link Pod",
+  "แชร์": "Share",
+  "แก้ไข Link Pod": "Edit Link Pod",
+  "＋ สร้าง Link Pod ของฉัน": "＋ Create my Link Pod",
+  "คัดลอกลิงก์ Link Pod แล้ว": "Link Pod link copied",
+  "คัดลอกไม่สำเร็จ": "Couldn't copy",
 } as const;

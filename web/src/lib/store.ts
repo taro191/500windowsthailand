@@ -528,6 +528,11 @@ export async function loadPod(slug: string): Promise<Result<{ pod: Pod; isOwner:
   return get<{ pod: Pod; isOwner: boolean; windows?: PodWindow[] }>(`/pods/${encodeURIComponent(slug)}`)
 }
 
+/** The window owner's Link Pod, shown in the window's "ช่องทางนำเสนอผลงาน" card. */
+export async function loadWindowPod(region: RegionId, num: number): Promise<Result<{ pod: Pick<Pod, 'slug' | 'name' | 'bio' | 'avatar'> | null }>> {
+  return get<{ pod: Pick<Pod, 'slug' | 'name' | 'bio' | 'avatar'> | null }>(`/windows/${region}/${num}/pod`)
+}
+
 /** The signed-in user's pod (null before it is made) and their windows. */
 export async function loadMyPod(): Promise<Result<{ pod: Pod | null; windows: PodWindow[] }>> {
   return get<{ pod: Pod | null; windows: PodWindow[] }>('/me/pod')

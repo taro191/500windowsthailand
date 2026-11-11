@@ -74,6 +74,20 @@ export async function getPod(ctx: AppContext, slugParam: string, viewer: UserRow
   return { pod: await toPod(ctx.db, row), isOwner, windows: isOwner ? await podWindowsOf(ctx.db, row.user_id) : undefined }
 }
 
+/** The Link Pod shown in a window's "ช่องทางนำเสนอผลงาน" card: its owner's pod, if they made one. */
+export async function windowPod(ctx: AppContext, region: string, num: number) {
+  const pod = await ctx.db
+    .selectFrom('windows')
+    .innerJoin('pods', 'pods.user_id', 'windows.owner_id')
+    .innerJoin('users', 'users.id', 'windows.owner_id')
+    .select(['pods.slug', 'pods.name', 'pods.bio', 'pods.avatar'])
+    .where('windows.region', '=', region)
+    .where('windows.num', '=', num)
+    .where('users.disabled', '=', 0)
+    .executeTakeFirst()
+  return { pod: pod ?? null }
+}
+
 /** The signed-in user's pod (null before it is made) and their windows. */
 export async function myPod(ctx: AppContext, user: UserRow) {
   const row = await ctx.db.selectFrom('pods').selectAll().where('user_id', '=', user.id).executeTakeFirst()
@@ -115,7 +129,7 @@ export async function savePod(ctx: AppContext, user: UserRow, input: Partial<Pod
     img: String(l?.img ?? ''),
   }))
   for (const link of links) {
-    if (link.url && !podLinkHref(link.url)) throw badRequest(`ลิงก์ "${link.title || link.url}" ไม่ถูกต้อง ใช้ได้เฉพาะลิงก์ http หรือ https`)
+    if (link.url && !podLinkHref(link.url)) throw badRequest(`ลิงก์ "${link.title || link.url}" ไม่ถูกต้อง ใช้ได้เฉพาะลิงก์ปลอดภัยที่ขึ้นต้นด้วย https://`)
   }
 
   const avatarInput = String(input?.avatar ?? '')
