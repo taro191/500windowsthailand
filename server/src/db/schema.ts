@@ -29,6 +29,8 @@ export interface UsersTable {
   trial_archive_json: string | null
   /** PayoutAccount as JSON. */
   payout_json: string | null
+  /** 1 = keep the user's windows and pod out of search engines. */
+  hide_from_search: number
   created_at: string
   updated_at: string
 }

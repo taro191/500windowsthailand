@@ -17,6 +17,16 @@ import type {
   ZoomLevel,
 } from '@shared/types'
 import { REGION_IDS } from '@shared/regions'
+
+const WINDOW_PATH = /^\/w\/([a-z]+)\/(\d+)\/?$/
+const HOME_TITLE = '500 Windows to Thailand - 500 หน้าต่างสู่ประเทศไทย | Kapsulep'
+
+/** The region named by the address (/r/<region> or /w/<region>/<num>), if any. */
+function routeRegion(): RegionId | null {
+  const m = window.location.pathname.match(/^\/(?:r\/([a-z]+)\/?|w\/([a-z]+)\/\d+\/?)$/)
+  const region = m?.[1] ?? m?.[2]
+  return region && REGION_IDS.includes(region as RegionId) ? (region as RegionId) : null
+}
 import { sixHourBlock } from '@shared/thaiTime'
 import { TRIAL_DAYS } from '@shared/trial'
 import * as store from '@/lib/store'
@@ -76,15 +86,16 @@ export default function App() {
   const { toast, showToast } = useToast()
 
   // Open the admin page directly when the URL is #admin/... and an admin is signed in.
+  // Region pages (/r/<region>) and window pages (/w/<region>/<num>) open straight on the board.
   const [view, setView] = useState<'welcome' | 'main' | 'admin'>(() =>
     window.location.hash.startsWith('#admin') && store.loadCurrentUser()?.role === 'admin'
       ? 'admin'
-      : new URLSearchParams(window.location.search).has('theme-preview')
+      : new URLSearchParams(window.location.search).has('theme-preview') || routeRegion()
         ? 'main'
         : 'welcome',
   )
-  const [activeRegion, setActiveRegion] = useState<RegionId>(() => store.loadActiveRegion())
-  const [board, setBoard] = useState<WindowItem[]>(() => store.loadBoard(store.loadActiveRegion()))
+  const [activeRegion, setActiveRegion] = useState<RegionId>(() => routeRegion() ?? store.loadActiveRegion())
+  const [board, setBoard] = useState<WindowItem[]>(() => store.loadBoard(routeRegion() ?? store.loadActiveRegion()))
   const [currentUser, setCurrentUser] = useState<User | null>(() => store.loadCurrentUser())
   const [transactions, setTransactions] = useState(() => store.loadTransactions())
   const [availableByRegion, setAvailableByRegion] = useState<Partial<Record<RegionId, number>>>(() =>
@@ -282,9 +293,12 @@ export default function App() {
         if (found) setSelectedWindow(found)
       }
     }
-    // Share links (/w/<region>/<id>) are served with the window's preview tags; open them as a deep link.
-    const shared = window.location.pathname.match(/^\/w\/([a-z]+)\/(\d+)\/?$/)
-    if (shared) window.history.replaceState(null, '', `/#window-${shared[1]}-${shared[2]}`)
+    // Window pages (/w/<region>/<num>) open that window over the board (its region is already active).
+    const shared = window.location.pathname.match(WINDOW_PATH)
+    if (shared && REGION_IDS.includes(shared[1] as RegionId)) {
+      const found = store.loadBoard(shared[1] as RegionId).find((w) => w.id === Number(shared[2]))
+      if (found) setSelectedWindow(found)
+    }
     openFromHash()
     window.addEventListener('hashchange', openFromHash)
     return () => window.removeEventListener('hashchange', openFromHash)
@@ -325,6 +339,21 @@ export default function App() {
     window.addEventListener(SHOW_PROMO_EVENT, onShowPromo)
     return () => window.removeEventListener(SHOW_PROMO_EVENT, onShowPromo)
   }, [])
+
+  // The address bar follows the open window's own page (/w/<region>/<num>), the URL Google indexes and people share.
+  const windowOpened = useRef(false)
+  useEffect(() => {
+    const { pathname, search } = window.location
+    if (selectedWindow) {
+      windowOpened.current = true
+      const target = `/w/${selectedWindow.region}/${selectedWindow.id}`
+      if (pathname !== target) window.history.replaceState(null, '', target + search)
+      document.title = `${selectedWindow.title || `บาน ${selectedWindow.code}`} · ${selectedWindow.code} | 500 Windows to Thailand`
+    } else if ((windowOpened.current && pathname.startsWith('/w/')) || (pathname.startsWith('/r/') && pathname !== `/r/${activeRegion}`)) {
+      window.history.replaceState(null, '', '/' + search)
+      document.title = HOME_TITLE
+    }
+  }, [selectedWindow, activeRegion])
 
   const jumpToWindow = (id: number) => {
     const found = board.find((w) => w.id === id)

@@ -26,7 +26,7 @@ async function createUser(
   ctx: AppContext,
   user: Omit<
     NewUser,
-    'password_hash' | 'created_at' | 'updated_at' | 'is_verified' | 'suspended' | 'disabled' | 'extra_thailand_windows' | 'extra_regional_windows'
+    'password_hash' | 'created_at' | 'updated_at' | 'is_verified' | 'suspended' | 'disabled' | 'extra_thailand_windows' | 'extra_regional_windows' | 'hide_from_search'
   > & { is_verified?: number; password: string; citizen?: string },
 ) {
   const { password, citizen, ...rest } = user
@@ -39,6 +39,7 @@ async function createUser(
       disabled: 0,
       extra_thailand_windows: 0,
       extra_regional_windows: 0,
+      hide_from_search: 0,
       ...rest,
       citizen_hash: citizen ? ctx.secrets.citizenHash(citizen) : null,
       citizen_enc: citizen ? ctx.secrets.encrypt(citizen) : null,

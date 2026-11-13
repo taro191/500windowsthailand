@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Camera, Check, CircleAlert, CreditCard, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, Phone, Save, ShieldCheck, UserRound, X } from 'lucide-react'
+import { Camera, Check, CircleAlert, CreditCard, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, Phone, Save, Search, ShieldCheck, UserRound, X } from 'lucide-react'
 import type { User } from '@shared/types'
 import { changePassword, getAppConfig, updateProfile } from '@/lib/store'
 import { maskCitizenId, maskPhone } from '@shared/identity'
@@ -78,9 +78,41 @@ export function ProfileModal({ currentUser, onClose, onSaved, onOpenKyc }: Profi
               onOpenKyc()
             }}
           />
+          <SearchVisibility user={currentUser} onError={setError} onSaved={notify} />
           <PasswordForm onError={setError} onSaved={notify} />
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Lets the owner keep their windows and pod out of Google (noindex, left out of the sitemap). */
+function SearchVisibility({ user, onError, onSaved }: { user: User; onError: (message: string) => void; onSaved: (message: string) => void }) {
+  const [hidden, setHidden] = useState(!!user.hideFromSearch)
+  const [busy, setBusy] = useState(false)
+
+  const toggle = async () => {
+    const next = !hidden
+    setBusy(true)
+    const result = await updateProfile({ hideFromSearch: next })
+    setBusy(false)
+    if (!result.success) return onError(result.error || 'บันทึกไม่สำเร็จ')
+    setHidden(next)
+    onSaved(next ? 'ซ่อนหน้าต่างและ Pod ของคุณจาก Google แล้ว' : 'เปิดให้ค้นหาหน้าต่างและ Pod ของคุณใน Google แล้ว')
+  }
+
+  return (
+    <div className="space-y-2 pt-4 border-t border-stone-800">
+      <SectionTitle icon={Search}>การค้นหาใน Google</SectionTitle>
+      <label className="flex items-start gap-3 p-3 rounded-xl bg-stone-950 border border-stone-800 cursor-pointer">
+        <input type="checkbox" checked={!hidden} onChange={toggle} disabled={busy} className="mt-0.5 w-4 h-4 accent-amber-400 cursor-pointer shrink-0" />
+        <span>
+          <span className="block text-stone-200 font-medium">ให้ Google ค้นหาหน้าต่างและ Pod ของฉันได้</span>
+          <span className="block text-stone-400 mt-0.5">
+            ถ้าปิด หน้าเหล่านี้จะไม่แสดงในผลการค้นหา (Google อาจใช้เวลาหลายวันกว่าจะนำออก) แต่คนที่มีลิงก์ยังเปิดดูได้ตามปกติ
+          </span>
+        </span>
+      </label>
     </div>
   )
 }

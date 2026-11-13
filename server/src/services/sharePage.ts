@@ -4,7 +4,7 @@ import { REGION_IDS, REGIONS_BY_ID } from '@shared/regions'
 import type { RegionId } from '@shared/types'
 import type { AppContext } from '../context'
 
-const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+export const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 /** Public origin of the request; Passenger/Apache pass the real scheme in X-Forwarded-Proto. */
 export function requestOrigin(url: string, forwardedProto?: string) {
@@ -15,7 +15,7 @@ export function requestOrigin(url: string, forwardedProto?: string) {
 }
 
 /** Replaces (or adds) one <meta> tag in the page head. */
-function setMeta(html: string, attr: 'name' | 'property', key: string, value: string) {
+export function setMeta(html: string, attr: 'name' | 'property', key: string, value: string) {
   const tag = `<meta ${attr}="${key}" content="${escapeHtml(value)}" />`
   const pattern = new RegExp(`<meta\\s+${attr}="${key}"[^>]*>`)
   return pattern.test(html) ? html.replace(pattern, () => tag) : html.replace('</head>', `    ${tag}\n  </head>`)
@@ -50,12 +50,12 @@ export async function windowSharePage(ctx: AppContext, html: string, region: str
   if (!REGION_IDS.includes(region as RegionId) || !Number.isInteger(num)) return null
   const row = await ctx.db
     .selectFrom('windows')
-    .select(['code', 'title', 'description', 'image_url', 'suspended_at', 'owner_id', 'published_at'])
+    .select(['code', 'title', 'description', 'image_url', 'suspended_at', 'taken_down_at', 'owner_id', 'published_at'])
     .where('region', '=', region)
     .where('num', '=', num)
     .executeTakeFirst()
-  // A window held for review or not published yet keeps the site's own preview.
-  if (!row || row.suspended_at || (row.owner_id && !row.published_at)) return null
+  // A window held for review, taken down or not published yet keeps the site's own preview.
+  if (!row || row.suspended_at || row.taken_down_at || (row.owner_id && !row.published_at)) return null
 
   const title = `${row.title || `บาน ${row.code}`} · ${row.code} | 500 Windows to Thailand`
   const description = (row.description || REGIONS_BY_ID[region as RegionId].description).replace(/\s+/g, ' ').trim().slice(0, 200)

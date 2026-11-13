@@ -54,6 +54,7 @@ export function selfDto(ctx: AppContext, row: UserRow): User {
     extraWindows: extraWindowsOf(row),
     trialUsed: row.trial_used_at ? true : undefined,
     trialArchive: trialArchiveOf(row),
+    hideFromSearch: row.hide_from_search ? true : undefined,
   }
 }
 
@@ -178,6 +179,7 @@ export async function signup(ctx: AppContext, input: SignupInput): Promise<UserR
     trial_used_at: null,
     trial_archive_json: null,
     payout_json: null,
+    hide_from_search: 0,
     created_at: now,
     updated_at: now,
   }
@@ -340,6 +342,8 @@ export interface ProfileInput {
   payoutAccount?: PayoutAccount
   /** A new photo as an image data URL, or '' to go back to the default. */
   avatar?: string
+  /** Keep the user's windows and pod out of Google. */
+  hideFromSearch?: boolean
 }
 
 export async function updateProfile(ctx: AppContext, user: UserRow, input: ProfileInput): Promise<UserRow> {
@@ -362,6 +366,7 @@ export async function updateProfile(ctx: AppContext, user: UserRow, input: Profi
       changes.email = email
     }
   }
+  if (input.hideFromSearch !== undefined) changes.hide_from_search = input.hideFromSearch ? 1 : 0
   if (input.payoutAccount !== undefined) changes.payout_json = JSON.stringify(cleanPayoutAccount(input.payoutAccount))
   if (input.avatar !== undefined) {
     const avatar = String(input.avatar)

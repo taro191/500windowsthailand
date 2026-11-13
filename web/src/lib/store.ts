@@ -250,6 +250,8 @@ export interface ProfileChanges {
   payoutAccount?: PayoutAccount
   /** A new photo as a data URL, or '' for the default avatar. */
   avatar?: string
+  /** Keep the user's windows and pod out of Google. */
+  hideFromSearch?: boolean
 }
 
 export async function updateProfile(changes: ProfileChanges): Promise<Result<{ user: User }>> {

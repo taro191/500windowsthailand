@@ -614,6 +614,14 @@ const migrations: Record<string, Migration> = {
         .execute()
     },
   },
+
+  '028_hide_from_search': {
+    // The owner can keep their windows and pod out of Google (noindex, left out of the sitemap).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('users').addColumn('hide_from_search', 'integer', (c) => c.notNull().defaultTo(0)).execute()
+    },
+  },
 }
 
 /** Same check as profileImages() in shared/windowProfile.ts, on the stored JSON. */

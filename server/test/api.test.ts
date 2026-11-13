@@ -14,6 +14,7 @@ import { createApp } from '../src/app'
 import { pushFinanceFeed } from '../src/services/financeFeed'
 import { expireTrials } from '../src/services/purchases'
 import { requestOrigin, windowSharePage } from '../src/services/sharePage'
+import { fallbackPage, homePage, regionPage, robotsTxt, sitemapXml, windowPage } from '../src/services/seo'
 import { firstRoundOfDay, freePromoRounds, schedulePromoRounds } from '@shared/promo'
 import type { AppContext } from '../src/context'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
@@ -2280,5 +2281,49 @@ describe('central page', () => {
     assert.ok(nine, 'listed once claimed')
     assert.equal(nine.url, '/w/thailand/9')
     assert.ok(guide.every((w: any) => ['KAP-TH-001', 'KAP-TH-002', 'KAP-TH-003', 'KAP-TH-009'].includes(w.id)))
+  })
+})
+
+describe('search engines', () => {
+  const html = '<html><head>\n<title>Site</title>\n<meta name="description" content="site" />\n</head><body><div id="root"></div></body></html>'
+  const origin = 'https://example.th'
+
+  it('serves real content for published windows and keeps the rest out of Google', async () => {
+    const { c, user } = await verifiedUser('เจ้าของบาน')
+    const now = new Date().toISOString()
+    await ctx.db
+      .updateTable('windows')
+      .set({ owner_id: user.id, status: 'occupied', title: 'ร้านข้าวซอย <ลุงแดง>', description: 'ข้าวซอยสูตรเด็ด', published_at: now, content_updated_at: now })
+      .where('region', '=', 'north')
+      .where('num', '=', 77)
+      .execute()
+
+    const page = await windowPage(ctx, html, 'north', '77', origin)
+    assert.equal(page.status, 200)
+    assert.match(page.html, /<link rel="canonical" href="https:\/\/example\.th\/w\/north\/77" \/>/)
+    assert.match(page.html, /<h1>ร้านข้าวซอย &lt;ลุงแดง&gt;<\/h1>/, 'content is escaped')
+    assert.match(page.html, /"@type":"BreadcrumbList"/)
+    assert.doesNotMatch(page.html, /noindex/)
+    assert.match(await sitemapXml(ctx, origin), /<loc>https:\/\/example\.th\/w\/north\/77<\/loc><lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/)
+    assert.match((await regionPage(ctx, html, 'north', origin)).html, /href="\/w\/north\/77"/)
+    assert.match((await homePage(ctx, html, origin)).html, /href="\/r\/north"/)
+
+    // Vacant windows are noindex; unknown windows and regions are 404.
+    const vacant = await windowPage(ctx, html, 'north', '78', origin)
+    assert.equal(vacant.status, 200)
+    assert.match(vacant.html, /<meta name="robots" content="noindex" \/>/)
+    assert.equal((await windowPage(ctx, html, 'north', '9999', origin)).status, 404)
+    assert.equal((await windowPage(ctx, html, 'mars', '1', origin)).status, 404)
+    assert.equal((await regionPage(ctx, html, 'mars', origin)).status, 404)
+    assert.equal(fallbackPage(html, '/no-such-page').status, 404)
+    assert.equal(fallbackPage(html, '/pod').status, 200)
+    assert.match(robotsTxt(origin), /Sitemap: https:\/\/example\.th\/sitemap\.xml/)
+
+    // The owner can opt out of Google.
+    const saved = await c.patch('/me', { hideFromSearch: true })
+    assert.equal(saved.user.hideFromSearch, true)
+    assert.match((await windowPage(ctx, html, 'north', '77', origin)).html, /noindex/)
+    assert.doesNotMatch(await sitemapXml(ctx, origin), /\/w\/north\/77</)
+    assert.equal((await c.patch('/me', { hideFromSearch: false })).user.hideFromSearch, undefined)
   })
 })
