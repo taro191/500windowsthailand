@@ -120,3 +120,15 @@
 .pod .center { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; }
 .pod .center a { text-decoration: none; }
 .pod input[type='file'] { display: none; }
+
+/* v8: compact link cards with their own colour */
+.pod .card.lk { padding: 12px 12px 12px 14px; border-radius: 22px; margin-bottom: 10px; }
+.pod .lk .ct { gap: 12px; }
+.pod .lk .thumb { flex: 0 0 56px; height: 56px; border-radius: 16px; }
+.pod .lk .body b { font-size: 18px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod .lk .body span { font-size: 14px; margin-top: 1px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pod .lk .go { flex: 0 0 36px; height: 36px; font-size: 15px; }
+.pod .lsw { gap: 8px; flex-wrap: nowrap; margin-top: 6px; }
+.pod .lsw .dot { flex: 0 1 30px; min-width: 22px; height: 30px; border: 1.5px solid rgba(0, 0, 0, 0.35); }
+.pod .card.ed .dot.on { outline-color: var(--dk); }
+.pod .lsw .dot.df { background: transparent; border: 1.5px dashed rgba(0, 0, 0, 0.6); color: var(--dk); font: 700 13px/1 inherit; display: inline-flex; align-items: center; justify-content: center; }

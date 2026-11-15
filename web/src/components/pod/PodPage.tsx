@@ -3,14 +3,13 @@ import type { Pod, PodInput, PodLink, PodWindow } from '@shared/pod'
 import {
   POD_BIO_MAX,
   POD_COLORS,
-  POD_LINK_COLORS,
   POD_LINK_DESC_MAX,
   POD_LINK_TITLE_MAX,
   POD_LINKS_MAX,
   POD_NAME_MAX,
   POD_SLUG_MAX,
   normalizePodSlug,
-  podLinkHost,
+  podLinkColor,
   podLinkHref,
   podSlugError,
 } from '@shared/pod'
@@ -42,6 +41,7 @@ const SHARE = (
 type Draft = Omit<PodInput, 'window'> & { window: PodWindow | null }
 
 const newLink = (): PodLink => ({ title: 'Product', desc: '', url: '', img: '' })
+const linkColor = (color: number | undefined) => (color !== undefined && color >= 0 ? color : -1)
 const toDraft = (pod: Pod): Draft => ({ ...pod, links: pod.links.map((l) => ({ ...l })) })
 const emptyDraft = (): Draft => ({
   slug: '',
@@ -239,21 +239,15 @@ function PodView({ pod, onShare, onEdit }: { pod: Pod; onShare: () => void; onEd
               </div>
               {href && <i className="go">↗</i>}
             </div>
-            {href && (
-              <div className="in">
-                <em>{podLinkHost(link.url)}</em>
-                <u>เปิดลิงก์</u>
-              </div>
-            )}
           </>
         )
-        const style = { background: POD_LINK_COLORS[i % POD_LINK_COLORS.length] }
+        const style = { background: podLinkColor(link, i) }
         return href ? (
-          <a key={i} className="card" style={style} href={href} target="_blank" rel="noopener noreferrer nofollow">
+          <a key={i} className="card lk" style={style} href={href} target="_blank" rel="noopener noreferrer nofollow">
             {inner}
           </a>
         ) : (
-          <div key={i} className="card" style={style}>
+          <div key={i} className="card lk" style={style}>
             {inner}
           </div>
         )
@@ -429,7 +423,7 @@ function PodEditor({ draft, setDraft, windows, saving, onSave, onCancel, onError
         </small>
       </div>
       {draft.links.map((link, i) => (
-        <div key={i} className="card ed" style={{ background: POD_LINK_COLORS[i % POD_LINK_COLORS.length] }}>
+        <div key={i} className="card ed" style={{ background: podLinkColor(link, i) }}>
           <div className="row">
             <button type="button" className="thumb" onClick={() => pick(i)} aria-label="เปลี่ยนรูป">
               {link.img ? <img src={link.img} alt="" /> : '+'}
@@ -442,6 +436,30 @@ function PodEditor({ draft, setDraft, windows, saving, onSave, onCancel, onError
           <textarea value={link.desc} maxLength={POD_LINK_DESC_MAX} onChange={(e) => setLink(i, { desc: e.target.value })} placeholder="คำอธิบายสั้นๆ" />
           <div className="cnt">
             {link.desc.length}/{POD_LINK_DESC_MAX}
+          </div>
+          <div className="cnt" style={{ textAlign: 'left', marginTop: 8 }}>
+            สีการ์ด
+          </div>
+          <div className="sw lsw">
+            <button
+              type="button"
+              className={`dot df${linkColor(link.color) < 0 ? ' on' : ''}`}
+              onClick={() => setLink(i, { color: undefined })}
+              aria-label="สีอัตโนมัติ"
+              title="อัตโนมัติ"
+            >
+              A
+            </button>
+            {POD_COLORS.map((c, k) => (
+              <button
+                key={c}
+                type="button"
+                className={`dot${link.color === k ? ' on' : ''}`}
+                style={{ background: c }}
+                onClick={() => setLink(i, { color: k })}
+                aria-label={`สีการ์ด ${k + 1}`}
+              />
+            ))}
           </div>
           {link.img && (
             <button type="button" className="mv" onClick={() => setLink(i, { img: '' })}>

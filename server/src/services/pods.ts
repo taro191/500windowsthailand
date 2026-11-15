@@ -127,6 +127,7 @@ export async function savePod(ctx: AppContext, user: UserRow, input: Partial<Pod
     desc: String(l?.desc ?? '').slice(0, POD_LINK_DESC_MAX),
     url: text(l?.url, POD_LINK_URL_MAX),
     img: String(l?.img ?? ''),
+    ...(Number.isInteger(l?.color) && l.color! >= 0 && l.color! < POD_COLORS.length ? { color: l.color } : {}),
   }))
   for (const link of links) {
     if (link.url && !podLinkHref(link.url)) throw badRequest(`ลิงก์ "${link.title || link.url}" ไม่ถูกต้อง ใช้ได้เฉพาะลิงก์ปลอดภัยที่ขึ้นต้นด้วย https://`)

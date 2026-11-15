@@ -5,12 +5,16 @@ export const POD_BIO_MAX = 300
 export const POD_LINK_TITLE_MAX = 30
 export const POD_LINK_DESC_MAX = 100
 export const POD_LINK_URL_MAX = 500
-export const POD_LINKS_MAX = 20
+export const POD_LINKS_MAX = 10
 
 /** Card and profile colours; the profile can also use the page's own panel colour (-1). */
 export const POD_COLORS = ['#CBD97E', '#FFC857', '#EB5A4F', '#D9DAD3', '#F6F1E4', '#F4A259', '#8EC5E8'] as const
-/** Link cards cycle through the first four colours. */
+/** Link cards without their own colour cycle through the first four colours. */
 export const POD_LINK_COLORS = POD_COLORS.slice(0, 4)
+
+/** A link card's background: its own colour, or the automatic one for its position. */
+export const podLinkColor = (link: PodLink, index: number) =>
+  link.color !== undefined && link.color >= 0 && link.color < POD_COLORS.length ? POD_COLORS[link.color] : POD_LINK_COLORS[index % POD_LINK_COLORS.length]
 
 export const POD_SLUG_MIN = 3
 export const POD_SLUG_MAX = 30
@@ -23,6 +27,8 @@ export interface PodLink {
   url: string
   /** `/uploads/pods/...`, or a data URL when sent to be saved. */
   img: string
+  /** Index into POD_COLORS; absent or -1 = automatic (cycles by position). */
+  color?: number
 }
 
 /** The window shown on the pod's window card: one the pod's owner holds. */
