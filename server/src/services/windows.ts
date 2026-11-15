@@ -15,7 +15,7 @@ import { newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { isDataUrl, saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
-import { getSettings } from './settings'
+import { assertResaleOpen, getSettings } from './settings'
 import { assertCanTrade } from './users'
 import { debitWallet, recordTransaction } from './ledger'
 
@@ -571,6 +571,7 @@ export async function listForResale(ctx: AppContext, user: UserRow, region: Regi
   assertNotSuspended(row)
   if (row.owner_id !== user.id) throw forbidden('คุณไม่ใช่เจ้าของหน้าต่างบานนี้')
   if (row.trial_ends_at) throw forbidden('บานทดลองใช้ยังขายต่อไม่ได้ ต้องชำระค่าจับจองก่อน')
+  await assertResaleOpen(ctx)
   if (row.reserved_order_id) throw conflict('บานนี้มีผู้ซื้อรอตรวจสอบการชำระเงินอยู่ เปลี่ยนราคาไม่ได้ชั่วคราว')
 
   const settings = await getSettings(ctx)

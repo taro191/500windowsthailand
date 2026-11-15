@@ -2,7 +2,7 @@
 // Cached briefly because several server processes may run behind Passenger.
 import type { PlatformSettings } from '@shared/types'
 import { DEFAULT_SETTINGS, validateSettings } from '@shared/settings'
-import { badRequest } from '../lib/errors'
+import { badRequest, forbidden } from '../lib/errors'
 import { nowIso, type AppContext } from '../context'
 
 const CACHE_MS = 10_000
@@ -17,8 +17,14 @@ const withDefaults = (stored: Partial<PlatformSettings>, updatedAt: string): Pla
   coStore: { ...DEFAULT_SETTINGS.coStore, ...stored.coStore },
   paidOnly: { ...DEFAULT_SETTINGS.paidOnly, ...stored.paidOnly },
   notForSale: { ...DEFAULT_SETTINGS.notForSale, ...stored.notForSale },
+  resale: { ...DEFAULT_SETTINGS.resale, ...stored.resale },
   updatedAt,
 })
+
+/** Throws when the super admin has switched resale off. */
+export async function assertResaleOpen(ctx: AppContext) {
+  if (!(await getSettings(ctx)).resale.enabled) throw forbidden('ระบบปิดการซื้อขายต่อชั่วคราว')
+}
 
 export async function getSettings(ctx: AppContext): Promise<PlatformSettings> {
   const cached = caches.get(ctx.db)
@@ -34,7 +40,7 @@ export async function getSettings(ctx: AppContext): Promise<PlatformSettings> {
 export async function saveSettings(ctx: AppContext, settings: PlatformSettings): Promise<PlatformSettings> {
   const error = validateSettings(settings)
   if (error) throw badRequest(error)
-  const { priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact, coStore, paidOnly, notForSale } = settings
+  const { priceCaps, paymentChannels, topUp, editPolicy, rules, signupBonus, contact, coStore, paidOnly, notForSale, resale } = settings
   // Codes are kept as the admin wrote them, tidied to upper case.
   const value_json = JSON.stringify({
     priceCaps,
@@ -47,6 +53,7 @@ export async function saveSettings(ctx: AppContext, settings: PlatformSettings):
     coStore,
     paidOnly: { codes: paidOnly.codes.trim().toUpperCase() },
     notForSale: { codes: notForSale.codes.trim().toUpperCase() },
+    resale: { enabled: resale?.enabled !== false },
   })
   const updated_at = nowIso()
   const updated = await ctx.db.updateTable('settings').set({ value_json, updated_at }).where('id', '=', 'platform').executeTakeFirst()

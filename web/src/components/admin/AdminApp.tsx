@@ -21,6 +21,7 @@ import { CentralNewsPage } from './pages/CentralNewsPage'
 import { RefundPayoutsPage } from './pages/RefundPayoutsPage'
 import { ChannelsPage, ContactPage, EditSettingsPage, PriceCapsPage, RulesPage, SignupBonusPage, TopUpSettingsPage } from './pages/SettingsPages'
 import { LineAlertCard } from './LineAlertCard'
+import { ResaleSwitchCard } from './ResaleSwitchCard'
 import { Callout } from './ui'
 
 /** The API sends only windows that changed; fill in the empty ones for all 3,500. */
@@ -118,6 +119,7 @@ export function AdminApp({ admin, onExit, onLogout }: AdminAppProps) {
           {page === 'themes' && <ThemesPage {...props} />}
           {page === 'files' && <FilesPage {...props} />}
           {page === 'messages' && <MessagesPage {...props} />}
+          {page === 'resale-switch' && (admin.superAdmin ? <ResaleSwitchCard {...props} /> : <Callout tone="warning">เฉพาะ Super Admin</Callout>)}
           {page === 'line-alerts' && (admin.superAdmin ? <LineAlertCard notify={notify} /> : <Callout tone="warning">เฉพาะ Super Admin</Callout>)}
           {page === 'audit' && <AuditPage {...props} />}
         </>

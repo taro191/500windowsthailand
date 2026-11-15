@@ -18,7 +18,7 @@ import { newId } from '../lib/crypto'
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors'
 import { saveImage } from '../lib/files'
 import { nowIso, type AppContext } from '../context'
-import { getSettings } from './settings'
+import { assertResaleOpen, getSettings } from './settings'
 import { assertCanTrade, extraWindowsOf, parseTrialArchive, requireUserRow, selfDto, type TrialArchive } from './users'
 import { cleanContent, emptyWindowRow, insertImage, refundDeadline, resolveImage, type WindowContentInput } from './windows'
 import { creditWallet, debitWallet, recordTransaction } from './ledger'
@@ -733,6 +733,7 @@ export async function buyResale(
   if (!row) throw notFound('ไม่พบหน้าต่าง')
   if (row.status !== 'for_resale' || !row.resale_price || !row.owner_id) throw badRequest('หน้าต่างบานนี้ไม่ได้เปิดขายต่อในขณะนี้')
   if (row.owner_id === user.id) throw badRequest('คุณเป็นเจ้าของหน้าต่างบานนี้อยู่แล้ว')
+  await assertResaleOpen(ctx)
   if (row.reserved_order_id) throw conflict('มีผู้ซื้อรายอื่นกำลังชำระเงินสำหรับบานนี้อยู่')
   if (expectedPrice !== row.resale_price) throw conflict(`ราคาขายเปลี่ยนเป็น ฿${row.resale_price.toLocaleString()} แล้ว กรุณาตรวจสอบอีกครั้ง`)
 

@@ -164,6 +164,13 @@ export async function uploadTheme(file: File) {
 
 export const deleteTheme = (id: string) => post(`/admin/themes/${encodeURIComponent(id)}/delete`)
 
+/** Super admin only: opens or closes resale for everyone. */
+export async function setResaleEnabled(enabled: boolean): Promise<Result> {
+  const result = await put<{ settings: PlatformSettings }>('/admin/resale', { enabled })
+  if (result.success) await refreshConfig()
+  return result
+}
+
 export async function saveThemeAssignments(assignments: ThemeAssignments) {
   const result = await put<{ assignments: ThemeAssignments }>('/admin/themes/assignments', { assignments })
   if (result.success) await refreshConfig()

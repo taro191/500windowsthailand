@@ -32,7 +32,7 @@ export function OwnerStudio({ windowItem: w, currentUser, onOpenEditor, onListFo
     setResaleFormOpen(false)
   }, [w.id, w.region])
 
-  const { editPolicy } = useSettings()
+  const { editPolicy, resale } = useSettings()
   const rules = useRules()
   const edit = getEditStatus(w, editPolicy)
   const holding = getHoldingPeriod(w, rules.minHoldingDays)
@@ -114,6 +114,11 @@ export function OwnerStudio({ windowItem: w, currentUser, onOpenEditor, onListFo
         <div className={`${box} space-y-1`}>
           <b className="text-(--kap-warn)">🔒 บานทดลองใช้ฟรีเปิดขายต่อไม่ได้</b>
           <p className={`m-0 text-[12px] ${muted}`}>ชำระค่าจับจองเพื่อเปลี่ยนเป็นบานจริงก่อน จึงจะเปิดขายต่อได้ตามเงื่อนไขปกติ</p>
+        </div>
+      ) : !resale.enabled && !isForResale ? (
+        <div className={`${box} space-y-1`}>
+          <b className="text-(--kap-warn)">🔒 ระบบปิดการซื้อขายต่อชั่วคราว</b>
+          <p className={`m-0 text-[12px] ${muted}`}>ตอนนี้ยังประกาศขายต่อไม่ได้ เมื่อทีมงานเปิดระบบอีกครั้งจะประกาศขายได้ตามเงื่อนไขปกติ</p>
         </div>
       ) : (
         <>

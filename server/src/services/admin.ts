@@ -57,9 +57,23 @@ export async function adminOverview(ctx: AppContext) {
   }
 }
 
+/** Super admin only: opens or closes the resale marketplace (listing and buying). */
+export async function setResaleEnabled(ctx: AppContext, admin: UserRow, enabled: boolean) {
+  if (!isSuperAdmin(ctx, admin)) throw forbidden('เฉพาะ Super Admin เท่านั้น')
+  const before = await getSettings(ctx)
+  const saved = await saveSettings(ctx, { ...before, resale: { enabled: !!enabled } })
+  if (before.resale.enabled !== saved.resale.enabled) {
+    const action = saved.resale.enabled ? 'เปิดการขายต่อ' : 'ปิดการขายต่อ'
+    await audit(ctx.db, admin, action, saved.resale.enabled ? 'เปิดให้ประกาศขายต่อและซื้อต่อได้ตามปกติ' : 'หยุดรับประกาศขายต่อใหม่และการซื้อต่อทั้งหมด')
+    notifyAdminAction(ctx, 'settings.rules', admin, action, '')
+  }
+  return saved
+}
+
 export async function updateSettings(ctx: AppContext, admin: UserRow, settings: PlatformSettings, what: string) {
   const before = await getSettings(ctx)
-  const saved = await saveSettings(ctx, settings)
+  // The resale switch has its own super-admin-only action (setResaleEnabled).
+  const saved = await saveSettings(ctx, { ...settings, resale: before.resale })
   // A new claim price applies to every window nobody owns yet (owned ones keep what was paid).
   if (saved.rules.claimPrice !== before.rules.claimPrice) {
     await ctx.db

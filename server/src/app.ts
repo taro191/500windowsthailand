@@ -469,6 +469,11 @@ export function createApp(ctx: AppContext) {
 
   adminApi.post('/line-test', async (c) => ok(c, await admin.testLineAlert(ctx, me(c))))
 
+  adminApi.put('/resale', async (c) => {
+    const { enabled } = await body<{ enabled: boolean }>(c)
+    return ok(c, { settings: await admin.setResaleEnabled(ctx, me(c), enabled === true) })
+  })
+
   adminApi.put('/settings', async (c) => {
     const { settings, what } = await body<{ settings: PlatformSettings; what: string }>(c)
     return ok(c, { settings: await admin.updateSettings(ctx, me(c), settings, what) })

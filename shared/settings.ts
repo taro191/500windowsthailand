@@ -40,6 +40,7 @@ export const DEFAULT_CONTACT: ContactInfo = {
 export const CONTACT_SUBJECTS = ['สอบถามทั่วไป', 'การจับจอง / ซื้อขายหน้าต่าง', 'การชำระเงิน / เติมเงิน', 'บัญชีผู้ใช้ / ยืนยันตัวตน', 'โฆษณา / โปรโมท', 'แจ้งปัญหาการใช้งาน', 'อื่นๆ']
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
+  resale: { enabled: true },
   priceCaps: {
     unusedMultiplier: 10,
     usedTiers: [

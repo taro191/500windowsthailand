@@ -2327,3 +2327,34 @@ describe('search engines', () => {
     assert.equal((await c.patch('/me', { hideFromSearch: false })).user.hideFromSearch, undefined)
   })
 })
+
+describe('resale switch', () => {
+  it('lets only the super admin close resale, which stops new listings and buying', async () => {
+    const admin = await adminClient()
+    const { c: other, user } = await verifiedUser()
+    await admin.post(`/admin/users/${user.id}/role`, { role: 'admin' })
+    assert.equal((await other.put('/admin/resale', { enabled: false })).status, 403, 'other admins cannot')
+
+    const seller = await verifiedUser('ผู้ขาย')
+    await topUpByCard(seller.c, 500)
+    await seller.c.post('/windows/east/377/claim', { content, payment: wallet(500) })
+    await seller.c.post('/demo/windows/east/377/backdate', { days: 35 })
+    assert.equal((await seller.c.post('/windows/east/377/listing', { price: 800 })).window.status, 'for_resale')
+
+    const closed = await admin.put('/admin/resale', { enabled: false })
+    assert.equal(closed.settings.resale.enabled, false)
+    assert.equal((await client().get('/config')).settings.resale.enabled, false)
+    const buyer = await verifiedUser('ผู้ซื้อ')
+    await topUpByCard(buyer.c, 800)
+    assert.equal((await buyer.c.post('/windows/east/377/buy', { expectedPrice: 800, payment: wallet(800) })).status, 403)
+    assert.equal((await seller.c.post('/windows/east/377/listing', { price: 900 })).status, 403)
+
+    // Saving other settings keeps it closed; only the switch opens it again.
+    const { settings } = await client().get('/config')
+    await admin.put('/admin/settings', { settings: { ...settings, resale: { enabled: true } }, what: 'test' })
+    assert.equal((await client().get('/config')).settings.resale.enabled, false)
+    assert.equal((await admin.put('/admin/resale', { enabled: true })).settings.resale.enabled, true)
+    const bought = await buyer.c.post('/windows/east/377/buy', { expectedPrice: 800, payment: wallet(800) })
+    assert.equal(bought.success, true, bought.error)
+  })
+})

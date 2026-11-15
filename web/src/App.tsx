@@ -452,7 +452,8 @@ export default function App() {
 
   const startBuyResale = (window: WindowItem) => {
     setSelectedWindow(null)
-    if (window.reserved) showToast('มีผู้ซื้อรายอื่นกำลังรอตรวจสอบการชำระเงินสำหรับบานนี้', 'info')
+    if (!loadSettings().resale.enabled) showToast('ระบบปิดการซื้อขายต่อชั่วคราว', 'info')
+    else if (window.reserved) showToast('มีผู้ซื้อรายอื่นกำลังรอตรวจสอบการชำระเงินสำหรับบานนี้', 'info')
     else if (!currentUser) openAuth('login')
     else if (!currentUser.isVerified) openKyc('ต้องยืนยันตัวตนด้วยเลขบัตรประชาชน 13 หลักและเบอร์โทรศัพท์ก่อนทำการซื้อต่อ')
     else setResaleTarget(window)

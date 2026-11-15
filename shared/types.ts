@@ -448,6 +448,8 @@ export interface PlatformSettings {
   paidOnly: { codes: string }
   /** Window codes that are not sold at all: no paid claim and no free trial (same format as paidOnly). */
   notForSale: { codes: string }
+  /** Resale marketplace switch; only the super admin changes it. Off = no new listings and no buying. */
+  resale: { enabled: boolean }
   updatedAt?: string
 }
 
