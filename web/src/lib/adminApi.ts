@@ -70,6 +70,13 @@ export async function restoreWindowArchive(id: string, region: RegionId, num: nu
   return result
 }
 
+/** Super admin: moves an owned window to an empty number in the same region (the old number becomes empty). */
+export async function moveWindow(region: RegionId, windowId: number, to: number, reason: string) {
+  const result = await post<{ from: string; to: string }>(`/admin/windows/${region}/${windowId}/move`, { to, reason })
+  if (result.success) await refreshBoards()
+  return result
+}
+
 /** Holds a window for review (visitors see only its status) or releases it. */
 export async function setWindowSuspended(region: RegionId, windowId: number, suspended: boolean, reason: string): Promise<Result> {
   const result = await post(`/admin/windows/${region}/${windowId}/suspend`, { suspended, reason })

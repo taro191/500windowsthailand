@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Archive, ArchiveRestore, ImageOff, LayoutGrid, Lock, LockOpen, RotateCcw, Search } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRightLeft, ImageOff, LayoutGrid, Lock, LockOpen, RotateCcw, Search } from 'lucide-react'
 import type { RegionId, WindowArchive, WindowItem, WindowStatus } from '@shared/types'
 import { REGIONS, REGIONS_BY_ID } from '@shared/regions'
 import { CATEGORIES } from '@shared/categories'
-import { archiveWindow, loadWindowArchives, releaseWindow, restoreWindowArchive, setWindowSuspended, takeDownContent } from '@/lib/adminApi'
+import { archiveWindow, loadWindowArchives, moveWindow, releaseWindow, restoreWindowArchive, setWindowSuspended, takeDownContent } from '@/lib/adminApi'
 import { isPromoSlot } from '@/lib/promo'
 import { useSettings } from '@/lib/settings'
 import { inCodeList } from '@shared/paidOnly'
@@ -102,6 +102,21 @@ export function WindowsPage({ admin, data, refresh, notify }: AdminPageProps) {
     notify(`ลบ ${w.code} และเก็บข้อมูลไว้แล้ว`)
   }
 
+  const move = async (w: WindowItem) => {
+    const prefix = w.code.replace(/-d+$/, '')
+    const answer = window.prompt(`ย้าย ${w.code} «${w.title}» ไปบานหมายเลขใด? (1–500 ใน${REGIONS_BY_ID[w.region].name}เท่านั้น บานปลายทางต้องว่าง)
+ข้อมูล เจ้าของ และประวัติจะย้ายไปทั้งหมด รหัสบานจะเปลี่ยนเป็น ${prefix}-xxx และบานเดิมจะกลายเป็นบานว่าง`)
+    if (answer === null) return
+    const to = Number(answer.trim().replace(/^.*-/, ''))
+    if (!Number.isInteger(to) || to < 1 || to > 500) return notify('หมายเลขบานต้องเป็น 1–500', 'error')
+    const reason = window.prompt(`ย้าย ${w.code} → ${prefix}-${String(to).padStart(3, '0')} ระบุเหตุผล (บันทึกในประวัติ):`)
+    if (!reason || !reason.trim()) return
+    const result = await moveWindow(w.region, w.id, to, reason.trim())
+    if (!result.success) return notify(result.error, 'error')
+    await refresh()
+    notify(`ย้าย ${result.from} ไป ${result.to} แล้ว`)
+  }
+
   return (
     <Card
       title={`หน้าต่างทั้งหมด (${filtered.length.toLocaleString()} บาน)`}
@@ -174,6 +189,11 @@ export function WindowsPage({ admin, data, refresh, notify }: AdminPageProps) {
                   <Button size="sm" tone="danger" onClick={() => release(w)} title="ยกเลิกการถือครอง คืนเป็นบานว่าง">
                     <RotateCcw className="w-3.5 h-3.5" /> คืนบาน
                   </Button>
+                  {admin.superAdmin && (
+                    <Button size="sm" tone="primary" onClick={() => move(w)} title="ย้ายไปบานว่างหมายเลขอื่นในภูมิภาคเดียวกัน (Super Admin)">
+                      <ArrowRightLeft className="w-3.5 h-3.5" /> ย้ายบาน
+                    </Button>
+                  )}
                   {admin.superAdmin && (
                     <Button size="sm" tone="dark" onClick={() => archive(w)} title="ย้ายข้อมูลไปเก็บ แล้วให้บานนี้ว่าง (Super Admin)">
                       <Archive className="w-3.5 h-3.5" /> ลบบาน

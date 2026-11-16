@@ -136,3 +136,62 @@ export async function restoreArchive(ctx: AppContext, admin: UserRow, archiveId:
   notifyAdminAction(ctx, 'security.windowArchive', admin, 'นำข้อมูลบานกลับมาลง', `จาก: ${archive.code} «${archive.title}»\nไปที่: ${target.code} (${where})\nเจ้าของ: ${owner.name}`)
   return { window: await loadWindow(ctx, region, num, null), archives: await listArchives(ctx, admin) }
 }
+
+/** Tables keyed by a window's (region, num) whose rows move with it. */
+const WINDOW_CHILD_TABLES = ['window_images', 'window_owners', 'window_follows', 'window_likes', 'window_reviews', 'window_updates', 'window_links'] as const
+
+/**
+ * Super admin only: moves an owned window to an empty number in the same region.
+ * Content, owner and history swap places with the empty window, so the old number becomes empty.
+ * Codes stay with their numbers (KAP-TH-005 moved to 120 becomes KAP-TH-120).
+ */
+export async function moveWindow(ctx: AppContext, admin: UserRow, region: RegionId, num: number, toInput: unknown, reasonInput: unknown) {
+  assertSuperAdmin(ctx, admin)
+  const reason = requireReason(reasonInput)
+  const to = Number(toInput)
+  if (!Number.isInteger(to) || to < 1 || to > 500) throw badRequest('หมายเลขบานปลายทางต้องเป็น 1–500')
+  if (to === num) throw badRequest('บานปลายทางต้องเป็นคนละหมายเลขกับบานเดิม')
+  if (isPromoSlot(to)) throw badRequest('หน้าต่างหมายเลข 481–486 ล็อกไว้เป็นพื้นที่โปรโมทของระบบ')
+  const [source, target] = await Promise.all(
+    [num, to].map((n) => ctx.db.selectFrom('windows').selectAll().where('region', '=', region).where('num', '=', n).executeTakeFirst()),
+  )
+  if (!source || !target) throw notFound('ไม่พบบานหน้าต่าง')
+  if (!source.owner_id) throw badRequest(`บาน ${source.code} ยังไม่มีเจ้าของ ไม่มีอะไรให้ย้าย`)
+  if (source.reserved_order_id) throw badRequest(`บาน ${source.code} มีรายการชำระเงินรอตรวจสอบ กรุณาพิจารณาสลิปก่อน`)
+  if (target.status !== 'available' || target.owner_id || target.reserved_order_id) throw conflict(`บาน ${target.code} ไม่ว่าง กรุณาเลือกบานว่าง`)
+  const owner = await ctx.db.selectFrom('users').select('name').where('id', '=', source.owner_id).executeTakeFirst()
+
+  const now = nowIso()
+  const { claimPrice } = (await getSettings(ctx)).rules
+  await ctx.db.transaction().execute(async (trx) => {
+    const { region: _r, num: _n, code: _c, ...content } = source
+    const moved = await trx
+      .updateTable('windows')
+      .set({ ...content, updated_at: now })
+      .where('region', '=', region)
+      .where('num', '=', to)
+      .where('status', '=', 'available')
+      .where('owner_id', 'is', null)
+      .where('reserved_order_id', 'is', null)
+      .executeTakeFirst()
+    if (Number(moved.numUpdatedRows) === 0) throw conflict(`บาน ${target.code} ไม่ว่าง กรุณาเลือกบานว่าง`)
+    const { region: _r2, num: _n2, ...empty } = emptyWindowRow(region, num, now, claimPrice)
+    await trx.updateTable('windows').set({ ...empty, previous_owner_id: target.previous_owner_id }).where('region', '=', region).where('num', '=', num).execute()
+
+    // Swap the history rows of the two numbers through a free number (0 is never a window).
+    const swap = async (from: number, into: number) => {
+      for (const table of WINDOW_CHILD_TABLES) {
+        await trx.updateTable(table).set({ num: into }).where('region', '=', region).where('num', '=', from).execute()
+      }
+      await trx.updateTable('window_links').set({ from_num: into }).where('from_region', '=', region).where('from_num', '=', from).execute()
+      await trx.updateTable('pods').set({ window_num: into }).where('window_region', '=', region).where('window_num', '=', from).execute()
+    }
+    await swap(num, 0)
+    await swap(to, num)
+    await swap(0, to)
+    await audit(trx, admin, 'ย้ายบานหน้าต่าง', `${source.code} → ${target.code} (เจ้าของ ${owner?.name ?? '-'}) · ${reason}`)
+  })
+  const where = REGIONS_BY_ID[region]?.name ?? region
+  notifyAdminAction(ctx, 'security.windowArchive', admin, 'ย้ายบานหน้าต่าง', `จาก: ${source.code} «${source.title}»\nไปที่: ${target.code} (${where})\nเจ้าของ: ${owner?.name ?? '-'}\nเหตุผล: ${reason}`)
+  return { window: await loadWindow(ctx, region, to, null), from: source.code, to: target.code }
+}

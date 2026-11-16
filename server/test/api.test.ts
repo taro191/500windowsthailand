@@ -2358,3 +2358,34 @@ describe('resale switch', () => {
     assert.equal(bought.success, true, bought.error)
   })
 })
+
+describe('move window', () => {
+  it('lets only the super admin move an owned window to an empty number in the same region', async () => {
+    const admin = await adminClient()
+    const { c: other, user } = await verifiedUser()
+    await admin.post(`/admin/users/${user.id}/role`, { role: 'admin' })
+    const owner = await verifiedUser('เจ้าของย้ายบาน')
+    await topUpByCard(owner.c, 500)
+    assert.equal((await owner.c.post('/windows/west/411/claim', { content, payment: wallet(500) })).success, true)
+    const neighbour = await verifiedUser('เพื่อนบ้าน')
+    await topUpByCard(neighbour.c, 500)
+    assert.equal((await neighbour.c.post('/windows/west/413/claim', { content, payment: wallet(500) })).success, true)
+    const fan = await verifiedUser('แฟนบาน')
+    await fan.c.post('/windows/west/411/follow')
+
+    assert.equal((await other.post('/admin/windows/west/411/move', { to: 412, reason: 'x' })).status, 403, 'other admins cannot')
+    assert.equal((await admin.post('/admin/windows/west/411/move', { to: 413, reason: 'x' })).status, 409, 'target must be empty')
+    assert.equal((await admin.post('/admin/windows/west/412/move', { to: 414, reason: 'x' })).status, 400, 'source must be owned')
+    assert.equal((await admin.post('/admin/windows/west/411/move', { to: 501, reason: 'x' })).status, 400, 'same region only')
+    assert.equal((await admin.post('/admin/windows/west/411/move', { to: 412 })).status, 400, 'reason required')
+
+    const moved = await admin.post('/admin/windows/west/411/move', { to: 412, reason: 'จัดเรียงใหม่' })
+    assert.equal(moved.success, true, moved.error)
+    assert.equal(moved.to, 'KAP-W-TH-412')
+    const now = (await client().get('/windows/west/412')).window
+    assert.equal(now.ownerName, owner.user.name)
+    assert.equal(now.title, content.title)
+    assert.equal((await client().get('/windows/west/411')).window.status, 'available')
+    assert.deepEqual((await fan.c.get('/windows/west/412')).window.followerIds, [fan.user.id], 'followers move along')
+  })
+})

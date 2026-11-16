@@ -513,6 +513,12 @@ export function createApp(ctx: AppContext) {
     return ok(c, await windowArchive.archiveWindow(ctx, me(c), region, num, reason))
   })
 
+  adminApi.post('/windows/:region/:num/move', async (c) => {
+    const { region, num } = windowRoute(c)
+    const { to, reason } = await body<{ to: unknown; reason: unknown }>(c)
+    return ok(c, await windowArchive.moveWindow(ctx, me(c), region, num, to, reason))
+  })
+
   adminApi.post('/window-archives/:id/restore', async (c) => {
     const { region, num } = await body<{ region: string; num: number }>(c)
     const ref = windows.parseWindowRef(region, String(num))
