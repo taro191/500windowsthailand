@@ -4,7 +4,7 @@ import { REGION_IDS } from '@shared/regions'
 import { thaiDayKey } from '@shared/thaiTime'
 import { friendStatus, PROFILE_LIMITS } from '@shared/windowProfile'
 import { decideLink, loadBoard, removeLink, requestLink } from '@/lib/store'
-import { btn, btnPri, card, check, ConfirmButton, field, h3, LogoTile, ModeButton, muted, para, useCardDraft, type DetailContext } from './ui'
+import { btn, btnPri, card, check, ConfirmButton, DropInToggle, field, h3, LogoTile, ModeButton, muted, para, useCardDraft, type DetailContext } from './ui'
 
 const LINK_STATUS: Record<WindowLink['status'], string> = {
   pending: 'กำลังรอเจ้าของหน้าต่างอนุมัติ',
@@ -53,16 +53,19 @@ export function FriendCard({ ctx }: { ctx: DetailContext }) {
           <h3 className={h3}>🤝 Friend &amp; Co</h3>
           <p className={`${muted} text-[13px] mt-0.5 mb-0`}>หน้าต่างพันธมิตรที่เจ้าของอนุญาตให้เชื่อมลิงก์</p>
         </div>
-        {isOwner && (
-          <span className="flex gap-2 shrink-0">
-            {e && !editor.busy && (
-              <button type="button" onClick={editor.cancel} className={btn}>
-                ยกเลิก
-              </button>
-            )}
-            <ModeButton on={e} busy={editor.busy} onClick={() => editor.toggle()} />
-          </span>
-        )}
+        <span className="flex gap-2 shrink-0 items-center">
+          <DropInToggle />
+          {isOwner && (
+            <>
+              {e && !editor.busy && (
+                <button type="button" onClick={editor.cancel} className={btn}>
+                  ยกเลิก
+                </button>
+              )}
+              <ModeButton on={e} busy={editor.busy} onClick={() => editor.toggle()} />
+            </>
+          )}
+        </span>
       </div>
 
       {/* Status first and in the same place in every mode, so the layout never jumps. */}

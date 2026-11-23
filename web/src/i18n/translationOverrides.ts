@@ -850,4 +850,6 @@ export const translationOverrides = {
   "Link Pod, Life Space, คำขอโปรโมท, รายการชำระเงิน และข้อความติดต่อ": "Link Pod, Life Space, promo requests, payment orders and contact messages",
   "ประวัติธุรกรรมการเงินยังเก็บไว้เพื่อบัญชีของระบบ": "Money transactions are kept for the platform's accounts",
   "เหตุผล": "Reason",
+  "แสดงรายละเอียด ▾": "Show details ▾",
+  "ซ่อน ▴": "Hide ▴",
 } as const;

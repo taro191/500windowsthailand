@@ -4,7 +4,7 @@ import { REGION_IDS } from '@shared/regions'
 import { loadCoCenter, onCoCenterChange } from '@/lib/coCenter'
 import { useSettings } from '@/lib/settings'
 import { loadBoard } from '@/lib/store'
-import { btn, btnOn, card, h3, muted, type DetailContext } from './ui'
+import { btn, btnOn, card, DropInToggle, h3, muted, type DetailContext } from './ui'
 
 // The embed script styles itself with the KAP page's variable names.
 const EMBED_VARS = {
@@ -72,12 +72,15 @@ export function CoCard({ ctx }: { ctx: DetailContext }) {
   return (
     <section className={card} aria-label={title}>
       <div className="mb-3">
-        <h3 className={`${h3} flex items-center`}>
-          <span aria-hidden="true" className="inline-grid place-items-center w-8 h-8 rounded-[10px] mr-2 text-[17px] bg-linear-135 from-(--kap-teal) to-(--kap-gold)">
-            🧩
-          </span>
-          {title}
-        </h3>
+        <div className="flex justify-between items-center gap-2">
+          <h3 className={`${h3} flex items-center`}>
+            <span aria-hidden="true" className="inline-grid place-items-center w-8 h-8 rounded-[10px] mr-2 text-[17px] bg-linear-135 from-(--kap-teal) to-(--kap-gold)">
+              🧩
+            </span>
+            {title}
+          </h3>
+          <DropInToggle />
+        </div>
         <p className={`${muted} text-[13px] mt-1 mb-0`}>{shown === 'center' ? 'Co Center · หน้าต่างแนะนำ สุ่มเปลี่ยนทุก 2 ชั่วโมง' : 'Co Store · เว็บแอปในระบบ เลือกใช้ได้เลย'}</p>
       </div>
       {hasStore && hasCenter && (

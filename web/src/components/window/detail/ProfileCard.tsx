@@ -7,7 +7,7 @@ import { getEditStatus } from '@/lib/ownershipRules'
 import { useSettings } from '@/lib/settings'
 import { deleteUpdate, editUpdate, fetchWindow, postUpdate } from '@/lib/store'
 import { deleteUpdateAsAdmin } from '@/lib/adminApi'
-import { btn, btnPri, card, CardHead, ConfirmButton, field, h3, Hint, LogoTile, ModeButton, muted, para, pill, useCardDraft, type DetailContext } from './ui'
+import { btn, btnPri, card, CardHead, ConfirmButton, DropInToggle, field, h3, Hint, LogoTile, ModeButton, muted, para, pill, useCardDraft, type DetailContext } from './ui'
 
 const thaiDateTime = (iso: string) => new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -49,16 +49,19 @@ export function ProfileCard({ ctx, onOpenEditor }: { ctx: DetailContext; onOpenE
             </p>
           </div>
         </div>
-        {isOwner && (
-          <span className="flex gap-2 shrink-0">
-            {editor.editing && !editor.busy && (
-              <button type="button" onClick={editor.cancel} className={btn}>
-                ยกเลิก
-              </button>
-            )}
-            <ModeButton on={editor.editing} busy={editor.busy} onClick={() => editor.toggle({ ownerLabel: ownerLabel.trim() })} />
-          </span>
-        )}
+        <span className="flex gap-2 shrink-0 items-center">
+          <DropInToggle />
+          {isOwner && (
+            <>
+              {editor.editing && !editor.busy && (
+                <button type="button" onClick={editor.cancel} className={btn}>
+                  ยกเลิก
+                </button>
+              )}
+              <ModeButton on={editor.editing} busy={editor.busy} onClick={() => editor.toggle({ ownerLabel: ownerLabel.trim() })} />
+            </>
+          )}
+        </span>
       </div>
       {editor.editing && edit && (
         <div className="grid gap-2 my-2">

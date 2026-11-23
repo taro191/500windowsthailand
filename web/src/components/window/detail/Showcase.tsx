@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import type { ShowcaseItem } from '@shared/types'
 import { PROFILE_LIMITS } from '@shared/windowProfile'
 import { readPhotos } from './Gallery'
-import { btn, btnPri, card, ConfirmButton, field, h3, Hint, ModeButton, muted, para, useCardDraft, type DetailContext } from './ui'
+import { btn, btnPri, card, ConfirmButton, DropInToggle, field, h3, Hint, ModeButton, muted, para, useCardDraft, type DetailContext } from './ui'
 
 const KINDS = {
   works: {
@@ -66,9 +66,12 @@ export function Showcase({ ctx, kind }: { ctx: DetailContext; kind: keyof typeof
 
   return (
     <section className={card}>
-      <h3 className={`${h3} mb-2.5`}>
-        {k.title} ({items.length}/{k.max})
-      </h3>
+      <div className="flex justify-between items-center gap-2 mb-2.5">
+        <h3 className={h3}>
+          {k.title} ({items.length}/{k.max})
+        </h3>
+        <DropInToggle />
+      </div>
       <div className="flex gap-2 flex-wrap items-center mb-3">
         {ctx.isOwner && <ModeButton on={own} busy={editor.busy} onClick={() => editor.toggle()} />}
         {own && !editor.busy && (

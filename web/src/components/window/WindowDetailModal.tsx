@@ -22,7 +22,7 @@ import { ProfileCard, TagsCard, UpdatesCard } from './detail/ProfileCard'
 import { Showcase } from './detail/Showcase'
 import { StatusScreen, type StatusView } from './detail/StatusScreen'
 import { KapDialog, StatsCard } from './detail/StatsCard'
-import { btn, btnPri, card, field, h3, muted, para, pill, type DetailContext } from './detail/ui'
+import { btn, btnPri, card, DropIn, field, h3, muted, para, pill, type DetailContext } from './detail/ui'
 
 type ToastKind = 'success' | 'error' | 'info'
 
@@ -351,21 +351,40 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
               </section>
             )}
             <StatsCard ctx={ctx} onLike={() => props.onLike(w.id)} onToggleFollow={() => props.onToggleFollow(w.id)} onShowFollowing={props.onShowFollowing} />
-            <ProfileCard ctx={ctx} onOpenEditor={() => props.onOpenEditor(w)} />
-            <UpdatesCard ctx={ctx} />
-            <DetailsCard ctx={ctx} />
-            <Showcase ctx={ctx} kind="works" />
-            <Showcase ctx={ctx} kind="products" />
-            <LinksCard ctx={ctx} />
+            {/* Drop in: each card below the stats shows a preview until "แสดงรายละเอียด". */}
+            <DropIn key={`profile-${w.region}-${w.id}`}>
+              <ProfileCard ctx={ctx} onOpenEditor={() => props.onOpenEditor(w)} />
+            </DropIn>
+            <DropIn key={`updates-${w.region}-${w.id}`}>
+              <UpdatesCard ctx={ctx} />
+            </DropIn>
+            <DropIn key={`details-${w.region}-${w.id}`}>
+              <DetailsCard ctx={ctx} />
+            </DropIn>
+            <DropIn key={`works-${w.region}-${w.id}`}>
+              <Showcase ctx={ctx} kind="works" />
+            </DropIn>
+            <DropIn key={`products-${w.region}-${w.id}`}>
+              <Showcase ctx={ctx} kind="products" />
+            </DropIn>
+            <DropIn key={`links-${w.region}-${w.id}`}>
+              <LinksCard ctx={ctx} />
+            </DropIn>
             {w.trialEndsAt ? (
               <TrialLockedCard w={w} isOwner={isOwner} price={claimPriceOf(w)} onPay={payTrial} />
             ) : (
               <>
-                <FriendCard ctx={ctx} />
-                <CoCard ctx={ctx} />
+                <DropIn key={`friend-${w.region}-${w.id}`}>
+                  <FriendCard ctx={ctx} />
+                </DropIn>
+                <DropIn key={`co-${w.region}-${w.id}`}>
+                  <CoCard ctx={ctx} />
+                </DropIn>
               </>
             )}
-            <TagsCard ctx={ctx} footer={!isForResale && !isOwner ? <p className={`${para} mt-3.5`}>หน้าต่างนี้มีเจ้าของแล้ว และไม่ได้เปิดขายต่อในขณะนี้</p> : undefined} />
+            <DropIn key={`tags-${w.region}-${w.id}`}>
+              <TagsCard ctx={ctx} footer={!isForResale && !isOwner ? <p className={`${para} mt-3.5`}>หน้าต่างนี้มีเจ้าของแล้ว และไม่ได้เปิดขายต่อในขณะนี้</p> : undefined} />
+            </DropIn>
             {isOwner && (
               <OwnerStudio
                 windowItem={w}

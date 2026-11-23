@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { User, WindowItem, WindowProfile } from '@shared/types'
 import type { LightboxCaption } from '../../Lightbox'
 
@@ -36,10 +36,48 @@ export interface DetailContext {
   showImages: (images: string[], index: number, caption?: LightboxCaption) => void
 }
 
-/** Pencil icon (owner mode) / "✓ เสร็จสิ้น"; only the owner sees it. */
-export function ModeButton({ on, busy, onClick }: { on: boolean; busy?: boolean; onClick: () => void }) {
+const DropInContext = createContext<{ open: boolean; setOpen: (open: boolean) => void } | null>(null)
+
+/** "Drop in": the card shows a short preview until its "แสดงรายละเอียด" toggle is pressed. */
+export function DropIn({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const [clipped, setClipped] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const section = ref.current?.firstElementChild
+    if (open || !section) return setClipped(false)
+    const measure = () => setClipped(section.scrollHeight > section.clientHeight + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(section)
+    return () => observer.disconnect()
+  }, [open])
   return (
-    <button type="button" onClick={onClick} disabled={busy} aria-pressed={on} aria-label="โหมดเจ้าของ" title="โหมดเจ้าของ" className={`${btn} ${on ? btnOn : ''}`}>
+    <DropInContext.Provider value={{ open, setOpen }}>
+      <div ref={ref} className={`relative empty:hidden ${open ? '' : '[&>section]:max-h-[240px] [&>section]:overflow-hidden'}`}>
+        {children}
+        {clipped && <div aria-hidden="true" className="pointer-events-none absolute inset-x-px bottom-px h-14 rounded-b-2xl bg-linear-to-t from-(--kap-card) to-transparent" />}
+      </div>
+    </DropInContext.Provider>
+  )
+}
+
+/** "แสดงรายละเอียด ▾" / "ซ่อน ▴" in a card heading; nothing outside a DropIn. */
+export function DropInToggle() {
+  const drop = useContext(DropInContext)
+  if (!drop) return null
+  return (
+    <button type="button" onClick={() => drop.setOpen(!drop.open)} aria-expanded={drop.open} className="text-[13px] text-(--kap-text)/85 hover:text-(--kap-text) whitespace-nowrap py-1 cursor-pointer">
+      {drop.open ? 'ซ่อน ▴' : 'แสดงรายละเอียด ▾'}
+    </button>
+  )
+}
+
+/** Pencil icon (owner mode) / "✓ เสร็จสิ้น"; only the owner sees it. Pressing it also opens a Drop in card. */
+export function ModeButton({ on, busy, onClick }: { on: boolean; busy?: boolean; onClick: () => void }) {
+  const drop = useContext(DropInContext)
+  return (
+    <button type="button" onClick={() => (drop?.setOpen(true), onClick())} disabled={busy} aria-pressed={on} aria-label="โหมดเจ้าของ" title="โหมดเจ้าของ" className={`${btn} ${on ? btnOn : ''}`}>
       {busy ? 'กำลังบันทึก…' : on ? '✓ เสร็จสิ้น' : '✏️'}
     </button>
   )
@@ -50,16 +88,19 @@ export function CardHead({ title, owner, editor }: { title: React.ReactNode; own
   return (
     <div className="flex justify-between items-center gap-2 flex-wrap mb-3">
       <h3 className={h3}>{title}</h3>
-      {owner && editor && (
-        <span className="flex gap-2">
-          {editor.editing && !editor.busy && (
-            <button type="button" onClick={editor.cancel} className={btn}>
-              ยกเลิก
-            </button>
-          )}
-          <ModeButton on={editor.editing} busy={editor.busy} onClick={() => editor.toggle()} />
-        </span>
-      )}
+      <span className="flex gap-2 items-center ml-auto">
+        <DropInToggle />
+        {owner && editor && (
+          <>
+            {editor.editing && !editor.busy && (
+              <button type="button" onClick={editor.cancel} className={btn}>
+                ยกเลิก
+              </button>
+            )}
+            <ModeButton on={editor.editing} busy={editor.busy} onClick={() => editor.toggle()} />
+          </>
+        )}
+      </span>
     </div>
   )
 }
