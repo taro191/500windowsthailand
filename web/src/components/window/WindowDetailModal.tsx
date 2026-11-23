@@ -351,33 +351,21 @@ export function WindowDetailModal(props: WindowDetailModalProps) {
               </section>
             )}
             <StatsCard ctx={ctx} onLike={() => props.onLike(w.id)} onToggleFollow={() => props.onToggleFollow(w.id)} onShowFollowing={props.onShowFollowing} />
-            {/* The cards below the stats start collapsed; <details> keeps them in the DOM for search engines. */}
-            <details className="group">
-              <summary className={`${card} !py-3 flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none`}>
-                <b className="text-[14px]">📥 Drop in</b>
-                <span className={`text-[12.5px] ${muted}`}>
-                  <span className="group-open:hidden">แสดงรายละเอียด ▾</span>
-                  <span className="hidden group-open:inline">ซ่อน ▴</span>
-                </span>
-              </summary>
-              <div className="flex flex-col gap-3.5 mt-3.5">
-                <ProfileCard ctx={ctx} onOpenEditor={() => props.onOpenEditor(w)} />
-                <UpdatesCard ctx={ctx} />
-                <DetailsCard ctx={ctx} />
-                <Showcase ctx={ctx} kind="works" />
-                <Showcase ctx={ctx} kind="products" />
-                <LinksCard ctx={ctx} />
-                {w.trialEndsAt ? (
-                  <TrialLockedCard w={w} isOwner={isOwner} price={claimPriceOf(w)} onPay={payTrial} />
-                ) : (
-                  <>
-                    <FriendCard ctx={ctx} />
-                    <CoCard ctx={ctx} />
-                  </>
-                )}
-                <TagsCard ctx={ctx} footer={!isForResale && !isOwner ? <p className={`${para} mt-3.5`}>หน้าต่างนี้มีเจ้าของแล้ว และไม่ได้เปิดขายต่อในขณะนี้</p> : undefined} />
-              </div>
-            </details>
+            <ProfileCard ctx={ctx} onOpenEditor={() => props.onOpenEditor(w)} />
+            <UpdatesCard ctx={ctx} />
+            <DetailsCard ctx={ctx} />
+            <Showcase ctx={ctx} kind="works" />
+            <Showcase ctx={ctx} kind="products" />
+            <LinksCard ctx={ctx} />
+            {w.trialEndsAt ? (
+              <TrialLockedCard w={w} isOwner={isOwner} price={claimPriceOf(w)} onPay={payTrial} />
+            ) : (
+              <>
+                <FriendCard ctx={ctx} />
+                <CoCard ctx={ctx} />
+              </>
+            )}
+            <TagsCard ctx={ctx} footer={!isForResale && !isOwner ? <p className={`${para} mt-3.5`}>หน้าต่างนี้มีเจ้าของแล้ว และไม่ได้เปิดขายต่อในขณะนี้</p> : undefined} />
             {isOwner && (
               <OwnerStudio
                 windowItem={w}
